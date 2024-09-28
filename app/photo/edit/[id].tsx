@@ -13,7 +13,8 @@ import Animated, {
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { SymbolView } from "expo-symbols";
 import { StatusBar } from "expo-status-bar";
-import Carousel from "react-native-reanimated-carousel";
+import Carousel, { ICarouselInstance } from "react-native-reanimated-carousel";
+import { useState, useRef } from "react";
 
 export default function PhotoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -116,36 +117,55 @@ const ImageContainer = ({ photo, gesture, animatedStyle }) => (
 
 const BottomPager = () => {
   const DATA = [
-    { key: "1", icon: "square.and.arrow.up" },
-    { key: "2", icon: "heart.fill" },
-    { key: "3", icon: "info.circle.fill" },
-    { key: "4", icon: "slider.horizontal.3" },
-    { key: "5", icon: "trash.fill" },
+    { key: "1", icon: "square.and.arrow.up", label: "AUTO" },
+    { key: "2", icon: "face.smiling", label: "FACE" },
+    { key: "4", icon: "mouth", label: "MOUTH" },
+    { key: "3", icon: "eye", label: "EYES" },
+    { key: "5", icon: "eyebrow", label: "EYEBROW" },
   ];
 
+  const [selectedLabel, setSelectedLabel] = useState(DATA[0].label);
+  const carouselRef = useRef<ICarouselInstance>(null);
+
+  const scrollToIndex = (index: number) => {
+    carouselRef.current?.scrollTo({
+      index,
+      animated: true,
+    });
+  };
+
   return (
-    <Carousel
-      style={styles.carousel}
-      width={100}
-      height={50}
-      data={DATA}
-      defaultIndex={0}
-      loop={false}
-      renderItem={({ item, animationValue }) => (
-        <CarouselItem animationValue={animationValue} icon={item.icon} />
-      )}
-    />
+    <>
+      <Text style={styles.selectedLabel}>{selectedLabel}</Text>
+      <Carousel
+        ref={carouselRef} // Pass the ref to the Carousel component
+        style={styles.carousel}
+        width={100}
+        height={50}
+        data={DATA}
+        defaultIndex={0}
+        loop={false}
+        onSnapToItem={(index) => setSelectedLabel(DATA[index].label)}
+        renderItem={({ item, animationValue, index }) => (
+          <CarouselItem
+            animationValue={animationValue}
+            icon={item.icon}
+            onPress={() => scrollToIndex(index)} // Pass the scrollToIndex function
+          />
+        )}
+      />
+    </>
   );
 };
 
-const CarouselItem = ({ animationValue, icon }) => {
+const CarouselItem = ({ animationValue, icon, onPress }) => {
   const translateY = useSharedValue(0);
 
   const containerStyle = useAnimatedStyle(() => {
     const opacity = interpolate(
       animationValue.value,
       [-1, 0, 1],
-      [0.5, 1, 0.5],
+      [0.4, 1, 0.4],
       Extrapolation.CLAMP
     );
 
@@ -162,28 +182,13 @@ const CarouselItem = ({ animationValue, icon }) => {
       Extrapolation.CLAMP
     );
 
-    const color = interpolateColor(
-      animationValue.value,
-      [-1, 0, 1],
-      ["#b6bbc0", "#0071fa", "#b6bbc0"]
-    );
-
     return {
       transform: [{ scale }, { translateY: translateY.value }],
-      color,
     };
   }, [animationValue, translateY]);
 
-  const onPressIn = () => {
-    translateY.value = withTiming(-8, { duration: 250 });
-  };
-
-  const onPressOut = () => {
-    translateY.value = withTiming(0, { duration: 250 });
-  };
-
   return (
-    <Pressable onPressIn={onPressIn} onPressOut={onPressOut}>
+    <Pressable onPress={onPress}>
       <Animated.View
         style={[
           {
@@ -198,7 +203,7 @@ const CarouselItem = ({ animationValue, icon }) => {
           <SymbolView
             name={icon}
             weight="regular"
-            style={styles.adjustSymbol}
+            style={styles.adjustSymbolActive}
             resizeMode="scaleAspectFit"
           />
         </Animated.Text>
@@ -327,5 +332,12 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.7)",
     borderRadius: 25,
     padding: 10,
+  },
+  selectedLabel: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "thin",
+    textAlign: "center",
+    margin: 10,
   },
 });
