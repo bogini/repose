@@ -18,17 +18,113 @@ interface Photo {
   url: string;
 }
 
-interface CarouselItem {
+interface FaceControl {
   key: string;
   icon: string;
   label: string;
-  value: number;
-  min: number;
-  max: number;
-  onValueChange: (value: number) => void;
+  values: {
+    key: keyof FaceValues;
+    label: string;
+    min: number;
+    max: number;
+  }[];
 }
 
+type FaceValues = {
+  pitch: number;
+  yaw: number;
+  roll: number;
+  blink: number;
+  wink: number;
+  pupilX: number;
+  pupilY: number;
+  smile: number;
+};
+
+const FACE_CONTROLS: FaceControl[] = [
+  {
+    key: "face",
+    icon: "face.smiling",
+    label: "FACE",
+    values: [
+      {
+        key: "pitch",
+        label: "Pitch",
+        min: -20,
+        max: 20,
+      },
+      {
+        key: "yaw",
+        label: "Yaw",
+        min: -20,
+        max: 20,
+      },
+      {
+        key: "roll",
+        label: "Roll",
+        min: -20,
+        max: 20,
+      },
+    ],
+  },
+  {
+    key: "eyes",
+    icon: "eye.fill",
+    label: "EYES",
+    values: [
+      {
+        key: "blink",
+        label: "Blink",
+        min: -20,
+        max: 5,
+      },
+      {
+        key: "wink",
+        label: "Wink",
+        min: 0,
+        max: 25,
+      },
+      {
+        key: "pupilX",
+        label: "Horizontal",
+        min: -15,
+        max: 15,
+      },
+      {
+        key: "pupilY",
+        label: "Vertical",
+        min: -15,
+        max: 15,
+      },
+    ],
+  },
+  {
+    key: "mouth",
+    icon: "mouth.fill",
+    label: "MOUTH",
+    values: [
+      {
+        key: "smile",
+        label: "Smile",
+        min: -0.3,
+        max: 1.3,
+      },
+    ],
+  },
+];
+
 export default function PhotoScreen() {
+  const [faceValues, setFaceValues] = useState<FaceValues>({
+    pitch: -20,
+    yaw: -20,
+    roll: -20,
+    blink: -20,
+    wink: 0,
+    pupilX: -15,
+    pupilY: -15,
+    smile: -0.3,
+  });
+
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 
@@ -45,7 +141,10 @@ export default function PhotoScreen() {
       <AdjustBar />
       <Text>Brightness</Text>
       <ImageContainer photo={photo} />
-      <BottomPager />
+      <FaceControlsComponent
+        faceValues={faceValues}
+        onFaceValuesChange={setFaceValues}
+      />
     </View>
   );
 }
@@ -113,37 +212,16 @@ const ImageContainer = ({ photo }: ImageContainerProps) => (
   </View>
 );
 
-const BottomPager = () => {
-  const controls: CarouselItem[] = [
-    {
-      key: "1",
-      icon: "square.and.arrow.up",
-      label: "AUTO",
-      value: 25,
-      min: 0,
-      max: 100,
-    },
-    {
-      key: "2",
-      icon: "face.smiling",
-      label: "FACE",
-      value: 50,
-      min: 0,
-      max: 100,
-    },
-    { key: "4", icon: "mouth", label: "MOUTH", value: 75, min: 0, max: 100 },
-    { key: "3", icon: "eye", label: "EYES", value: 30, min: 0, max: 100 },
-    {
-      key: "5",
-      icon: "eyebrow",
-      label: "EYEBROW",
-      value: 60,
-      min: 0,
-      max: 100,
-    },
-  ];
+interface FaceControlsComponentProps {
+  faceValues: FaceValues;
+  onFaceValuesChange: (values: FaceValues) => void;
+}
 
-  const [selectedControl, setSelectedControl] = useState(controls[0]);
+const FaceControlsComponent = ({
+  faceValues,
+  onFaceValuesChange,
+}: FaceControlsComponentProps) => {
+  const [selectedControl, setSelectedControl] = useState(FACE_CONTROLS[0]);
   const carouselRef = useRef<ICarouselInstance>(null);
 
   const scrollToIndex = (index: number) => {
@@ -153,8 +231,11 @@ const BottomPager = () => {
     });
   };
 
-  const handleValueChange = (value: number) => {
-    setSelectedControl({ ...selectedControl, value });
+  const handleValueChange = (key: keyof FaceValues, value: number) => {
+    onFaceValuesChange({
+      ...faceValues,
+      [key]: value,
+    });
   };
 
   return (
@@ -165,10 +246,10 @@ const BottomPager = () => {
         style={styles.carousel}
         width={100}
         height={30}
-        data={controls}
+        data={FACE_CONTROLS}
         defaultIndex={0}
         loop={false}
-        onSnapToItem={(index) => setSelectedControl(controls[index])}
+        onSnapToItem={(index) => setSelectedControl(FACE_CONTROLS[index])}
         renderItem={({ item, animationValue, index }) => (
           <CarouselItemComponent
             animationValue={animationValue}
@@ -177,13 +258,19 @@ const BottomPager = () => {
           />
         )}
       />
-      <CarouselSlider
-        key={selectedControl.key}
-        min={selectedControl.min}
-        max={selectedControl.max}
-        value={selectedControl.value}
-        onValueChange={handleValueChange}
-      />
+      {selectedControl.values.map((value) => (
+        <View key={value.label} style={styles.sliderContainer}>
+          <Text style={styles.sliderLabel}>{value.label}</Text>
+          <Text style={styles.sliderValue}>{faceValues[value.key]}</Text>
+          <CarouselSlider
+            key={value.label}
+            min={value.min}
+            max={value.max}
+            value={faceValues[value.key]}
+            onValueChange={(val) => handleValueChange(value.key, val)}
+          />
+        </View>
+      ))}
     </View>
   );
 };
@@ -199,8 +286,6 @@ const CarouselItemComponent = ({
   icon,
   onPress,
 }: CarouselItemProps) => {
-  const translateY = useSharedValue(0);
-
   const containerStyle = useAnimatedStyle(() => {
     const opacity = interpolate(
       animationValue.value,
@@ -214,19 +299,6 @@ const CarouselItemComponent = ({
     };
   }, [animationValue]);
 
-  const labelStyle = useAnimatedStyle(() => {
-    const scale = interpolate(
-      animationValue.value,
-      [-1, 0, 1],
-      [1, 1.25, 1],
-      Extrapolation.CLAMP
-    );
-
-    return {
-      transform: [{ scale }, { translateY: translateY.value }],
-    };
-  }, [animationValue, translateY]);
-
   return (
     <Pressable onPress={onPress} style={{ height: 32 }}>
       <Animated.View
@@ -236,7 +308,7 @@ const CarouselItemComponent = ({
         ]}
       >
         <SymbolView
-          name={icon}
+          name={icon as any}
           weight="regular"
           style={styles.facePartIcon}
           resizeMode="scaleAspectFit"
@@ -247,6 +319,23 @@ const CarouselItemComponent = ({
 };
 
 const styles = StyleSheet.create({
+  sliderContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+  },
+  sliderLabel: {
+    color: "#8E8D93",
+    fontWeight: "500",
+    fontSize: 14,
+    textAlign: "center",
+    marginTop: 8,
+  },
+  sliderValue: {
+    color: "#8E8D93",
+  },
   adjustBar: {
     flexDirection: "row",
     justifyContent: "space-between",
