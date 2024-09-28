@@ -1,4 +1,10 @@
-import { Text, View, Pressable, StyleSheet } from "react-native";
+import {
+  Text,
+  View,
+  Pressable,
+  StyleSheet,
+  ActivityIndicator,
+} from "react-native";
 import { photos } from "../../../data";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Animated, {
@@ -6,11 +12,13 @@ import Animated, {
   interpolate,
   useAnimatedStyle,
   useSharedValue,
+  withRepeat,
+  withTiming,
 } from "react-native-reanimated";
 import { SymbolView } from "expo-symbols";
 import { StatusBar } from "expo-status-bar";
 import Carousel, { ICarouselInstance } from "react-native-reanimated-carousel";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { CarouselSlider } from "./CarouselSlider";
 
 interface Photo {
@@ -113,7 +121,7 @@ const FACE_CONTROLS: FaceControl[] = [
   },
 ];
 
-export default function PhotoScreen() {
+export default function EditScreen() {
   const [faceValues, setFaceValues] = useState<FaceValues>({
     pitch: -20,
     yaw: -20,
@@ -124,11 +132,26 @@ export default function PhotoScreen() {
     pupilY: -15,
     smile: -0.3,
   });
+  const [loading, setLoading] = useState(false);
 
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 
   const photo = photos.find((p) => p.id === Number.parseInt(id));
+
+  // useEffect(() => {
+  //   if (photo) {
+  //     setLoading(false);
+  //   }
+  // }, [photo]);
+
+  const handleFaceValuesChange = (values: FaceValues) => {
+    setLoading(true);
+    setTimeout(() => {
+      setFaceValues(values);
+      setLoading(false);
+    }, 1000);
+  };
 
   if (!photo) {
     return <Text>Photo not found</Text>;
@@ -140,10 +163,11 @@ export default function PhotoScreen() {
       <TopBar onBack={() => router.back()} />
       <AdjustBar />
       <Text>Brightness</Text>
-      <ImageContainer photo={photo} />
+      <ImageContainer photo={photo} loading={loading} />
+      {/* Add loading indicator */}
       <FaceControlsComponent
         faceValues={faceValues}
-        onFaceValuesChange={setFaceValues}
+        onFaceValuesChange={handleFaceValuesChange}
       />
     </View>
   );
@@ -200,17 +224,34 @@ const AdjustBar = () => (
 
 interface ImageContainerProps {
   photo: Photo;
+  loading: boolean;
 }
 
-const ImageContainer = ({ photo }: ImageContainerProps) => (
-  <View style={styles.imageContainer}>
-    <Animated.Image
-      source={{ uri: photo.url }}
-      style={styles.fullSize}
-      resizeMode="contain"
-    />
-  </View>
-);
+const ImageContainer = ({ photo, loading }: ImageContainerProps) => {
+  const pulseAnimation = useSharedValue(1);
+
+  useEffect(() => {
+    pulseAnimation.value = loading
+      ? withRepeat(withTiming(0.5, { duration: 750 }), -1, true)
+      : withTiming(1, { duration: 250 });
+  }, [loading, pulseAnimation]);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: pulseAnimation.value,
+    };
+  });
+
+  return (
+    <View style={styles.imageContainer}>
+      <Animated.Image
+        source={{ uri: photo.url }}
+        style={[styles.fullSize, animatedStyle]}
+        resizeMode="contain"
+      />
+    </View>
+  );
+};
 
 interface FaceControlsComponentProps {
   faceValues: FaceValues;
@@ -258,19 +299,20 @@ const FaceControlsComponent = ({
           />
         )}
       />
-      {selectedControl.values.map((value) => (
-        <View key={value.label} style={styles.sliderContainer}>
-          <Text style={styles.sliderLabel}>{value.label}</Text>
-          <Text style={styles.sliderValue}>{faceValues[value.key]}</Text>
-          <CarouselSlider
-            key={value.label}
-            min={value.min}
-            max={value.max}
-            value={faceValues[value.key]}
-            onValueChange={(val) => handleValueChange(value.key, val)}
-          />
-        </View>
-      ))}
+      <View style={styles.slidersContainer}>
+        {selectedControl.values.map((value) => (
+          <View key={value.label} style={styles.sliderContainer}>
+            <Text style={styles.sliderLabel}>{value.label}</Text>
+            <CarouselSlider
+              key={value.label}
+              min={value.min}
+              max={value.max}
+              value={faceValues[value.key]}
+              onValueChange={(val) => handleValueChange(value.key, val)}
+            />
+          </View>
+        ))}
+      </View>
     </View>
   );
 };
@@ -319,19 +361,22 @@ const CarouselItemComponent = ({
 };
 
 const styles = StyleSheet.create({
-  sliderContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  slidersContainer: {
+    flex: 1,
+    gap: 10,
+    flexDirection: "column",
     alignItems: "center",
-    paddingVertical: 20,
-    paddingHorizontal: 20,
+  },
+  sliderContainer: {
+    flex: 1,
+    gap: 4,
+    flexDirection: "column",
+    alignItems: "center",
   },
   sliderLabel: {
     color: "#8E8D93",
     fontWeight: "500",
-    fontSize: 14,
-    textAlign: "center",
-    marginTop: 8,
+    fontSize: 12,
   },
   sliderValue: {
     color: "#8E8D93",
@@ -468,11 +513,8 @@ const styles = StyleSheet.create({
     margin: 10,
   },
   bottomPager: {
-    marginBottom: 10,
-    marginTop: 50,
     flex: 1,
-    margin: 10,
-    flexDirection: "column",
-    justifyContent: "flex-end",
+    marginTop: 20,
+    marginBottom: 50,
   },
 });
