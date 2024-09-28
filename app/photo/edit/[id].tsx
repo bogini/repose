@@ -31,23 +31,6 @@ export default function PhotoScreen() {
   const router = useRouter();
 
   const photo = photos.find((p) => p.id === Number.parseInt(id));
-  const scale = useSharedValue(1);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const gesture = Gesture.Pinch()
-    .onChange((e) => {
-      scale.value = e.scale;
-    })
-    .onEnd((e) => {
-      if (e.velocity < 0) {
-        runOnJS(router.back)();
-      } else {
-        scale.value = withTiming(1);
-      }
-    });
 
   if (!photo) {
     return <Text>Photo not found</Text>;
@@ -58,11 +41,7 @@ export default function PhotoScreen() {
       <StatusBar hidden={true} />
       <TopBar onBack={() => router.back()} />
       <AdjustBar />
-      <ImageContainer
-        photo={photo}
-        gesture={gesture}
-        animatedStyle={animatedStyle}
-      />
+      <ImageContainer photo={photo} />
       <BottomPager />
     </View>
   );
@@ -119,23 +98,15 @@ const AdjustBar = () => (
 
 interface ImageContainerProps {
   photo: Photo;
-  gesture: any;
-  animatedStyle: any;
 }
 
-const ImageContainer = ({
-  photo,
-  gesture,
-  animatedStyle,
-}: ImageContainerProps) => (
+const ImageContainer = ({ photo }: ImageContainerProps) => (
   <View style={styles.imageContainer}>
-    <GestureDetector gesture={gesture}>
-      <Animated.Image
-        source={photo.image}
-        style={[styles.fullSize, animatedStyle]}
-        resizeMode="contain"
-      />
-    </GestureDetector>
+    <Animated.Image
+      source={photo.image}
+      style={styles.fullSize}
+      resizeMode="contain"
+    />
   </View>
 );
 
@@ -159,7 +130,7 @@ const BottomPager = () => {
   };
 
   return (
-    <>
+    <View style={styles.bottomPager}>
       <Text style={styles.selectedLabel}>{selectedLabel}</Text>
       <Carousel
         ref={carouselRef}
@@ -178,7 +149,7 @@ const BottomPager = () => {
           />
         )}
       />
-    </>
+    </View>
   );
 };
 
@@ -222,25 +193,19 @@ const CarouselItemComponent = ({
   }, [animationValue, translateY]);
 
   return (
-    <Pressable onPress={onPress}>
+    <Pressable onPress={onPress} style={{ height: 32 }}>
       <Animated.View
         style={[
-          {
-            height: "100%",
-            alignItems: "center",
-            justifyContent: "center",
-          },
+          { alignItems: "center", justifyContent: "center" },
           containerStyle,
         ]}
       >
-        <Animated.Text style={[{ fontSize: 18, color: "#26292E" }, labelStyle]}>
-          <SymbolView
-            name={icon}
-            weight="regular"
-            style={styles.adjustSymbolActive}
-            resizeMode="scaleAspectFit"
-          />
-        </Animated.Text>
+        <SymbolView
+          name={icon}
+          weight="regular"
+          style={styles.facePartIcon}
+          resizeMode="scaleAspectFit"
+        />
       </Animated.View>
     </Pressable>
   );
@@ -264,6 +229,11 @@ const styles = StyleSheet.create({
     width: 24,
     tintColor: "#8E8D93",
   },
+  facePartIcon: {
+    height: 32,
+    width: 32,
+    tintColor: "#8E8D93",
+  },
   adjustText: {
     color: "#8E8D93",
     fontWeight: "500",
@@ -274,7 +244,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
   },
   imageContainer: {
-    flex: 1,
+    height: 600,
   },
   topBarButton: {
     backgroundColor: "#8E8D93",
@@ -352,8 +322,7 @@ const styles = StyleSheet.create({
   },
   carousel: {
     width: "100%",
-    height: 50,
-    flex: 1,
+    marginVertical: 20,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -373,5 +342,13 @@ const styles = StyleSheet.create({
     fontWeight: "thin",
     textAlign: "center",
     margin: 10,
+  },
+  bottomPager: {
+    marginBottom: 10,
+    marginTop: 50,
+    flex: 1,
+    margin: 10,
+    flexDirection: "column",
+    justifyContent: "flex-end",
   },
 });
