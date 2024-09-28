@@ -1,10 +1,4 @@
-import {
-  Text,
-  View,
-  Pressable,
-  StyleSheet,
-  TouchableOpacity,
-} from "react-native";
+import { Text, View, Pressable, StyleSheet } from "react-native";
 import { photos } from "../../../data";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Animated, {
@@ -19,8 +13,7 @@ import Animated, {
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { SymbolView } from "expo-symbols";
 import { StatusBar } from "expo-status-bar";
-import Carousel, { ICarouselInstance } from "react-native-reanimated-carousel";
-import React, { useRef } from "react";
+import Carousel from "react-native-reanimated-carousel";
 
 export default function PhotoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -130,26 +123,17 @@ const BottomPager = () => {
     { key: "5", icon: "trash.fill" },
   ];
 
-  const carouselRef = useRef<ICarouselInstance>(null);
-
-  const handleItemPress = (index: number) => {
-    carouselRef.current?.scrollTo({ index, animated: true });
-  };
-
-  const renderItem = ({ item, index, animationValue }) => (
-    <TouchableOpacity onPress={() => handleItemPress(index)}>
-      <CarouselItem animationValue={animationValue} icon={item.icon} />
-    </TouchableOpacity>
-  );
-
   return (
     <Carousel
-      ref={carouselRef}
       style={styles.carousel}
       width={100}
       height={50}
       data={DATA}
-      renderItem={renderItem}
+      defaultIndex={0}
+      loop={false}
+      renderItem={({ item, animationValue }) => (
+        <CarouselItem animationValue={animationValue} icon={item.icon} />
+      )}
     />
   );
 };
@@ -199,25 +183,27 @@ const CarouselItem = ({ animationValue, icon }) => {
   };
 
   return (
-    <Animated.View
-      style={[
-        {
-          height: "100%",
-          alignItems: "center",
-          justifyContent: "center",
-        },
-        containerStyle,
-      ]}
-    >
-      <Animated.Text style={[{ fontSize: 18, color: "#26292E" }, labelStyle]}>
-        <SymbolView
-          name={icon}
-          weight="regular"
-          style={styles.adjustSymbol}
-          resizeMode="scaleAspectFit"
-        />
-      </Animated.Text>
-    </Animated.View>
+    <Pressable onPressIn={onPressIn} onPressOut={onPressOut}>
+      <Animated.View
+        style={[
+          {
+            height: "100%",
+            alignItems: "center",
+            justifyContent: "center",
+          },
+          containerStyle,
+        ]}
+      >
+        <Animated.Text style={[{ fontSize: 18, color: "#26292E" }, labelStyle]}>
+          <SymbolView
+            name={icon}
+            weight="regular"
+            style={styles.adjustSymbol}
+            resizeMode="scaleAspectFit"
+          />
+        </Animated.Text>
+      </Animated.View>
+    </Pressable>
   );
 };
 
@@ -328,8 +314,9 @@ const styles = StyleSheet.create({
   carousel: {
     width: "100%",
     height: 50,
-    backgroundColor: "gray",
     flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
   fullSize: {
     width: "100%",
