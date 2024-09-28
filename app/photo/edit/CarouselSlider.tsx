@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import Carousel, { ICarouselInstance } from "react-native-reanimated-carousel";
 import Animated, {
@@ -43,7 +43,10 @@ export const CarouselSlider: React.FC<SliderProps> = ({
     onValueChange(roundedValue);
   };
 
-  const data = Array.from({ length: numTicks }, (_, i) => i);
+  const data = useMemo(
+    () => Array.from({ length: numTicks }, (_, i) => i),
+    [numTicks]
+  );
 
   return (
     <View style={styles.container}>
@@ -59,7 +62,7 @@ export const CarouselSlider: React.FC<SliderProps> = ({
         loop={false}
         onSnapToItem={(index) => handleValueChange(index)}
         renderItem={({ index, animationValue }) => (
-          <CarouselItemComponent
+          <MemoizedCarouselItemComponent
             animationValue={animationValue}
             onPress={() => scrollToIndex(index)}
           />
@@ -89,7 +92,7 @@ const CarouselItemComponent = ({
     return {
       opacity,
     };
-  }, [animationValue]);
+  });
 
   return (
     <Pressable onPress={onPress}>
@@ -104,6 +107,8 @@ const CarouselItemComponent = ({
     </Pressable>
   );
 };
+
+const MemoizedCarouselItemComponent = React.memo(CarouselItemComponent);
 
 const styles = StyleSheet.create({
   container: {

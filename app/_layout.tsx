@@ -1,5 +1,5 @@
-import { Stack } from 'expo-router';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Stack } from "expo-router";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 export default function RootLayout() {
   return (
@@ -7,8 +7,7 @@ export default function RootLayout() {
       <Stack
         screenOptions={{
           headerShown: false,
-          gestureDirection: 'vertical',
-          animation: 'fade',
+          animation: "fade",
         }}
       />
     </GestureHandlerRootView>
