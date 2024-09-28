@@ -5,7 +5,6 @@ import Animated, {
   Extrapolation,
   interpolate,
   runOnJS,
-  interpolateColor,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -15,6 +14,17 @@ import { SymbolView } from "expo-symbols";
 import { StatusBar } from "expo-status-bar";
 import Carousel, { ICarouselInstance } from "react-native-reanimated-carousel";
 import { useState, useRef } from "react";
+
+interface Photo {
+  id: number;
+  image: any;
+}
+
+interface CarouselItem {
+  key: string;
+  icon: string;
+  label: string;
+}
 
 export default function PhotoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -46,7 +56,7 @@ export default function PhotoScreen() {
   return (
     <View style={styles.container}>
       <StatusBar hidden={true} />
-      <TopBar router={router} />
+      <TopBar onBack={() => router.back()} />
       <AdjustBar />
       <ImageContainer
         photo={photo}
@@ -58,12 +68,16 @@ export default function PhotoScreen() {
   );
 }
 
-const TopBar = ({ router }) => (
+interface TopBarProps {
+  onBack: () => void;
+}
+
+const TopBar = ({ onBack }: TopBarProps) => (
   <View style={styles.topBar}>
-    <Pressable style={styles.topBarButton} onPress={() => router.back()}>
+    <Pressable style={styles.topBarButton} onPress={onBack}>
       <Text style={styles.topBarButtonText}>Cancel</Text>
     </Pressable>
-    <Pressable style={styles.topBarButtonRed} onPress={() => router.back()}>
+    <Pressable style={styles.topBarButtonRed} onPress={onBack}>
       <Text style={styles.topBarButtonTextWhite}>Revert</Text>
     </Pressable>
   </View>
@@ -103,7 +117,17 @@ const AdjustBar = () => (
   </View>
 );
 
-const ImageContainer = ({ photo, gesture, animatedStyle }) => (
+interface ImageContainerProps {
+  photo: Photo;
+  gesture: any;
+  animatedStyle: any;
+}
+
+const ImageContainer = ({
+  photo,
+  gesture,
+  animatedStyle,
+}: ImageContainerProps) => (
   <View style={styles.imageContainer}>
     <GestureDetector gesture={gesture}>
       <Animated.Image
@@ -116,7 +140,7 @@ const ImageContainer = ({ photo, gesture, animatedStyle }) => (
 );
 
 const BottomPager = () => {
-  const DATA = [
+  const DATA: CarouselItem[] = [
     { key: "1", icon: "square.and.arrow.up", label: "AUTO" },
     { key: "2", icon: "face.smiling", label: "FACE" },
     { key: "4", icon: "mouth", label: "MOUTH" },
@@ -138,7 +162,7 @@ const BottomPager = () => {
     <>
       <Text style={styles.selectedLabel}>{selectedLabel}</Text>
       <Carousel
-        ref={carouselRef} // Pass the ref to the Carousel component
+        ref={carouselRef}
         style={styles.carousel}
         width={100}
         height={50}
@@ -147,10 +171,10 @@ const BottomPager = () => {
         loop={false}
         onSnapToItem={(index) => setSelectedLabel(DATA[index].label)}
         renderItem={({ item, animationValue, index }) => (
-          <CarouselItem
+          <CarouselItemComponent
             animationValue={animationValue}
             icon={item.icon}
-            onPress={() => scrollToIndex(index)} // Pass the scrollToIndex function
+            onPress={() => scrollToIndex(index)}
           />
         )}
       />
@@ -158,7 +182,17 @@ const BottomPager = () => {
   );
 };
 
-const CarouselItem = ({ animationValue, icon, onPress }) => {
+interface CarouselItemProps {
+  animationValue: Animated.SharedValue<number>;
+  icon: string;
+  onPress: () => void;
+}
+
+const CarouselItemComponent = ({
+  animationValue,
+  icon,
+  onPress,
+}: CarouselItemProps) => {
   const translateY = useSharedValue(0);
 
   const containerStyle = useAnimatedStyle(() => {
