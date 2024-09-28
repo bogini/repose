@@ -80,7 +80,7 @@ const ImageContainer = ({ photo, gesture, animatedStyle }) => (
   <View style={styles.imageContainer}>
     <GestureDetector gesture={gesture}>
       <Animated.Image
-        source={photo.image}
+        source={{ uri: photo.url }}
         style={[{ width: "100%", height: "100%" }, animatedStyle]}
         resizeMode="contain"
       />

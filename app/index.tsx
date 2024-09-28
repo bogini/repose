@@ -1,9 +1,7 @@
 import { StatusBar } from "expo-status-bar";
 import {
   StyleSheet,
-  View,
   Image,
-  ScrollView,
   useWindowDimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
@@ -157,7 +155,7 @@ export default function App() {
               <Link href={`/photo/${item.id}`} asChild>
                 <Pressable style={{ width: `${100 / 4}%`, aspectRatio: 1 }}>
                   <Image
-                    source={item.image}
+                    source={{ uri: item.url }}
                     style={{ width: "100%", height: "100%" }}
                   />
                 </Pressable>

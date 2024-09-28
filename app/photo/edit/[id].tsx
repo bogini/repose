@@ -4,26 +4,28 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import Animated, {
   Extrapolation,
   interpolate,
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withTiming,
 } from "react-native-reanimated";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { SymbolView } from "expo-symbols";
 import { StatusBar } from "expo-status-bar";
 import Carousel, { ICarouselInstance } from "react-native-reanimated-carousel";
 import { useState, useRef } from "react";
+import { CarouselSlider } from "./CarouselSlider";
 
 interface Photo {
   id: number;
-  image: any;
+  url: string;
 }
 
 interface CarouselItem {
   key: string;
   icon: string;
   label: string;
+  value: number;
+  min: number;
+  max: number;
+  onValueChange: (value: number) => void;
 }
 
 export default function PhotoScreen() {
@@ -41,6 +43,7 @@ export default function PhotoScreen() {
       <StatusBar hidden={true} />
       <TopBar onBack={() => router.back()} />
       <AdjustBar />
+      <Text>Brightness</Text>
       <ImageContainer photo={photo} />
       <BottomPager />
     </View>
@@ -103,7 +106,7 @@ interface ImageContainerProps {
 const ImageContainer = ({ photo }: ImageContainerProps) => (
   <View style={styles.imageContainer}>
     <Animated.Image
-      source={photo.image}
+      source={{ uri: photo.url }}
       style={styles.fullSize}
       resizeMode="contain"
     />
@@ -111,15 +114,36 @@ const ImageContainer = ({ photo }: ImageContainerProps) => (
 );
 
 const BottomPager = () => {
-  const DATA: CarouselItem[] = [
-    { key: "1", icon: "square.and.arrow.up", label: "AUTO" },
-    { key: "2", icon: "face.smiling", label: "FACE" },
-    { key: "4", icon: "mouth", label: "MOUTH" },
-    { key: "3", icon: "eye", label: "EYES" },
-    { key: "5", icon: "eyebrow", label: "EYEBROW" },
+  const controls: CarouselItem[] = [
+    {
+      key: "1",
+      icon: "square.and.arrow.up",
+      label: "AUTO",
+      value: 25,
+      min: 0,
+      max: 100,
+    },
+    {
+      key: "2",
+      icon: "face.smiling",
+      label: "FACE",
+      value: 50,
+      min: 0,
+      max: 100,
+    },
+    { key: "4", icon: "mouth", label: "MOUTH", value: 75, min: 0, max: 100 },
+    { key: "3", icon: "eye", label: "EYES", value: 30, min: 0, max: 100 },
+    {
+      key: "5",
+      icon: "eyebrow",
+      label: "EYEBROW",
+      value: 60,
+      min: 0,
+      max: 100,
+    },
   ];
 
-  const [selectedLabel, setSelectedLabel] = useState(DATA[0].label);
+  const [selectedControl, setSelectedControl] = useState(controls[0]);
   const carouselRef = useRef<ICarouselInstance>(null);
 
   const scrollToIndex = (index: number) => {
@@ -129,18 +153,22 @@ const BottomPager = () => {
     });
   };
 
+  const handleValueChange = (value: number) => {
+    setSelectedControl({ ...selectedControl, value });
+  };
+
   return (
     <View style={styles.bottomPager}>
-      <Text style={styles.selectedLabel}>{selectedLabel}</Text>
+      <Text style={styles.selectedLabel}>{selectedControl.label}</Text>
       <Carousel
         ref={carouselRef}
         style={styles.carousel}
         width={100}
-        height={50}
-        data={DATA}
+        height={30}
+        data={controls}
         defaultIndex={0}
         loop={false}
-        onSnapToItem={(index) => setSelectedLabel(DATA[index].label)}
+        onSnapToItem={(index) => setSelectedControl(controls[index])}
         renderItem={({ item, animationValue, index }) => (
           <CarouselItemComponent
             animationValue={animationValue}
@@ -148,6 +176,13 @@ const BottomPager = () => {
             onPress={() => scrollToIndex(index)}
           />
         )}
+      />
+      <CarouselSlider
+        key={selectedControl.key}
+        min={selectedControl.min}
+        max={selectedControl.max}
+        value={selectedControl.value}
+        onValueChange={handleValueChange}
       />
     </View>
   );
@@ -244,7 +279,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
   },
   imageContainer: {
-    height: 600,
+    flex: 1,
   },
   topBarButton: {
     backgroundColor: "#8E8D93",
