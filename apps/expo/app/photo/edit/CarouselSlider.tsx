@@ -4,6 +4,7 @@ import Carousel, { ICarouselInstance } from "react-native-reanimated-carousel";
 import Animated, {
   Extrapolation,
   interpolate,
+  interpolateColor,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -62,10 +63,10 @@ export const CarouselSlider: React.FC<SliderProps> = ({
         loop={false}
         onSnapToItem={(index) => handleValueChange(index)}
         renderItem={({ index, animationValue }) => (
-          <MemoizedCarouselItemComponent
+          <SliderTick
             animationValue={animationValue}
             onPress={() => scrollToIndex(index)}
-            isSpecialTick={index % 10 === 0}
+            isSpecialTick={index % 10 === 0 || index === numTicks - 1}
           />
         )}
       />
@@ -79,7 +80,7 @@ interface CarouselItemProps {
   isSpecialTick: boolean;
 }
 
-const CarouselItemComponent = ({
+const SliderTick = ({
   animationValue,
   onPress,
   isSpecialTick,
@@ -97,6 +98,18 @@ const CarouselItemComponent = ({
     };
   });
 
+  const tickStyle = useAnimatedStyle(() => {
+    const backgroundColor = interpolateColor(
+      animationValue.value,
+      [-1, 0, 1],
+      ["#FFFFFF", "#FFD409", "#FFFFFF"]
+    );
+
+    return {
+      backgroundColor,
+    };
+  });
+
   return (
     <Pressable onPress={onPress}>
       <Animated.View
@@ -105,15 +118,17 @@ const CarouselItemComponent = ({
           containerStyle,
         ]}
       >
-        <View
-          style={[styles.tickMark, isSpecialTick && styles.specialTickMark]}
+        <Animated.View
+          style={[
+            styles.tickMark,
+            tickStyle,
+            isSpecialTick && styles.specialTickMark,
+          ]}
         />
       </Animated.View>
     </Pressable>
   );
 };
-
-const MemoizedCarouselItemComponent = React.memo(CarouselItemComponent);
 
 const styles = StyleSheet.create({
   container: {
@@ -131,9 +146,9 @@ const styles = StyleSheet.create({
   tickMark: {
     width: 1,
     height: 14,
-    backgroundColor: "rgba(255, 255, 255, 0.7)",
+    opacity: 0.7,
   },
   specialTickMark: {
-    backgroundColor: "rgba(255, 255, 255, 1)",
+    opacity: 1,
   },
 });
