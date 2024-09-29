@@ -167,16 +167,16 @@ export default function EditScreen() {
   const router = useRouter();
 
   const runEditor = async (values: FaceValues) => {
-    // if (originalImageUrl) {
-    //   setLoading(true);
-    //   const updatedImageUrl = await ReplicateService.runExpressionEditor({
-    //     image: originalImageUrl,
-    //     ...values,
-    //   });
-    //   setEditedImageUrl(updatedImageUrl);
-    //   setLoading(false);
-    //   setFaceValues(values);
-    // }
+    if (originalImageUrl) {
+      setLoading(true);
+      const updatedImageUrl = await ReplicateService.runExpressionEditor({
+        image: originalImageUrl,
+        ...values,
+      });
+      setEditedImageUrl(updatedImageUrl);
+      setFaceValues(values);
+      setLoading(false);
+    }
   };
 
   if (!originalImageUrl) {
@@ -302,6 +302,9 @@ const ImageContainer = ({
           Math.max(prevValues[control.key] + normalizedValue, control.min),
           control.max
         );
+        console.log(
+          `Gesture: ${gesture}, Value: ${value}, Control Key: ${control.key}, Normalized Value: ${normalizedValue}, New Value: ${newValue}`
+        );
         return { ...prevValues, [control.key]: newValue };
       });
     }
@@ -313,8 +316,8 @@ const ImageContainer = ({
     const { translationX, translationY } = event.nativeEvent;
     const { width: imageWidth, height: imageHeight } = imageDimensions;
 
-    const normalizedX = (translationX / imageWidth) * 1000;
-    const normalizedY = (translationY / imageHeight) * 1000;
+    const normalizedX = (translationX / imageWidth) * 700;
+    const normalizedY = (translationY / imageHeight) * 700;
 
     selectedControl.values.forEach((control) => {
       if (control.gesture === "panX") {
@@ -337,7 +340,7 @@ const ImageContainer = ({
     event: GestureEvent<PinchGestureHandlerEventPayload>
   ) => {
     const { scale } = event.nativeEvent;
-    handleGesture("pinch", (scale - 1) * 1000);
+    handleGesture("pinch", (scale - 1) * 10);
   };
 
   const handleRotationGesture = (
@@ -347,7 +350,7 @@ const ImageContainer = ({
     const { width: imageWidth, height: imageHeight } = imageDimensions;
     const diagonal = Math.sqrt(imageWidth ** 2 + imageHeight ** 2);
     const normalizedRotation =
-      (rotation / (Math.PI * 2)) * (diagonal / 2) * 1000;
+      (rotation / (Math.PI * 2)) * (diagonal / 2) * 200;
 
     selectedControl.values.forEach((control) => {
       if (control.gesture === "rotation") {
@@ -431,7 +434,6 @@ const FaceControlsComponent = ({
   const carouselRef = useRef<ICarouselInstance>(null);
   const [showSliders, setShowSliders] = useState(false);
   const slidersAnimation = useSharedValue(0);
-  const { width: windowWidth } = useWindowDimensions(); // Add this line
 
   const scrollToIndex = (index: number) => {
     carouselRef.current?.scrollTo({ index, animated: true });
@@ -544,12 +546,7 @@ const CarouselItemComponent = ({
           containerStyle,
         ]}
       >
-        <Animated.View // Change View to Animated.View
-          style={[
-            styles.facePartIconContainer,
-            borderColorStyle, // Apply the animated border color style
-          ]}
-        >
+        <Animated.View style={[styles.facePartIconContainer, borderColorStyle]}>
           <SymbolView
             name={icon as any}
             weight="regular"
