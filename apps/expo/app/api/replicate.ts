@@ -1,8 +1,15 @@
-import Replicate from "replicate";
+import axios from "axios";
 
-const replicate = new Replicate({
-  auth: process.env.REPLICATE_API_TOKEN!,
-});
+const modelIdentifier = process.env.EXPO_PUBLIC_REPLICATE_MODEL_IDENTIFIER;
+const proxyEndpoint = process.env.EXPO_PUBLIC_REPLICATE_PROXY_ENDPOINT;
+
+if (!modelIdentifier) {
+  throw new Error("REPLICATE_MODEL_IDENTIFIER is not set");
+}
+
+if (!proxyEndpoint) {
+  throw new Error("REPLICATE_PROXY_ENDPOINT is not set");
+}
 
 interface ExpressionEditorInput {
   image: string;
@@ -76,33 +83,31 @@ class ReplicateService {
       ...rest
     } = input;
 
-    const modelIdentifier = process.env.REPLICATE_MODEL_IDENTIFIER as
-      | `${string}/${string}`
-      | `${string}/${string}:${string}`;
-
     console.log(
-      `Running expression editor with input: ${JSON.stringify(input)}`
+      "ReplicateService.runExpressionEditor",
+      modelIdentifier,
+      proxyEndpoint,
+      rest
     );
 
-    const output = await replicate.run(modelIdentifier, {
-      input: {
-        ...rest,
-        output_format: outputFormat,
-        output_quality: outputQuality,
-        sample_ratio: sampleRatio,
-        rotate_pitch: rest.rotatePitch,
-        rotate_yaw: rest.rotateYaw,
-        rotate_roll: rest.rotateRoll,
-        pupil_x: rest.pupilX,
-        pupil_y: rest.pupilY,
-        crop_factor: rest.cropFactor,
-        src_ratio: rest.srcRatio,
-      },
+    const { data } = await axios.post<ReplicateResponse>(proxyEndpoint, {
+      modelIdentifier,
+      ...rest,
+      output_format: outputFormat,
+      output_quality: outputQuality,
+      sample_ratio: sampleRatio,
+      rotate_pitch: rest.rotatePitch,
+      rotate_yaw: rest.rotateYaw,
+      rotate_roll: rest.rotateRoll,
+      pupil_x: rest.pupilX,
+      pupil_y: rest.pupilY,
+      crop_factor: rest.cropFactor,
+      src_ratio: rest.srcRatio,
     });
 
-    console.log(`Expression editor output: ${JSON.stringify(output)}`);
+    console.log(`Model output: ${JSON.stringify(data)}`);
 
-    return output as ReplicateResponse;
+    return data;
   }
 }
 
