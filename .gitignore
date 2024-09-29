@@ -33,4 +33,7 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+
+# project
 .env
+.turbo

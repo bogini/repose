@@ -12,7 +12,7 @@ import Animated, {
 import { SymbolView } from "expo-symbols";
 import { StatusBar } from "expo-status-bar";
 import Carousel, { ICarouselInstance } from "react-native-reanimated-carousel";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { CarouselSlider } from "./CarouselSlider";
 import {
   GestureHandlerRootView,
@@ -26,6 +26,8 @@ import {
   PanGestureHandlerEventPayload,
   RotationGestureHandlerEventPayload,
 } from "react-native-gesture-handler";
+import { debounce } from "lodash";
+import ReplicateService from "../../api/replicate";
 
 interface Photo {
   id: number;
@@ -162,6 +164,28 @@ export default function EditScreen() {
     setLoading(false);
     //}, 1000);
   };
+
+  useEffect(() => {
+    const runEditor = async () => {
+      if (photo) {
+        const result = await ReplicateService.runExpressionEditor({
+          image: photo?.url,
+          rotatePitch: faceValues.pitch,
+          rotateYaw: faceValues.yaw,
+          rotateRoll: faceValues.roll,
+          pupilX: faceValues.pupilX,
+          pupilY: faceValues.pupilY,
+          smile: faceValues.smile,
+          blink: faceValues.blink,
+          wink: faceValues.wink,
+        });
+
+        console.log({ result });
+      }
+    };
+
+    runEditor();
+  }, [faceValues, photo]);
 
   if (!photo) {
     return <Text>Photo not found</Text>;
