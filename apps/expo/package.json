@@ -9,7 +9,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "build": "expo build",
-    "dev": "yarn start"
+    "dev": "yarn ios"
   },
   "dependencies": {
     "axios": "^1.7.7",
