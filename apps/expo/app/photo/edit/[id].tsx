@@ -171,11 +171,19 @@ export default function EditScreen() {
       setLoading(true);
       const updatedImageUrl = await ReplicateService.runExpressionEditor({
         image: originalImageUrl,
-        ...values,
+        rotatePitch: values.pitch,
+        rotateYaw: values.yaw,
+        rotateRoll: values.roll,
+        pupilX: values.pupilX,
+        eyebrow: values.eyebrow,
+        pupilY: values.pupilY,
+        smile: values.smile,
+        blink: values.blink,
+        wink: values.wink,
       });
       setEditedImageUrl(updatedImageUrl);
-      setFaceValues(values);
       setLoading(false);
+      setFaceValues(values);
     }
   };
 
