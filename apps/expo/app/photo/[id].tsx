@@ -23,7 +23,7 @@ interface ImageContainerProps {
 }
 
 interface BottomBarProps {
-  imageUrl: string;
+  id: string;
 }
 
 export default function PhotoScreen() {
@@ -80,7 +80,7 @@ export default function PhotoScreen() {
         gesture={gesture}
         animatedStyle={animatedStyle}
       />
-      <BottomBar imageUrl={photo.downloadUrl} />
+      <BottomBar id={photo.id} />
     </View>
   );
 }
@@ -122,7 +122,7 @@ const ImageContainer = ({ imageUrl }: ImageContainerProps) => (
   </View>
 );
 
-const BottomBar = ({ imageUrl }: BottomBarProps) => (
+const BottomBar = ({ id }: BottomBarProps) => (
   <View style={styles.bottomBar}>
     <Pressable style={styles.roundButton}>
       <SymbolView
@@ -149,7 +149,7 @@ const BottomBar = ({ imageUrl }: BottomBarProps) => (
           resizeMode="scaleAspectFit"
         />
       </Pressable>
-      <Link href={`/photo/edit/${imageUrl}`} asChild>
+      <Link href={`/photo/edit/${id}`} asChild>
         <Pressable style={styles.bottomCenterButton}>
           <SymbolView
             name="slider.horizontal.3"

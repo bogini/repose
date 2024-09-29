@@ -1,5 +1,4 @@
 import { Text, View, Pressable, StyleSheet } from "react-native";
-import { photos } from "../../../data";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Animated, {
   Extrapolation,
@@ -13,7 +12,7 @@ import { SymbolView } from "expo-symbols";
 import { StatusBar } from "expo-status-bar";
 import Carousel, { ICarouselInstance } from "react-native-reanimated-carousel";
 import { useState, useRef, useEffect } from "react";
-
+import PhotosService, { Photo } from "../../../api/photos";
 import {
   GestureHandlerRootView,
   PanGestureHandler,
@@ -152,11 +151,20 @@ export default function EditScreen() {
   const [editedImageUrl, setEditedImageUrl] = useState<string | undefined>();
 
   useEffect(() => {
-    const photo = photos.find((p) => p.id === Number.parseInt(id));
-    if (photo) {
-      setOriginalImageUrl(photo.url);
-      setEditedImageUrl(photo.url);
-    }
+    const fetchPhoto = async () => {
+      try {
+        const fetchedPhoto = await PhotosService.getPhotoById(id);
+        if (!fetchedPhoto) {
+          throw new Error("Photo not found");
+        }
+        setOriginalImageUrl(fetchedPhoto.downloadUrl);
+        setEditedImageUrl(fetchedPhoto.downloadUrl);
+      } catch (error) {
+        console.error("Error fetching photo:", error);
+      }
+    };
+
+    fetchPhoto();
   }, [id]);
 
   const router = useRouter();
