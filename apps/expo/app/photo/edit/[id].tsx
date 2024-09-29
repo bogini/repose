@@ -27,6 +27,7 @@ import {
   RotationGestureHandlerEventPayload,
 } from "react-native-gesture-handler";
 import ReplicateService from "../../api/replicate";
+import { debounce } from "lodash";
 
 interface Photo {
   id: number;
@@ -93,7 +94,7 @@ const FACE_CONTROLS: FaceControl[] = [
     values: [
       {
         key: "blink",
-        label: "Blink",
+        label: "Open",
         min: -20,
         max: 5,
         gesture: "pinch",
@@ -139,56 +140,46 @@ const FACE_CONTROLS: FaceControl[] = [
 
 export default function EditScreen() {
   const [faceValues, setFaceValues] = useState<FaceValues>({
-    pitch: -20,
-    yaw: -20,
-    roll: -20,
-    blink: -20,
+    pitch: 0,
+    yaw: 0,
+    roll: 0,
+    blink: 0,
     wink: 0,
-    pupilX: -15,
-    pupilY: -15,
-    smile: -0.3,
+    pupilX: 0,
+    pupilY: 0,
+    smile: 0,
   });
   const [loading, setLoading] = useState(false);
   const [selectedControl, setSelectedControl] = useState(FACE_CONTROLS[0]);
-  const [imageUrl, setImageUrl] = useState(photo?.url); // Add state for image URL
-
   const { id } = useLocalSearchParams<{ id: string }>();
+  const [imageUrl, setImageUrl] = useState(() => {
+    const photo = photos.find((p) => p.id === Number.parseInt(id));
+    return photo ? photo.url : undefined;
+  });
+
   const router = useRouter();
 
-  const photo = photos.find((p) => p.id === Number.parseInt(id));
-
-  const handleFaceValuesChange = (values: FaceValues) => {
-    setLoading(true);
-    //setTimeout(() => {
-    setFaceValues(values);
-    setLoading(false);
-    //}, 1000);
+  const runEditor = async (values: FaceValues) => {
+    if (imageUrl) {
+      setLoading(true);
+      const updatedImageUrl = await ReplicateService.runExpressionEditor({
+        image: imageUrl,
+        rotatePitch: values.pitch,
+        rotateYaw: values.yaw,
+        rotateRoll: values.roll,
+        pupilX: values.pupilX,
+        pupilY: values.pupilY,
+        smile: values.smile,
+        blink: values.blink,
+        wink: values.wink,
+      });
+      setImageUrl(updatedImageUrl);
+      setLoading(false);
+      setFaceValues(values);
+    }
   };
 
-  useEffect(() => {
-    const runEditor = async () => {
-      if (photo) {
-        setLoading(true);
-        // const updatedImageUrl = await ReplicateService.runExpressionEditor({
-        //   image: photo?.url,
-        //   rotatePitch: faceValues.pitch,
-        //   rotateYaw: faceValues.yaw,
-        //   rotateRoll: faceValues.roll,
-        //   pupilX: faceValues.pupilX,
-        //   pupilY: faceValues.pupilY,
-        //   smile: faceValues.smile,
-        //   blink: faceValues.blink,
-        //   wink: faceValues.wink,
-        // });
-        // setImageUrl(updatedImageUrl);
-        setLoading(false);
-      }
-    };
-
-    runEditor();
-  }, [faceValues, photo]);
-
-  if (!photo) {
+  if (!imageUrl) {
     return <Text>Photo not found</Text>;
   }
 
@@ -199,16 +190,15 @@ export default function EditScreen() {
       <AdjustBar />
       <Text>Brightness</Text>
       <ImageContainer
-        photo={photo}
         loading={loading}
         faceValues={faceValues}
-        handleFaceValuesChange={handleFaceValuesChange}
+        handleFaceValuesChange={runEditor}
         selectedControl={selectedControl}
         imageUrl={imageUrl}
       />
       <FaceControlsComponent
         faceValues={faceValues}
-        onFaceValuesChange={handleFaceValuesChange}
+        onFaceValuesChange={runEditor}
         selectedControl={selectedControl}
         setSelectedControl={setSelectedControl}
       />
@@ -266,12 +256,11 @@ const AdjustBar = () => (
 );
 
 interface ImageContainerProps {
-  photo: Photo;
   loading: boolean;
   faceValues: FaceValues;
   handleFaceValuesChange: (values: FaceValues) => void;
   selectedControl: FaceControl;
-  imageUrl: string; // Add image
+  imageUrl: string;
 }
 
 const ImageContainer = ({
@@ -283,6 +272,10 @@ const ImageContainer = ({
 }: ImageContainerProps) => {
   const pulseAnimation = useSharedValue(1);
   const [gestureValues, setGestureValues] = useState<FaceValues>(faceValues);
+  const [imageDimensions, setImageDimensions] = useState({
+    width: 0,
+    height: 0,
+  });
 
   useEffect(() => {
     pulseAnimation.value = loading
@@ -302,7 +295,7 @@ const ImageContainer = ({
     const control = selectedControl.values.find((v) => v.gesture === gesture);
     if (control) {
       const range = control.max - control.min;
-      const normalizedValue = (value / 100) * range; // Normalize value based on control range
+      const normalizedValue = isNaN(value) ? 0 : (value / 100) * range; // Check if value is NaN and fallback to 0
       console.log(
         `Control: ${control.key}, Normalized Value: ${normalizedValue}`
       );
@@ -328,8 +321,13 @@ const ImageContainer = ({
     event: GestureEvent<PanGestureHandlerEventPayload>
   ) => {
     const { translationX, translationY } = event.nativeEvent;
-    handleGesture("panX", translationX);
-    handleGesture("panY", -translationY);
+    const { width: imageWidth, height: imageHeight } = imageDimensions;
+
+    const normalizedX = (translationX / imageWidth) * 100;
+    const normalizedY = (translationY / imageHeight) * 100;
+
+    handleGesture("panX", normalizedX);
+    handleGesture("panY", normalizedY);
   };
 
   const handlePinchGesture = (
@@ -343,23 +341,22 @@ const ImageContainer = ({
     event: GestureEvent<RotationGestureHandlerEventPayload>
   ) => {
     const { rotation } = event.nativeEvent;
-    handleGesture("rotation", (rotation / Math.PI) * 180);
+    const { width: imageWidth, height: imageHeight } = imageDimensions;
+    const diagonal = Math.sqrt(imageWidth ** 2 + imageHeight ** 2);
+    const normalizedRotation = (rotation / (Math.PI * 2)) * (diagonal / 2);
+    handleGesture("rotation", -normalizedRotation);
   };
 
   const handleTapGesture = (
     event: GestureEvent<TapGestureHandlerEventPayload>
   ) => {
     const { x, y, absoluteX, absoluteY } = event.nativeEvent;
-    const imageWidth = event.nativeEvent.target.width;
-    const imageHeight = event.nativeEvent.target.height;
-
+    const { width: imageWidth, height: imageHeight } = imageDimensions;
     console.log(`Tap gesture detected at (${x}, ${y}) relative to the image`);
     console.log(`Image dimensions: ${imageWidth}x${imageHeight}`);
-
-    const tapXValue = x < imageWidth / 2 ? -10 : 10; // Left tap decreases, right tap increases
+    const tapXValue = x < imageWidth / 2 ? 10 : -10; // Swap the values to invert the X-axis tap gesture
     handleGesture("tapX", tapXValue);
-
-    const tapYValue = y < imageHeight / 2 ? -10 : 10; // Top tap decreases, bottom tap increases
+    const tapYValue = y < imageHeight / 2 ? 10 : -10; // Swap the values to invert the Y-axis tap gesture
     handleGesture("tapY", tapYValue);
   };
 
@@ -371,22 +368,31 @@ const ImageContainer = ({
 
   return (
     <GestureHandlerRootView style={styles.imageContainer}>
-      <PanGestureHandler onGestureEvent={handlePanGesture}>
+      <PanGestureHandler
+        onGestureEvent={loading ? undefined : handlePanGesture}
+      >
         <PinchGestureHandler
-          onGestureEvent={handlePinchGesture}
+          onGestureEvent={loading ? undefined : handlePinchGesture}
           simultaneousHandlers={[rotationRef, tapRef]}
         >
           <RotationGestureHandler
-            onGestureEvent={handleRotationGesture}
+            onGestureEvent={loading ? undefined : handleRotationGesture}
             simultaneousHandlers={[tapRef]}
             ref={rotationRef}
           >
-            <TapGestureHandler onGestureEvent={handleTapGesture} ref={tapRef}>
+            <TapGestureHandler
+              onGestureEvent={loading ? undefined : handleTapGesture}
+              ref={tapRef}
+            >
               <Animated.View style={[styles.fullSize, animatedStyle]}>
                 <Animated.Image
                   source={{ uri: imageUrl }}
                   style={styles.fullSize}
                   resizeMode="contain"
+                  onLayout={(event) => {
+                    const { width, height } = event.nativeEvent.layout;
+                    setImageDimensions({ width, height });
+                  }}
                 />
               </Animated.View>
             </TapGestureHandler>
@@ -484,7 +490,7 @@ const CarouselItemComponent = ({
     );
 
     return {
-      opacity,
+      opacity: opacity,
     };
   }, [animationValue]);
 
