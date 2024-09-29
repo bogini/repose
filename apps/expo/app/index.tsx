@@ -3,13 +3,10 @@ import {
   StyleSheet,
   Image,
   useWindowDimensions,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
   Pressable,
+  View,
 } from "react-native";
-import { photos } from "../data";
 import Carousel from "../Carousel";
-import { useEffect, useState } from "react";
 import { Link } from "expo-router";
 import Animated, {
   scrollTo,
@@ -22,7 +19,9 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-
+import { useState, useEffect } from "react";
+import { ActivityIndicator } from "react-native";
+import PhotosService, { Photo } from "../api/photos";
 import UploadImageTile from "../components/UploadImageTile";
 
 export default function App() {
@@ -68,9 +67,6 @@ export default function App() {
       scrollMode.value = "GESTURE";
       scrollTo(pageScrollViewRef, 0, 0, true);
     }
-    // if (e.contentOffset.y > 0 && scrollMode.value !== 'PAGE') {
-    //   scrollMode.value = 'PAGE';
-    // }
   });
 
   const onFlatListScroll = useAnimatedScrollHandler((e) => {
@@ -101,6 +97,24 @@ export default function App() {
   const nativeGesture = Gesture.Native();
   const composedGesture = Gesture.Simultaneous(gesture, nativeGesture);
 
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPhotos = async () => {
+      try {
+        const fetchedPhotos = await PhotosService.listPhotos();
+        setPhotos(fetchedPhotos);
+      } catch (error) {
+        console.error("Error fetching photos:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchPhotos();
+  }, []);
+
   return (
     <GestureDetector gesture={composedGesture}>
       <Animated.ScrollView
@@ -109,47 +123,67 @@ export default function App() {
         style={[styles.container]}
         onScroll={onPageScroll}
       >
-        <Animated.View style={headerStyle}>
-          <Animated.FlatList
-            ref={flatListRef}
-            style={{ width }}
-            data={[
-              ...(photos.length > 3 ? photos.slice(-3) : photos),
-              { id: "upload", url: "" },
-              ...(photos.length > 3 ? photos.slice(0, -3) : []),
-            ]}
-            numColumns={4}
-            contentContainerStyle={{ gap: 1 }}
-            columnWrapperStyle={{ gap: 1 }}
-            scrollEnabled={flatListScrollEnabled}
-            inverted
-            onScroll={onFlatListScroll}
-            renderItem={({ item }) =>
-              item.id === "upload" ? (
-                <UploadImageTile
-                  onUploadSuccess={(response) => {
-                    // Handle successful upload
-                  }}
-                  onUploadError={(error) => {
-                    // Handle upload error
-                  }}
+        {isLoading ? (
+          <ActivityIndicator size="large" style={styles.loadingIndicator} />
+        ) : (
+          <>
+            <Animated.View style={headerStyle}>
+              <Animated.FlatList
+                ref={flatListRef}
+                style={{ width }}
+                data={[
+                  ...(photos.length > 3 ? photos.slice(-3) : photos),
+                  { pathname: "upload", downloadUrl: "", url: "" },
+                  ...(photos.length > 3 ? photos.slice(0, -3) : []),
+                ]}
+                numColumns={4}
+                contentContainerStyle={{ gap: 1 }}
+                columnWrapperStyle={{ gap: 1 }}
+                scrollEnabled={flatListScrollEnabled}
+                inverted
+                onScroll={onFlatListScroll}
+                renderItem={({ item }) =>
+                  "pathname" in item && item.pathname === "upload" ? (
+                    <View style={{ width: "25%", aspectRatio: 1 }}>
+                      <UploadImageTile
+                        onUploadSuccess={(response) => {
+                          setPhotos((prevPhotos) => [...prevPhotos, response]);
+                        }}
+                      />
+                    </View>
+                  ) : (
+                    <Link href={`/photo/${item.pathname}`} asChild>
+                      <Pressable style={{ width: "25%", aspectRatio: 1 }}>
+                        <Image
+                          source={{ uri: item.downloadUrl }}
+                          style={{ width: "100%", height: "100%" }}
+                        />
+                      </Pressable>
+                    </Link>
+                  )
+                }
+              />
+            </Animated.View>
+            {photos.length >= 10 && (
+              <>
+                <Carousel
+                  title="People"
+                  photos={photos.slice(3, 6).map((photo) => ({
+                    id: photo.pathname,
+                    url: photo.downloadUrl,
+                  }))}
                 />
-              ) : (
-                <Link href={`/photo/${item.id}`} asChild>
-                  <Pressable style={{ width: "25%", aspectRatio: 1 }}>
-                    <Image
-                      source={{ uri: item.url }}
-                      style={{ width: "100%", height: "100%" }}
-                    />
-                  </Pressable>
-                </Link>
-              )
-            }
-          />
-        </Animated.View>
-
-        <Carousel title="People" photos={photos.slice(3, 6)} />
-        <Carousel title="Featured" photos={photos.slice(6, 10)} />
+                <Carousel
+                  title="Featured"
+                  photos={photos.slice(6, 10).map((photo) => ({
+                    id: photo.pathname,
+                    url: photo.downloadUrl,
+                  }))}
+                />
+              </>
+            )}
+          </>
+        )}
 
         <StatusBar style="auto" />
       </Animated.ScrollView>
@@ -161,5 +195,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
+  },
+  loadingIndicator: {
+    marginTop: 20,
   },
 });

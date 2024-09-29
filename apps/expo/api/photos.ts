@@ -5,11 +5,7 @@ import { BASE_URL } from "./constants";
 
 const PHOTOS_ENDPOINT = BASE_URL + "/api/photos";
 
-interface Photo {
-  url: string;
-}
-
-interface UploadResponse {
+export interface Photo {
   url: string;
   downloadUrl: string;
   pathname: string;
@@ -21,6 +17,7 @@ class PhotosService {
   async listPhotos(): Promise<Photo[]> {
     try {
       const { data } = await axios.get<Photo[]>(PHOTOS_ENDPOINT);
+      console.log("Successfully fetched photos:", data);
       return data;
     } catch (error) {
       console.error("Error listing photos:", error);
@@ -28,7 +25,7 @@ class PhotosService {
     }
   }
 
-  async uploadPhoto(fileUri: string): Promise<UploadResponse> {
+  async uploadPhoto(fileUri: string): Promise<Photo> {
     const fileInfo = await FileSystem.getInfoAsync(fileUri);
     if (!fileInfo.exists) {
       throw new Error("File does not exist");
@@ -46,15 +43,11 @@ class PhotosService {
     const dataUrl = `data:image/webp;base64,${base64String}`;
 
     try {
-      const { data } = await axios.post<UploadResponse>(
-        PHOTOS_ENDPOINT,
-        dataUrl,
-        {
-          headers: {
-            "Content-Type": "text/plain",
-          },
-        }
-      );
+      const { data } = await axios.post<Photo>(PHOTOS_ENDPOINT, dataUrl, {
+        headers: {
+          "Content-Type": "text/plain",
+        },
+      });
 
       console.log(`Upload response: ${JSON.stringify(data)}`);
 

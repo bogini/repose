@@ -5,6 +5,7 @@ import {
   del,
   ListBlobResult,
   PutCommandOptions,
+  PutBlobResult,
 } from "@vercel/blob";
 
 const token = process.env.BLOB_READ_WRITE_TOKEN;
@@ -21,12 +22,8 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   try {
     switch (req.method) {
       case "GET":
-        const photos: ListBlobResult = await list({ prefix: PHOTOS_FOLDER });
-        const basePhotos = photos.blobs.filter((photo) =>
-          photo.pathname.endsWith("base.webp")
-        );
-
-        return res.status(200).json(basePhotos);
+        const response: ListBlobResult = await list({ prefix: PHOTOS_FOLDER });
+        return res.status(200).json(response.blobs);
 
       case "POST":
         const dataUrl = req.body;
@@ -53,13 +50,12 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
             .json({ error: "File size exceeds the limit of 5 MB" });
         }
 
-        const uniqueFolder = `${PHOTOS_FOLDER}${Date.now()}/`;
-        const fileName = `${uniqueFolder}base.${IMAGE_FORMAT}`;
+        const fileName = `${PHOTOS_FOLDER}${Date.now()}.${IMAGE_FORMAT}`;
         const options: PutCommandOptions = {
           access: "public",
           token,
         };
-        const result = await put(fileName, file, options);
+        const result: PutBlobResult = await put(fileName, file, options);
 
         return res.status(200).json(result);
 
