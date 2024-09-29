@@ -23,7 +23,11 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     switch (req.method) {
       case "GET":
         const response: ListBlobResult = await list({ prefix: PHOTOS_FOLDER });
-        return res.status(200).json(response.blobs);
+        const blobsWithId = response.blobs.map((blob) => ({
+          ...blob,
+          id: blob.pathname.split(".")[0].replace(PHOTOS_FOLDER, ""),
+        }));
+        return res.status(200).json(blobsWithId);
 
       case "POST":
         const dataUrl = req.body;
@@ -50,14 +54,19 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
             .json({ error: "File size exceeds the limit of 5 MB" });
         }
 
-        const fileName = `${PHOTOS_FOLDER}${Date.now()}.${IMAGE_FORMAT}`;
+        const timestamp = Date.now();
+        const fileName = `${PHOTOS_FOLDER}${timestamp}.${IMAGE_FORMAT}`;
         const options: PutCommandOptions = {
           access: "public",
           token,
         };
         const result: PutBlobResult = await put(fileName, file, options);
+        const resultWithId = {
+          ...result,
+          id: timestamp.toString(),
+        };
 
-        return res.status(200).json(result);
+        return res.status(200).json(resultWithId);
 
       case "DELETE": {
         const { fileName } = req.body;

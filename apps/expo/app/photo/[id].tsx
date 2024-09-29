@@ -1,20 +1,52 @@
-import { Text, View, Pressable, StyleSheet } from "react-native";
-import { photos } from "../../data";
+import { Text, View, Pressable, StyleSheet, Image } from "react-native";
+import { useEffect, useState } from "react";
 import { Link, useLocalSearchParams, useRouter } from "expo-router";
-import Animated, {
+import {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { Gesture } from "react-native-gesture-handler";
 import { SymbolView } from "expo-symbols";
+import PhotosService, { Photo } from "../../api/photos";
+
+interface TopBarProps {
+  router: ReturnType<typeof useRouter>;
+  photo: Photo;
+}
+
+interface ImageContainerProps {
+  imageUrl: string;
+  gesture: ReturnType<typeof Gesture.Pinch>;
+  animatedStyle: ReturnType<typeof useAnimatedStyle>;
+}
+
+interface BottomBarProps {
+  imageUrl: string;
+}
 
 export default function PhotoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const photo = photos.find((p) => p.id === Number.parseInt(id));
   const scale = useSharedValue(1);
+  const [photo, setPhoto] = useState<Photo | undefined>(undefined);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPhoto = async () => {
+      try {
+        const fetchedPhoto = await PhotosService.getPhotoById(id);
+        setPhoto(fetchedPhoto);
+      } catch (error) {
+        console.error("Error fetching photo:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchPhoto();
+  }, [id]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -32,24 +64,28 @@ export default function PhotoScreen() {
       }
     });
 
+  if (isLoading) {
+    return <Text>Loading...</Text>;
+  }
+
   if (!photo) {
     return <Text>Photo not found</Text>;
   }
 
   return (
     <View style={styles.container}>
-      <TopBar router={router} />
+      <TopBar router={router} photo={photo} />
       <ImageContainer
-        photo={photo}
+        imageUrl={photo.downloadUrl}
         gesture={gesture}
         animatedStyle={animatedStyle}
       />
-      <BottomBar id={id} />
+      <BottomBar imageUrl={photo.downloadUrl} />
     </View>
   );
 }
 
-const TopBar = ({ router }) => (
+const TopBar = ({ router, photo }: TopBarProps) => (
   <View style={styles.topBar}>
     <View style={styles.photoInfo}>
       <Text style={styles.titleText}>Yesterday</Text>
@@ -76,19 +112,17 @@ const TopBar = ({ router }) => (
   </View>
 );
 
-const ImageContainer = ({ photo, gesture, animatedStyle }) => (
+const ImageContainer = ({ imageUrl }: ImageContainerProps) => (
   <View style={styles.imageContainer}>
-    <GestureDetector gesture={gesture}>
-      <Animated.Image
-        source={{ uri: photo.url }}
-        style={[{ width: "100%", height: "100%" }, animatedStyle]}
-        resizeMode="contain"
-      />
-    </GestureDetector>
+    <Image
+      source={{ uri: imageUrl }}
+      style={{ width: "100%", height: "100%" }}
+      resizeMode="contain"
+    />
   </View>
 );
 
-const BottomBar = ({ id }) => (
+const BottomBar = ({ imageUrl }: BottomBarProps) => (
   <View style={styles.bottomBar}>
     <Pressable style={styles.roundButton}>
       <SymbolView
@@ -115,7 +149,7 @@ const BottomBar = ({ id }) => (
           resizeMode="scaleAspectFit"
         />
       </Pressable>
-      <Link href={`/photo/edit/${id}`} asChild>
+      <Link href={`/photo/edit/${imageUrl}`} asChild>
         <Pressable style={styles.bottomCenterButton}>
           <SymbolView
             name="slider.horizontal.3"
@@ -151,7 +185,7 @@ const styles = StyleSheet.create({
   },
   photoInfo: {
     flexDirection: "column",
-    gap: 3,
+    gap: 4,
   },
   topSymbol: {
     height: 15,

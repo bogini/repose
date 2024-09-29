@@ -6,6 +6,7 @@ import { BASE_URL } from "./constants";
 const PHOTOS_ENDPOINT = BASE_URL + "/api/photos";
 
 export interface Photo {
+  id: string;
   url: string;
   downloadUrl: string;
   pathname: string;
@@ -14,13 +15,34 @@ export interface Photo {
 }
 
 class PhotosService {
+  private photoCache: Photo[] = [];
+
   async listPhotos(): Promise<Photo[]> {
     try {
       const { data } = await axios.get<Photo[]>(PHOTOS_ENDPOINT);
       console.log("Successfully fetched photos:", data);
+      this.photoCache = data; // Update the cache with the fetched photos
       return data;
     } catch (error) {
       console.error("Error listing photos:", error);
+      throw error;
+    }
+  }
+
+  async getPhotoById(id: string): Promise<Photo | undefined> {
+    // Check if the photo is in the cache
+    const cachedPhoto = this.photoCache.find((photo) => photo.id === id);
+    if (cachedPhoto) {
+      console.log(`Photo ${id} found in cache`);
+      return cachedPhoto;
+    }
+
+    // If the photo is not in the cache, fetch the list of photos and update the cache
+    try {
+      const photos = await this.listPhotos();
+      return photos.find((photo) => photo.id === id);
+    } catch (error) {
+      console.error(`Error getting photo ${id}:`, error);
       throw error;
     }
   }

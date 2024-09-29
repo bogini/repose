@@ -133,7 +133,7 @@ export default function App() {
                 style={{ width }}
                 data={[
                   ...(photos.length > 3 ? photos.slice(-3) : photos),
-                  { pathname: "upload", downloadUrl: "", url: "" },
+                  { id: "upload", downloadUrl: "" },
                   ...(photos.length > 3 ? photos.slice(0, -3) : []),
                 ]}
                 numColumns={4}
@@ -143,7 +143,7 @@ export default function App() {
                 inverted
                 onScroll={onFlatListScroll}
                 renderItem={({ item }) =>
-                  "pathname" in item && item.pathname === "upload" ? (
+                  item.id === "upload" ? (
                     <View style={{ width: "25%", aspectRatio: 1 }}>
                       <UploadImageTile
                         onUploadSuccess={(response) => {
@@ -152,7 +152,7 @@ export default function App() {
                       />
                     </View>
                   ) : (
-                    <Link href={`/photo/${item.pathname}`} asChild>
+                    <Link href={`/photo/${item.id}`} asChild>
                       <Pressable style={{ width: "25%", aspectRatio: 1 }}>
                         <Image
                           source={{ uri: item.downloadUrl }}
