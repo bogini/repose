@@ -351,8 +351,8 @@ const ImageContainer = ({
     const { translationX, translationY } = event.nativeEvent;
     const { width: imageWidth, height: imageHeight } = imageDimensions;
 
-    const normalizedX = (translationX / imageWidth) * 100;
-    const normalizedY = (translationY / imageHeight) * 100;
+    const normalizedX = (translationX / imageWidth) * 1000;
+    const normalizedY = (translationY / imageHeight) * 1000;
 
     selectedControl.values.forEach((control) => {
       if (control.gesture === "panX") {
@@ -375,7 +375,7 @@ const ImageContainer = ({
     event: GestureEvent<PinchGestureHandlerEventPayload>
   ) => {
     const { scale } = event.nativeEvent;
-    handleGesture("pinch", (scale - 1) * 100);
+    handleGesture("pinch", (scale - 1) * 1000);
   };
 
   const handleRotationGesture = (
@@ -384,8 +384,18 @@ const ImageContainer = ({
     const { rotation } = event.nativeEvent;
     const { width: imageWidth, height: imageHeight } = imageDimensions;
     const diagonal = Math.sqrt(imageWidth ** 2 + imageHeight ** 2);
-    const normalizedRotation = (rotation / (Math.PI * 2)) * (diagonal / 2);
-    handleGesture("rotation", -normalizedRotation);
+    const normalizedRotation =
+      (rotation / (Math.PI * 2)) * (diagonal / 2) * 1000;
+
+    selectedControl.values.forEach((control) => {
+      if (control.gesture === "rotation") {
+        const value =
+          control.direction === GestureDirection.Inverted
+            ? -normalizedRotation
+            : normalizedRotation;
+        handleGesture("rotation", value);
+      }
+    });
   };
 
   const handleTapGesture = (
