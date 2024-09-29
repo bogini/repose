@@ -47,9 +47,8 @@ class ReplicateService {
   constructor() {
     this.debouncedRunExpressionEditor = debounce(
       this.runExpressionEditor.bind(this),
-      500, // Debounce delay in milliseconds
-      { leading: true, trailing: true }
-    );
+      250
+    ) as (input: ExpressionEditorInput) => Promise<string>;
   }
 
   async runExpressionEditor(input: ExpressionEditorInput): Promise<string> {

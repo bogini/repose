@@ -27,7 +27,6 @@ import {
   RotationGestureHandlerEventPayload,
 } from "react-native-gesture-handler";
 import ReplicateService from "../../api/replicate";
-import { debounce } from "lodash";
 
 enum GestureDirection {
   Normal = "normal",
