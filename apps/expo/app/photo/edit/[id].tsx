@@ -1,4 +1,10 @@
-import { Text, View, Pressable, StyleSheet } from "react-native";
+import {
+  Text,
+  View,
+  Pressable,
+  StyleSheet,
+  useWindowDimensions,
+} from "react-native";
 import { photos } from "../../../data";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Animated, {
@@ -120,7 +126,7 @@ const FACE_CONTROLS: FaceControl[] = [
     values: [
       {
         key: "eyebrow",
-        label: "Height",
+        label: "HEIGHT",
         min: -10,
         max: 15,
         gesture: "panY",
@@ -161,16 +167,16 @@ export default function EditScreen() {
   const router = useRouter();
 
   const runEditor = async (values: FaceValues) => {
-    if (originalImageUrl) {
-      setLoading(true);
-      const updatedImageUrl = await ReplicateService.runExpressionEditor({
-        image: originalImageUrl,
-        ...values,
-      });
-      setEditedImageUrl(updatedImageUrl);
-      setLoading(false);
-      setFaceValues(values);
-    }
+    // if (originalImageUrl) {
+    //   setLoading(true);
+    //   const updatedImageUrl = await ReplicateService.runExpressionEditor({
+    //     image: originalImageUrl,
+    //     ...values,
+    //   });
+    //   setEditedImageUrl(updatedImageUrl);
+    //   setLoading(false);
+    //   setFaceValues(values);
+    // }
   };
 
   if (!originalImageUrl) {
@@ -180,9 +186,10 @@ export default function EditScreen() {
   return (
     <View style={styles.container}>
       <StatusBar hidden={true} />
-      <TopBar onBack={() => router.back()} />
-      <AdjustBar />
-      <Text>Brightness</Text>
+      <View>
+        <TopBar onBack={() => router.back()} />
+        <AdjustBar />
+      </View>
       {editedImageUrl && (
         <ImageContainer
           loading={loading}
@@ -198,6 +205,7 @@ export default function EditScreen() {
         selectedControl={selectedControl}
         setSelectedControl={setSelectedControl}
       />
+      <View style={{ backgroundColor: "black", width: "100%", height: 80 }} />
     </View>
   );
 }
@@ -422,15 +430,16 @@ const FaceControlsComponent = ({
 }: FaceControlsComponentProps) => {
   const carouselRef = useRef<ICarouselInstance>(null);
   const [showSliders, setShowSliders] = useState(false);
-  const [previousSelectedControl, setPreviousSelectedControl] =
-    useState<FaceControl | null>(null);
+  const slidersAnimation = useSharedValue(0);
+  const { width: windowWidth } = useWindowDimensions(); // Add this line
 
   const scrollToIndex = (index: number) => {
     carouselRef.current?.scrollTo({ index, animated: true });
     if (selectedControl.key === FACE_CONTROLS[index].key) {
       setShowSliders(!showSliders);
+    } else {
+      setShowSliders(true);
     }
-    setPreviousSelectedControl(selectedControl);
     setSelectedControl(FACE_CONTROLS[index]);
   };
 
@@ -438,42 +447,61 @@ const FaceControlsComponent = ({
     onFaceValuesChange({ ...faceValues, [key]: value });
   };
 
+  useEffect(() => {
+    slidersAnimation.value = withTiming(showSliders ? 1 : 0, { duration: 250 });
+  }, [showSliders, slidersAnimation]);
+
+  const slidersContainerStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: interpolate(
+          slidersAnimation.value,
+          [0, 1],
+          [-10, 0],
+          Extrapolation.CLAMP
+        ),
+      },
+    ],
+    opacity: slidersAnimation.value,
+  }));
+
   return (
     <View style={styles.bottomPager}>
       <Text style={styles.selectedLabel}>{selectedControl.label}</Text>
-      <Carousel
-        ref={carouselRef}
-        style={styles.carousel}
-        width={100}
-        height={60}
-        data={FACE_CONTROLS}
-        defaultIndex={0}
-        loop={false}
-        onSnapToItem={(index) => scrollToIndex(index)}
-        renderItem={({ item, animationValue, index }) => (
-          <CarouselItemComponent
-            animationValue={animationValue}
-            icon={item.icon}
-            onPress={() => scrollToIndex(index)}
-          />
-        )}
-      />
-      {showSliders && (
-        <View style={styles.slidersContainer}>
-          {selectedControl.values.map((value) => (
-            <View key={value.label} style={styles.sliderContainer}>
-              <Text style={styles.sliderLabel}>{value.label}</Text>
-              <CarouselSlider
-                key={value.label}
-                min={value.min}
-                max={value.max}
-                value={faceValues[value.key]}
-                onValueChange={(val) => handleValueChange(value.key, val)}
-              />
-            </View>
-          ))}
-        </View>
-      )}
+      <View style={styles.carouselContainer}>
+        <Carousel
+          style={styles.carousel}
+          ref={carouselRef}
+          width={100}
+          height={58}
+          data={FACE_CONTROLS}
+          defaultIndex={0}
+          loop={false}
+          onSnapToItem={(index) => scrollToIndex(index)}
+          renderItem={({ item, animationValue, index }) => (
+            <CarouselItemComponent
+              animationValue={animationValue}
+              icon={item.icon}
+              onPress={() => scrollToIndex(index)}
+              isSelected={selectedControl.key === item.key && showSliders}
+            />
+          )}
+        />
+      </View>
+      <Animated.View style={[styles.slidersContainer, slidersContainerStyle]}>
+        {selectedControl.values.map((value) => (
+          <View key={value.label} style={styles.sliderContainer}>
+            <Text style={styles.sliderLabel}>{value.label}</Text>
+            <CarouselSlider
+              key={value.label}
+              min={value.min}
+              max={value.max}
+              value={faceValues[value.key]}
+              onValueChange={(val) => handleValueChange(value.key, val)}
+            />
+          </View>
+        ))}
+      </Animated.View>
     </View>
   );
 };
@@ -482,12 +510,14 @@ interface CarouselItemProps {
   animationValue: Animated.SharedValue<number>;
   icon: string;
   onPress: () => void;
+  isSelected: boolean;
 }
 
 const CarouselItemComponent = ({
   animationValue,
   icon,
   onPress,
+  isSelected,
 }: CarouselItemProps) => {
   const containerStyle = useAnimatedStyle(() => {
     const opacity = interpolate(
@@ -499,6 +529,13 @@ const CarouselItemComponent = ({
     return { opacity };
   }, [animationValue]);
 
+  const borderColorStyle = useAnimatedStyle(() => {
+    const borderColor = isSelected
+      ? withTiming("#FFD409", { duration: 250 })
+      : withTiming("#46454A", { duration: 250 });
+    return { borderColor };
+  }, [isSelected]);
+
   return (
     <Pressable onPress={onPress}>
       <Animated.View
@@ -507,14 +544,19 @@ const CarouselItemComponent = ({
           containerStyle,
         ]}
       >
-        <View style={styles.facePartIconContainer}>
+        <Animated.View // Change View to Animated.View
+          style={[
+            styles.facePartIconContainer,
+            borderColorStyle, // Apply the animated border color style
+          ]}
+        >
           <SymbolView
             name={icon as any}
             weight="regular"
             style={styles.facePartIcon}
             resizeMode="scaleAspectFit"
           />
-        </View>
+        </Animated.View>
       </Animated.View>
     </Pressable>
   );
@@ -522,36 +564,34 @@ const CarouselItemComponent = ({
 
 const styles = StyleSheet.create({
   slidersContainer: {
-    flex: 1,
-    gap: 10,
+    gap: 12,
     flexDirection: "column",
-    alignItems: "center",
+    marginHorizontal: 20,
   },
   sliderContainer: {
-    flex: 1,
-    gap: 2,
+    height: 40,
+    flex: 0,
+    gap: 5,
     flexDirection: "column",
+    justifyContent: "center",
     alignItems: "center",
   },
   facePartIconContainer: {
     borderRadius: 50,
     padding: 10,
     borderWidth: 2,
-    borderColor: "#46454A",
   },
-  sliderLabel: {
-    color: "#8E8D93",
-    fontWeight: "500",
-    fontSize: 12,
-  },
-  sliderValue: {
-    color: "#8E8D93",
+  facePartIcon: {
+    height: 32,
+    width: 32,
+    tintColor: "#8E8D93",
   },
   adjustBar: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 20,
+    marginTop: 20,
+    marginBottom: 20,
     paddingHorizontal: 20,
   },
   adjustSymbol: {
@@ -564,22 +604,17 @@ const styles = StyleSheet.create({
     width: 24,
     tintColor: "#8E8D93",
   },
-  facePartIcon: {
-    height: 32,
-    width: 32,
-    tintColor: "#8E8D93",
-  },
   adjustText: {
     color: "#8E8D93",
     fontWeight: "500",
     fontSize: 14,
   },
   container: {
-    flex: 1,
     backgroundColor: "#000",
+    flex: 1,
   },
   imageContainer: {
-    flex: 1,
+    height: "50%",
   },
   topBarButton: {
     backgroundColor: "#8E8D93",
@@ -655,9 +690,14 @@ const styles = StyleSheet.create({
     fontWeight: "light",
     fontSize: 12,
   },
-  carousel: {
+  carouselContainer: {
     width: "100%",
-    marginVertical: 20,
+    height: 58,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  carousel: {
+    width: "200%",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -680,7 +720,16 @@ const styles = StyleSheet.create({
   },
   bottomPager: {
     flex: 1,
-    marginTop: 20,
-    marginBottom: 50,
+    gap: 10,
+    justifyContent: "flex-start",
+    marginVertical: 20,
+  },
+  sliderLabel: {
+    color: "#8E8D93",
+    fontWeight: "500",
+    fontSize: 12,
+  },
+  sliderValue: {
+    color: "#8E8D93",
   },
 });

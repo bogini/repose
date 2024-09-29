@@ -54,7 +54,7 @@ export const CarouselSlider: React.FC<SliderProps> = ({
         ref={carouselRef}
         style={styles.carousel}
         width={10}
-        height={16}
+        height={14}
         data={data}
         defaultIndex={Math.round(
           ((value - min) / (max - min)) * (numTicks - 1)
@@ -65,6 +65,7 @@ export const CarouselSlider: React.FC<SliderProps> = ({
           <MemoizedCarouselItemComponent
             animationValue={animationValue}
             onPress={() => scrollToIndex(index)}
+            isSpecialTick={index % 10 === 0}
           />
         )}
       />
@@ -75,17 +76,19 @@ export const CarouselSlider: React.FC<SliderProps> = ({
 interface CarouselItemProps {
   animationValue: Animated.SharedValue<number>;
   onPress: () => void;
+  isSpecialTick: boolean;
 }
 
 const CarouselItemComponent = ({
   animationValue,
   onPress,
+  isSpecialTick,
 }: CarouselItemProps) => {
   const containerStyle = useAnimatedStyle(() => {
     const opacity = interpolate(
       animationValue.value,
       [-1, 0, 1],
-      [0.4, 1, 0.4],
+      [0.5, 1, 0.5],
       Extrapolation.CLAMP
     );
 
@@ -102,7 +105,9 @@ const CarouselItemComponent = ({
           containerStyle,
         ]}
       >
-        <View style={styles.tickMark} />
+        <View
+          style={[styles.tickMark, isSpecialTick && styles.specialTickMark]}
+        />
       </Animated.View>
     </Pressable>
   );
@@ -113,6 +118,7 @@ const MemoizedCarouselItemComponent = React.memo(CarouselItemComponent);
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    height: 14,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -124,7 +130,10 @@ const styles = StyleSheet.create({
   },
   tickMark: {
     width: 1,
-    height: "100%",
-    backgroundColor: "#ffffff",
+    height: 14,
+    backgroundColor: "rgba(255, 255, 255, 0.7)",
+  },
+  specialTickMark: {
+    backgroundColor: "rgba(255, 255, 255, 1)",
   },
 });
