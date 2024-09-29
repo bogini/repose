@@ -22,6 +22,9 @@ import {
   GestureEvent,
   TapGestureHandlerEventPayload,
   RotationGestureHandler,
+  PinchGestureHandlerEventPayload,
+  PanGestureHandlerEventPayload,
+  RotationGestureHandlerEventPayload,
 } from "react-native-gesture-handler";
 
 interface Photo {
@@ -56,7 +59,7 @@ type FaceValues = {
 const FACE_CONTROLS: FaceControl[] = [
   {
     key: "face",
-    icon: "face.smiling",
+    icon: "face.smiling.inverse",
     label: "FACE",
     values: [
       {
@@ -94,13 +97,13 @@ const FACE_CONTROLS: FaceControl[] = [
         max: 5,
         gesture: "pinch",
       },
-      {
-        key: "wink",
-        label: "Wink",
-        min: 0,
-        max: 25,
-        gesture: "tapX",
-      },
+      // {
+      //   key: "wink",
+      //   label: "Wink",
+      //   min: 0,
+      //   max: 25,
+      //   gesture: "pinch",
+      // },
       {
         key: "pupilX",
         label: "Horizontal",
@@ -127,7 +130,7 @@ const FACE_CONTROLS: FaceControl[] = [
         label: "Smile",
         min: -0.3,
         max: 1.3,
-        gesture: "tapY",
+        gesture: "pinch",
       },
     ],
   },
@@ -154,10 +157,10 @@ export default function EditScreen() {
 
   const handleFaceValuesChange = (values: FaceValues) => {
     setLoading(true);
-    setTimeout(() => {
-      setFaceValues(values);
-      setLoading(false);
-    }, 1000);
+    //setTimeout(() => {
+    setFaceValues(values);
+    setLoading(false);
+    //}, 1000);
   };
 
   if (!photo) {
@@ -294,20 +297,26 @@ const ImageContainer = ({
     }
   };
 
-  const handlePanGesture = (event) => {
+  const handlePanGesture = (
+    event: GestureEvent<PanGestureHandlerEventPayload>
+  ) => {
     const { translationX, translationY } = event.nativeEvent;
-    handleGesture("panX", translationX); // Yaw
-    handleGesture("panY", -translationY); // Pitch (inverted for up/down)
+    handleGesture("panX", translationX);
+    handleGesture("panY", -translationY);
   };
 
-  const handlePinchGesture = (event) => {
+  const handlePinchGesture = (
+    event: GestureEvent<PinchGestureHandlerEventPayload>
+  ) => {
     const { scale } = event.nativeEvent;
     handleGesture("pinch", (scale - 1) * 100);
   };
 
-  const handleRotationGesture = (event) => {
+  const handleRotationGesture = (
+    event: GestureEvent<RotationGestureHandlerEventPayload>
+  ) => {
     const { rotation } = event.nativeEvent;
-    handleGesture("rotation", (rotation / Math.PI) * 180); // Convert radians to degrees
+    handleGesture("rotation", (rotation / Math.PI) * 180);
   };
 
   const handleTapGesture = (
@@ -330,13 +339,22 @@ const ImageContainer = ({
   useEffect(() => {
     handleFaceValuesChange(gestureValues);
   }, [gestureValues]);
+  const rotationRef = useRef(null);
+  const tapRef = useRef(null);
 
   return (
     <GestureHandlerRootView style={styles.imageContainer}>
       <PanGestureHandler onGestureEvent={handlePanGesture}>
-        <PinchGestureHandler onGestureEvent={handlePinchGesture}>
-          <RotationGestureHandler onGestureEvent={handleRotationGesture}>
-            <TapGestureHandler onGestureEvent={handleTapGesture}>
+        <PinchGestureHandler
+          onGestureEvent={handlePinchGesture}
+          simultaneousHandlers={[rotationRef, tapRef]}
+        >
+          <RotationGestureHandler
+            onGestureEvent={handleRotationGesture}
+            simultaneousHandlers={[tapRef]}
+            ref={rotationRef}
+          >
+            <TapGestureHandler onGestureEvent={handleTapGesture} ref={tapRef}>
               <Animated.View style={[styles.fullSize, animatedStyle]}>
                 <Animated.Image
                   source={{ uri: photo.url }}
