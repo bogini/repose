@@ -29,6 +29,11 @@ import {
 import ReplicateService from "../../api/replicate";
 import { debounce } from "lodash";
 
+enum GestureDirection {
+  Normal = "normal",
+  Inverted = "inverted",
+}
+
 interface Photo {
   id: number;
   url: string;
@@ -44,10 +49,12 @@ interface FaceControl {
     min: number;
     max: number;
     gesture: "panX" | "panY" | "pinch" | "tapX" | "tapY" | "rotation";
+    direction?: GestureDirection;
   }[];
 }
 
 type FaceValues = {
+  eyebrow: number;
   pitch: number;
   yaw: number;
   roll: number;
@@ -88,6 +95,20 @@ const FACE_CONTROLS: FaceControl[] = [
     ],
   },
   {
+    key: "mouth",
+    icon: "mouth.fill",
+    label: "MOUTH",
+    values: [
+      {
+        key: "smile",
+        label: "Smile",
+        min: -0.3,
+        max: 1.3,
+        gesture: "pinch",
+      },
+    ],
+  },
+  {
     key: "eyes",
     icon: "eye.fill",
     label: "EYES",
@@ -112,6 +133,7 @@ const FACE_CONTROLS: FaceControl[] = [
         min: -15,
         max: 15,
         gesture: "panX",
+        direction: GestureDirection.Inverted,
       },
       {
         key: "pupilY",
@@ -119,20 +141,22 @@ const FACE_CONTROLS: FaceControl[] = [
         min: -15,
         max: 15,
         gesture: "panY",
+        direction: GestureDirection.Inverted,
       },
     ],
   },
   {
-    key: "mouth",
-    icon: "mouth.fill",
-    label: "MOUTH",
+    key: "eyes",
+    icon: "eyebrow",
+    label: "EYEBROWS",
     values: [
       {
-        key: "smile",
-        label: "Smile",
-        min: -0.3,
-        max: 1.3,
-        gesture: "pinch",
+        key: "eyebrow",
+        label: "Height",
+        min: -10,
+        max: 15,
+        gesture: "panY",
+        direction: GestureDirection.Inverted,
       },
     ],
   },
@@ -142,6 +166,7 @@ export default function EditScreen() {
   const [faceValues, setFaceValues] = useState<FaceValues>({
     pitch: 0,
     yaw: 0,
+    eyebrow: 0,
     roll: 0,
     blink: 0,
     wink: 0,
@@ -176,6 +201,7 @@ export default function EditScreen() {
         rotateYaw: values.yaw,
         rotateRoll: values.roll,
         pupilX: values.pupilX,
+        eyebrow: values.eyebrow,
         pupilY: values.pupilY,
         smile: values.smile,
         blink: values.blink,
@@ -300,23 +326,15 @@ const ImageContainer = ({
   });
 
   const handleGesture = (gesture: string, value: number) => {
-    console.log(`Gesture: ${gesture}, Value: ${value}`);
-
     const control = selectedControl.values.find((v) => v.gesture === gesture);
     if (control) {
       const range = control.max - control.min;
-      const normalizedValue = isNaN(value) ? 0 : (value / 100) * range; // Check if value is NaN and fallback to 0
-      console.log(
-        `Control: ${control.key}, Normalized Value: ${normalizedValue}`
-      );
+      const normalizedValue = isNaN(value) ? 0 : (value / 100) * range * 2; // Check if value is NaN and fallback to 0, apply magnifier
 
       setGestureValues((prevValues) => {
         const newValue = Math.min(
           Math.max(prevValues[control.key] + normalizedValue, control.min),
           control.max
-        );
-        console.log(
-          `Previous Value: ${prevValues[control.key]}, New Value: ${newValue}`
         );
 
         return {
@@ -336,8 +354,21 @@ const ImageContainer = ({
     const normalizedX = (translationX / imageWidth) * 100;
     const normalizedY = (translationY / imageHeight) * 100;
 
-    handleGesture("panX", normalizedX);
-    handleGesture("panY", normalizedY);
+    selectedControl.values.forEach((control) => {
+      if (control.gesture === "panX") {
+        const value =
+          control.direction === GestureDirection.Inverted
+            ? -normalizedX
+            : normalizedX;
+        handleGesture("panX", value);
+      } else if (control.gesture === "panY") {
+        const value =
+          control.direction === GestureDirection.Inverted
+            ? -normalizedY
+            : normalizedY;
+        handleGesture("panY", value);
+      }
+    });
   };
 
   const handlePinchGesture = (
@@ -453,7 +484,7 @@ const FaceControlsComponent = ({
         data={FACE_CONTROLS}
         defaultIndex={0}
         loop={false}
-        onSnapToItem={(index) => setSelectedControl(FACE_CONTROLS[index])} // Update state
+        onSnapToItem={(index) => setSelectedControl(FACE_CONTROLS[index])}
         renderItem={({ item, animationValue, index }) => (
           <CarouselItemComponent
             animationValue={animationValue}
