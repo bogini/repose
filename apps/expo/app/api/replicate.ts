@@ -62,18 +62,12 @@ class ReplicateService {
       ...rest
     } = input;
 
-    console.log(
-      "ReplicateService.runExpressionEditor",
-      modelIdentifier,
-      proxyEndpoint,
-      rest
-    );
-
     try {
       // Cancel previous request if it exists
       this.cancelTokenSource.cancel("Request canceled due to new request");
     } catch (error) {
       if (!axios.isCancel(error)) {
+        console.error("Error canceling previous request:", error);
         throw error;
       }
     }
@@ -81,9 +75,8 @@ class ReplicateService {
     // Create a new cancel token for the current request
     this.cancelTokenSource = axios.CancelToken.source();
 
-    const { data } = await axios.post<ReplicateResponse>(
-      proxyEndpoint!,
-      {
+    try {
+      const payload = {
         modelIdentifier,
         ...rest,
         output_format: outputFormat,
@@ -96,13 +89,39 @@ class ReplicateService {
         pupil_y: rest.pupilY,
         crop_factor: rest.cropFactor,
         src_ratio: rest.srcRatio,
-      },
-      { cancelToken: this.cancelTokenSource.token }
-    );
+      };
 
-    console.log(`Model output: ${JSON.stringify(data)}`);
+      console.log("Request", {
+        proxyEndpoint,
+        modelIdentifier,
+        payload,
+      });
 
-    return data[0];
+      const { data } = await axios.post<ReplicateResponse>(
+        proxyEndpoint!,
+        payload,
+        { cancelToken: this.cancelTokenSource.token }
+      );
+
+      console.log(`Model output: ${JSON.stringify(data)}`);
+
+      return data[0];
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        if (error.code === "ECONNABORTED") {
+          console.error("Request timeout:", error);
+        } else if (error.message === "Network Error") {
+          console.error(
+            "Network error: Please check your connection or server status."
+          );
+        } else {
+          console.error("Axios error response:", error);
+        }
+      } else {
+        console.error("Request error:", error);
+      }
+      throw error;
+    }
   }
 }
 
