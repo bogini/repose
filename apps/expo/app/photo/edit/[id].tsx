@@ -70,27 +70,9 @@ const FACE_CONTROLS: FaceControl[] = [
     icon: "face.smiling.inverse",
     label: "FACE",
     values: [
-      {
-        key: "pitch",
-        label: "Pitch",
-        min: -20,
-        max: 20,
-        gesture: "panY",
-      },
-      {
-        key: "yaw",
-        label: "Yaw",
-        min: -20,
-        max: 20,
-        gesture: "panX",
-      },
-      {
-        key: "roll",
-        label: "Roll",
-        min: -20,
-        max: 20,
-        gesture: "rotation",
-      },
+      { key: "pitch", label: "PITCH", min: -20, max: 20, gesture: "panY" },
+      { key: "yaw", label: "YAW", min: -20, max: 20, gesture: "panX" },
+      { key: "roll", label: "ROLL", min: -20, max: 20, gesture: "rotation" },
     ],
   },
   {
@@ -98,13 +80,7 @@ const FACE_CONTROLS: FaceControl[] = [
     icon: "mouth.fill",
     label: "MOUTH",
     values: [
-      {
-        key: "smile",
-        label: "Smile",
-        min: -0.3,
-        max: 1.3,
-        gesture: "pinch",
-      },
+      { key: "smile", label: "SMILE", min: -0.3, max: 1.3, gesture: "pinch" },
     ],
   },
   {
@@ -114,21 +90,14 @@ const FACE_CONTROLS: FaceControl[] = [
     values: [
       {
         key: "blink",
-        label: "Open",
+        label: "EYELID APERTURE",
         min: -20,
         max: 5,
         gesture: "pinch",
       },
-      // {
-      //   key: "wink",
-      //   label: "Wink",
-      //   min: 0,
-      //   max: 25,
-      //   gesture: "pinch",
-      // },
       {
         key: "pupilX",
-        label: "Horizontal",
+        label: "HORIZONTAL",
         min: -15,
         max: 15,
         gesture: "panX",
@@ -136,7 +105,7 @@ const FACE_CONTROLS: FaceControl[] = [
       },
       {
         key: "pupilY",
-        label: "Vertical",
+        label: "VERTICAL",
         min: -15,
         max: 15,
         gesture: "panY",
@@ -145,7 +114,7 @@ const FACE_CONTROLS: FaceControl[] = [
     ],
   },
   {
-    key: "eyes",
+    key: "eyebrows",
     icon: "eyebrow",
     label: "EYEBROWS",
     values: [
@@ -196,15 +165,7 @@ export default function EditScreen() {
       setLoading(true);
       const updatedImageUrl = await ReplicateService.runExpressionEditor({
         image: originalImageUrl,
-        rotatePitch: values.pitch,
-        rotateYaw: values.yaw,
-        rotateRoll: values.roll,
-        pupilX: values.pupilX,
-        eyebrow: values.eyebrow,
-        pupilY: values.pupilY,
-        smile: values.smile,
-        blink: values.blink,
-        wink: values.wink,
+        ...values,
       });
       setEditedImageUrl(updatedImageUrl);
       setLoading(false);
@@ -318,28 +279,22 @@ const ImageContainer = ({
       : withTiming(1, { duration: 250 });
   }, [loading, pulseAnimation]);
 
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      opacity: pulseAnimation.value,
-    };
-  });
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: pulseAnimation.value,
+  }));
 
   const handleGesture = (gesture: string, value: number) => {
     const control = selectedControl.values.find((v) => v.gesture === gesture);
     if (control) {
       const range = control.max - control.min;
-      const normalizedValue = isNaN(value) ? 0 : (value / 100) * range * 2; // Check if value is NaN and fallback to 0, apply magnifier
+      const normalizedValue = isNaN(value) ? 0 : (value / 100) * range * 2;
 
       setGestureValues((prevValues) => {
         const newValue = Math.min(
           Math.max(prevValues[control.key] + normalizedValue, control.min),
           control.max
         );
-
-        return {
-          ...prevValues,
-          [control.key]: newValue,
-        };
+        return { ...prevValues, [control.key]: newValue };
       });
     }
   };
@@ -400,19 +355,18 @@ const ImageContainer = ({
   const handleTapGesture = (
     event: GestureEvent<TapGestureHandlerEventPayload>
   ) => {
-    const { x, y, absoluteX, absoluteY } = event.nativeEvent;
+    const { x, y } = event.nativeEvent;
     const { width: imageWidth, height: imageHeight } = imageDimensions;
-    console.log(`Tap gesture detected at (${x}, ${y}) relative to the image`);
-    console.log(`Image dimensions: ${imageWidth}x${imageHeight}`);
-    const tapXValue = x < imageWidth / 2 ? 10 : -10; // Swap the values to invert the X-axis tap gesture
+    const tapXValue = x < imageWidth / 2 ? 10 : -10;
     handleGesture("tapX", tapXValue);
-    const tapYValue = y < imageHeight / 2 ? 10 : -10; // Swap the values to invert the Y-axis tap gesture
+    const tapYValue = y < imageHeight / 2 ? 10 : -10;
     handleGesture("tapY", tapYValue);
   };
 
   useEffect(() => {
     handleFaceValuesChange(gestureValues);
   }, [gestureValues]);
+
   const rotationRef = useRef(null);
   const tapRef = useRef(null);
 
@@ -467,19 +421,21 @@ const FaceControlsComponent = ({
   setSelectedControl,
 }: FaceControlsComponentProps) => {
   const carouselRef = useRef<ICarouselInstance>(null);
+  const [showSliders, setShowSliders] = useState(false);
+  const [previousSelectedControl, setPreviousSelectedControl] =
+    useState<FaceControl | null>(null);
 
   const scrollToIndex = (index: number) => {
-    carouselRef.current?.scrollTo({
-      index,
-      animated: true,
-    });
+    carouselRef.current?.scrollTo({ index, animated: true });
+    if (selectedControl.key === FACE_CONTROLS[index].key) {
+      setShowSliders(!showSliders);
+    }
+    setPreviousSelectedControl(selectedControl);
+    setSelectedControl(FACE_CONTROLS[index]);
   };
 
   const handleValueChange = (key: keyof FaceValues, value: number) => {
-    onFaceValuesChange({
-      ...faceValues,
-      [key]: value,
-    });
+    onFaceValuesChange({ ...faceValues, [key]: value });
   };
 
   return (
@@ -489,11 +445,11 @@ const FaceControlsComponent = ({
         ref={carouselRef}
         style={styles.carousel}
         width={100}
-        height={30}
+        height={60}
         data={FACE_CONTROLS}
         defaultIndex={0}
         loop={false}
-        onSnapToItem={(index) => setSelectedControl(FACE_CONTROLS[index])}
+        onSnapToItem={(index) => scrollToIndex(index)}
         renderItem={({ item, animationValue, index }) => (
           <CarouselItemComponent
             animationValue={animationValue}
@@ -502,20 +458,22 @@ const FaceControlsComponent = ({
           />
         )}
       />
-      <View style={styles.slidersContainer}>
-        {selectedControl.values.map((value) => (
-          <View key={value.label} style={styles.sliderContainer}>
-            <Text style={styles.sliderLabel}>{value.label}</Text>
-            <CarouselSlider
-              key={value.label}
-              min={value.min}
-              max={value.max}
-              value={faceValues[value.key]}
-              onValueChange={(val) => handleValueChange(value.key, val)}
-            />
-          </View>
-        ))}
-      </View>
+      {showSliders && (
+        <View style={styles.slidersContainer}>
+          {selectedControl.values.map((value) => (
+            <View key={value.label} style={styles.sliderContainer}>
+              <Text style={styles.sliderLabel}>{value.label}</Text>
+              <CarouselSlider
+                key={value.label}
+                min={value.min}
+                max={value.max}
+                value={faceValues[value.key]}
+                onValueChange={(val) => handleValueChange(value.key, val)}
+              />
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 };
@@ -538,26 +496,25 @@ const CarouselItemComponent = ({
       [0.4, 1, 0.4],
       Extrapolation.CLAMP
     );
-
-    return {
-      opacity: opacity,
-    };
+    return { opacity };
   }, [animationValue]);
 
   return (
-    <Pressable onPress={onPress} style={{ height: 32 }}>
+    <Pressable onPress={onPress}>
       <Animated.View
         style={[
           { alignItems: "center", justifyContent: "center" },
           containerStyle,
         ]}
       >
-        <SymbolView
-          name={icon as any}
-          weight="regular"
-          style={styles.facePartIcon}
-          resizeMode="scaleAspectFit"
-        />
+        <View style={styles.facePartIconContainer}>
+          <SymbolView
+            name={icon as any}
+            weight="regular"
+            style={styles.facePartIcon}
+            resizeMode="scaleAspectFit"
+          />
+        </View>
       </Animated.View>
     </Pressable>
   );
@@ -572,9 +529,15 @@ const styles = StyleSheet.create({
   },
   sliderContainer: {
     flex: 1,
-    gap: 4,
+    gap: 2,
     flexDirection: "column",
     alignItems: "center",
+  },
+  facePartIconContainer: {
+    borderRadius: 50,
+    padding: 10,
+    borderWidth: 2,
+    borderColor: "#46454A",
   },
   sliderLabel: {
     color: "#8E8D93",
