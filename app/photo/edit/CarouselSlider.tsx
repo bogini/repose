@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import React, { useRef, useEffect, useMemo } from "react";
+import { View, StyleSheet, Pressable } from "react-native";
 import Carousel, { ICarouselInstance } from "react-native-reanimated-carousel";
 import Animated, {
   Extrapolation,

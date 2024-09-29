@@ -1,10 +1,4 @@
-import {
-  Text,
-  View,
-  Pressable,
-  StyleSheet,
-  ActivityIndicator,
-} from "react-native";
+import { Text, View, Pressable, StyleSheet } from "react-native";
 import { photos } from "../../../data";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Animated, {
@@ -20,6 +14,15 @@ import { StatusBar } from "expo-status-bar";
 import Carousel, { ICarouselInstance } from "react-native-reanimated-carousel";
 import { useState, useRef, useEffect } from "react";
 import { CarouselSlider } from "./CarouselSlider";
+import {
+  GestureHandlerRootView,
+  PanGestureHandler,
+  PinchGestureHandler,
+  TapGestureHandler,
+  GestureEvent,
+  TapGestureHandlerEventPayload,
+  RotationGestureHandler,
+} from "react-native-gesture-handler";
 
 interface Photo {
   id: number;
@@ -35,6 +38,7 @@ interface FaceControl {
     label: string;
     min: number;
     max: number;
+    gesture: "panX" | "panY" | "pinch" | "tapX" | "tapY" | "rotation";
   }[];
 }
 
@@ -60,18 +64,21 @@ const FACE_CONTROLS: FaceControl[] = [
         label: "Pitch",
         min: -20,
         max: 20,
+        gesture: "panY",
       },
       {
         key: "yaw",
         label: "Yaw",
         min: -20,
         max: 20,
+        gesture: "panX",
       },
       {
         key: "roll",
         label: "Roll",
         min: -20,
         max: 20,
+        gesture: "rotation",
       },
     ],
   },
@@ -85,24 +92,28 @@ const FACE_CONTROLS: FaceControl[] = [
         label: "Blink",
         min: -20,
         max: 5,
+        gesture: "pinch",
       },
       {
         key: "wink",
         label: "Wink",
         min: 0,
         max: 25,
+        gesture: "tapX",
       },
       {
         key: "pupilX",
         label: "Horizontal",
         min: -15,
         max: 15,
+        gesture: "panX",
       },
       {
         key: "pupilY",
         label: "Vertical",
         min: -15,
         max: 15,
+        gesture: "panY",
       },
     ],
   },
@@ -116,6 +127,7 @@ const FACE_CONTROLS: FaceControl[] = [
         label: "Smile",
         min: -0.3,
         max: 1.3,
+        gesture: "tapY",
       },
     ],
   },
@@ -133,17 +145,12 @@ export default function EditScreen() {
     smile: -0.3,
   });
   const [loading, setLoading] = useState(false);
+  const [selectedControl, setSelectedControl] = useState(FACE_CONTROLS[0]);
 
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 
   const photo = photos.find((p) => p.id === Number.parseInt(id));
-
-  // useEffect(() => {
-  //   if (photo) {
-  //     setLoading(false);
-  //   }
-  // }, [photo]);
 
   const handleFaceValuesChange = (values: FaceValues) => {
     setLoading(true);
@@ -163,11 +170,18 @@ export default function EditScreen() {
       <TopBar onBack={() => router.back()} />
       <AdjustBar />
       <Text>Brightness</Text>
-      <ImageContainer photo={photo} loading={loading} />
-      {/* Add loading indicator */}
+      <ImageContainer
+        photo={photo}
+        loading={loading}
+        faceValues={faceValues}
+        handleFaceValuesChange={handleFaceValuesChange}
+        selectedControl={selectedControl}
+      />
       <FaceControlsComponent
         faceValues={faceValues}
         onFaceValuesChange={handleFaceValuesChange}
+        selectedControl={selectedControl}
+        setSelectedControl={setSelectedControl}
       />
     </View>
   );
@@ -225,10 +239,20 @@ const AdjustBar = () => (
 interface ImageContainerProps {
   photo: Photo;
   loading: boolean;
+  faceValues: FaceValues;
+  handleFaceValuesChange: (values: FaceValues) => void;
+  selectedControl: FaceControl;
 }
 
-const ImageContainer = ({ photo, loading }: ImageContainerProps) => {
+const ImageContainer = ({
+  photo,
+  loading,
+  faceValues,
+  handleFaceValuesChange,
+  selectedControl,
+}: ImageContainerProps) => {
   const pulseAnimation = useSharedValue(1);
+  const [gestureValues, setGestureValues] = useState<FaceValues>(faceValues);
 
   useEffect(() => {
     pulseAnimation.value = loading
@@ -242,27 +266,105 @@ const ImageContainer = ({ photo, loading }: ImageContainerProps) => {
     };
   });
 
+  const handleGesture = (gesture: string, value: number) => {
+    console.log(`Gesture: ${gesture}, Value: ${value}`);
+
+    const control = selectedControl.values.find((v) => v.gesture === gesture);
+    if (control) {
+      const range = control.max - control.min;
+      const normalizedValue = (value / 100) * range; // Normalize value based on control range
+      console.log(
+        `Control: ${control.key}, Normalized Value: ${normalizedValue}`
+      );
+
+      setGestureValues((prevValues) => {
+        const newValue = Math.min(
+          Math.max(prevValues[control.key] + normalizedValue, control.min),
+          control.max
+        );
+        console.log(
+          `Previous Value: ${prevValues[control.key]}, New Value: ${newValue}`
+        );
+
+        return {
+          ...prevValues,
+          [control.key]: newValue,
+        };
+      });
+    }
+  };
+
+  const handlePanGesture = (event) => {
+    const { translationX, translationY } = event.nativeEvent;
+    handleGesture("panX", translationX); // Yaw
+    handleGesture("panY", -translationY); // Pitch (inverted for up/down)
+  };
+
+  const handlePinchGesture = (event) => {
+    const { scale } = event.nativeEvent;
+    handleGesture("pinch", (scale - 1) * 100);
+  };
+
+  const handleRotationGesture = (event) => {
+    const { rotation } = event.nativeEvent;
+    handleGesture("rotation", (rotation / Math.PI) * 180); // Convert radians to degrees
+  };
+
+  const handleTapGesture = (
+    event: GestureEvent<TapGestureHandlerEventPayload>
+  ) => {
+    const { x, y, absoluteX, absoluteY } = event.nativeEvent;
+    const imageWidth = event.nativeEvent.target.width;
+    const imageHeight = event.nativeEvent.target.height;
+
+    console.log(`Tap gesture detected at (${x}, ${y}) relative to the image`);
+    console.log(`Image dimensions: ${imageWidth}x${imageHeight}`);
+
+    const tapXValue = x < imageWidth / 2 ? -10 : 10; // Left tap decreases, right tap increases
+    handleGesture("tapX", tapXValue);
+
+    const tapYValue = y < imageHeight / 2 ? -10 : 10; // Top tap decreases, bottom tap increases
+    handleGesture("tapY", tapYValue);
+  };
+
+  useEffect(() => {
+    handleFaceValuesChange(gestureValues);
+  }, [gestureValues]);
+
   return (
-    <View style={styles.imageContainer}>
-      <Animated.Image
-        source={{ uri: photo.url }}
-        style={[styles.fullSize, animatedStyle]}
-        resizeMode="contain"
-      />
-    </View>
+    <GestureHandlerRootView style={styles.imageContainer}>
+      <PanGestureHandler onGestureEvent={handlePanGesture}>
+        <PinchGestureHandler onGestureEvent={handlePinchGesture}>
+          <RotationGestureHandler onGestureEvent={handleRotationGesture}>
+            <TapGestureHandler onGestureEvent={handleTapGesture}>
+              <Animated.View style={[styles.fullSize, animatedStyle]}>
+                <Animated.Image
+                  source={{ uri: photo.url }}
+                  style={styles.fullSize}
+                  resizeMode="contain"
+                />
+              </Animated.View>
+            </TapGestureHandler>
+          </RotationGestureHandler>
+        </PinchGestureHandler>
+      </PanGestureHandler>
+    </GestureHandlerRootView>
   );
 };
 
 interface FaceControlsComponentProps {
   faceValues: FaceValues;
   onFaceValuesChange: (values: FaceValues) => void;
+  selectedControl: FaceControl;
+  setSelectedControl: React.Dispatch<React.SetStateAction<FaceControl>>;
 }
 
 const FaceControlsComponent = ({
   faceValues,
   onFaceValuesChange,
+  selectedControl,
+  setSelectedControl,
 }: FaceControlsComponentProps) => {
-  const [selectedControl, setSelectedControl] = useState(FACE_CONTROLS[0]);
   const carouselRef = useRef<ICarouselInstance>(null);
 
   const scrollToIndex = (index: number) => {
@@ -290,7 +392,7 @@ const FaceControlsComponent = ({
         data={FACE_CONTROLS}
         defaultIndex={0}
         loop={false}
-        onSnapToItem={(index) => setSelectedControl(FACE_CONTROLS[index])}
+        onSnapToItem={(index) => setSelectedControl(FACE_CONTROLS[index])} // Update state
         renderItem={({ item, animationValue, index }) => (
           <CarouselItemComponent
             animationValue={animationValue}
