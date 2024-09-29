@@ -6,6 +6,8 @@ const replicate = new Replicate({
 });
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
+  const start = Date.now();
+
   if (req.method !== "POST") {
     res.setHeader("Allow", ["POST"]);
     return res.status(405).end(`Method ${req.method} Not Allowed`);
@@ -24,9 +26,14 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 
     console.log(`Model output: ${JSON.stringify(prediction)}`);
 
+    const end = Date.now();
+    console.log(`Request took ${end - start} ms`);
+
     return res.status(200).json(prediction);
   } catch (error) {
     console.error(`Error running model: ${error}`);
+    const end = Date.now();
+    console.log(`Request took ${end - start} ms`);
     return res.status(500).json({
       error: `Error running model: ${error instanceof Error ? error.message : error}`,
     });

@@ -150,6 +150,7 @@ export default function EditScreen() {
   });
   const [loading, setLoading] = useState(false);
   const [selectedControl, setSelectedControl] = useState(FACE_CONTROLS[0]);
+  const [imageUrl, setImageUrl] = useState(photo?.url); // Add state for image URL
 
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -167,19 +168,20 @@ export default function EditScreen() {
   useEffect(() => {
     const runEditor = async () => {
       if (photo) {
-        const result = await ReplicateService.runExpressionEditor({
-          image: photo?.url,
-          rotatePitch: faceValues.pitch,
-          rotateYaw: faceValues.yaw,
-          rotateRoll: faceValues.roll,
-          pupilX: faceValues.pupilX,
-          pupilY: faceValues.pupilY,
-          smile: faceValues.smile,
-          blink: faceValues.blink,
-          wink: faceValues.wink,
-        });
-
-        console.log({ result });
+        setLoading(true);
+        // const updatedImageUrl = await ReplicateService.runExpressionEditor({
+        //   image: photo?.url,
+        //   rotatePitch: faceValues.pitch,
+        //   rotateYaw: faceValues.yaw,
+        //   rotateRoll: faceValues.roll,
+        //   pupilX: faceValues.pupilX,
+        //   pupilY: faceValues.pupilY,
+        //   smile: faceValues.smile,
+        //   blink: faceValues.blink,
+        //   wink: faceValues.wink,
+        // });
+        // setImageUrl(updatedImageUrl);
+        setLoading(false);
       }
     };
 
@@ -202,6 +204,7 @@ export default function EditScreen() {
         faceValues={faceValues}
         handleFaceValuesChange={handleFaceValuesChange}
         selectedControl={selectedControl}
+        imageUrl={imageUrl}
       />
       <FaceControlsComponent
         faceValues={faceValues}
@@ -268,14 +271,15 @@ interface ImageContainerProps {
   faceValues: FaceValues;
   handleFaceValuesChange: (values: FaceValues) => void;
   selectedControl: FaceControl;
+  imageUrl: string; // Add image
 }
 
 const ImageContainer = ({
-  photo,
   loading,
   faceValues,
   handleFaceValuesChange,
   selectedControl,
+  imageUrl,
 }: ImageContainerProps) => {
   const pulseAnimation = useSharedValue(1);
   const [gestureValues, setGestureValues] = useState<FaceValues>(faceValues);
@@ -380,7 +384,7 @@ const ImageContainer = ({
             <TapGestureHandler onGestureEvent={handleTapGesture} ref={tapRef}>
               <Animated.View style={[styles.fullSize, animatedStyle]}>
                 <Animated.Image
-                  source={{ uri: photo.url }}
+                  source={{ uri: imageUrl }}
                   style={styles.fullSize}
                   resizeMode="contain"
                 />
