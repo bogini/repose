@@ -26,7 +26,6 @@ import {
   PanGestureHandlerEventPayload,
   RotationGestureHandlerEventPayload,
 } from "react-native-gesture-handler";
-import { debounce } from "lodash";
 import ReplicateService from "../../api/replicate";
 
 interface Photo {
