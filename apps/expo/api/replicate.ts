@@ -1,21 +1,9 @@
 import axios from "axios";
-import { debounce } from "lodash";
+import { BASE_URL } from "./constants";
 
-const modelIdentifier =
+const MODEL_IDENTIFIER =
   "fofr/expression-editor:bf913bc90e1c44ba288ba3942a538693b72e8cc7df576f3beebe56adc0a92b86";
-//const proxyEndpoint = "http://localhost:3000/api/replicate";
-const proxyEndpoint =
-  "https://3095-2601-645-8880-4dac-181c-4e27-cc23-e06a.ngrok-free.app/api/replicate";
-
-console.log({ modelIdentifier, proxyEndpoint });
-
-if (!modelIdentifier) {
-  throw new Error("REPLICATE_MODEL_IDENTIFIER is not set");
-}
-
-if (!proxyEndpoint) {
-  throw new Error("REPLICATE_PROXY_ENDPOINT is not set");
-}
+const REPLICATE_ENDPOINT = BASE_URL + "/api/replicate";
 
 interface ExpressionEditorInput {
   image: string;
@@ -45,16 +33,6 @@ interface ReplicateResponse {
 
 class ReplicateService {
   private cancelTokenSource = axios.CancelToken.source();
-  private debouncedRunExpressionEditor: (
-    input: ExpressionEditorInput
-  ) => Promise<string>;
-
-  constructor() {
-    this.debouncedRunExpressionEditor = debounce(
-      this.runExpressionEditor.bind(this),
-      250
-    ) as (input: ExpressionEditorInput) => Promise<string>;
-  }
 
   async runExpressionEditor(input: ExpressionEditorInput): Promise<string> {
     const {
@@ -79,7 +57,7 @@ class ReplicateService {
 
     try {
       const payload = {
-        modelIdentifier,
+        modelIdentifier: MODEL_IDENTIFIER,
         ...rest,
         output_format: outputFormat,
         output_quality: outputQuality,
@@ -94,13 +72,13 @@ class ReplicateService {
       };
 
       console.log("Request", {
-        proxyEndpoint,
-        modelIdentifier,
+        proxyEndpoint: REPLICATE_ENDPOINT,
+        modelIdentifier: MODEL_IDENTIFIER,
         payload,
       });
 
       const { data } = await axios.post<ReplicateResponse>(
-        proxyEndpoint!,
+        REPLICATE_ENDPOINT!,
         payload,
         { cancelToken: this.cancelTokenSource.token }
       );
@@ -117,7 +95,7 @@ class ReplicateService {
             "Network error: Please check your connection or server status."
           );
         } else {
-          console.error("Axios error response:", error);
+          // console.error("Axios error response:", error);
         }
       } else {
         console.error("Request error:", error);

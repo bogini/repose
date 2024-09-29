@@ -73,7 +73,7 @@ type FaceValues = {
 const FACE_CONTROLS: FaceControl[] = [
   {
     key: "face",
-    icon: "face.smiling.inverse",
+    icon: "face.smiling",
     label: "FACE",
     values: [
       { key: "pitch", label: "PITCH", min: -20, max: 20, gesture: "panY" },
@@ -83,7 +83,7 @@ const FACE_CONTROLS: FaceControl[] = [
   },
   {
     key: "mouth",
-    icon: "mouth.fill",
+    icon: "mouth",
     label: "MOUTH",
     values: [
       { key: "smile", label: "SMILE", min: -0.3, max: 1.3, gesture: "pinch" },
@@ -91,7 +91,7 @@ const FACE_CONTROLS: FaceControl[] = [
   },
   {
     key: "eyes",
-    icon: "eye.fill",
+    icon: "eye",
     label: "EYES",
     values: [
       {
@@ -306,9 +306,11 @@ const ImageContainer = ({
       const normalizedValue = isNaN(value) ? 0 : (value / 100) * range * 2;
 
       setGestureValues((prevValues) => {
-        const newValue = Math.min(
-          Math.max(prevValues[control.key] + normalizedValue, control.min),
-          control.max
+        const newValue = Math.round(
+          Math.min(
+            Math.max(prevValues[control.key] + normalizedValue, control.min),
+            control.max
+          )
         );
         console.log(
           `Gesture: ${gesture}, Value: ${value}, Control Key: ${control.key}, Normalized Value: ${normalizedValue}, New Value: ${newValue}`
