@@ -1,8 +1,11 @@
-import axios, { CancelToken } from "axios";
+import axios from "axios";
 import { debounce } from "lodash";
 
-const modelIdentifier = process.env.EXPO_PUBLIC_REPLICATE_MODEL_IDENTIFIER;
-const proxyEndpoint = process.env.EXPO_PUBLIC_REPLICATE_PROXY_ENDPOINT;
+const modelIdentifier =
+  "fofr/expression-editor:bf913bc90e1c44ba288ba3942a538693b72e8cc7df576f3beebe56adc0a92b86";
+const proxyEndpoint = "http://localhost:3000/api/replicate";
+
+console.log({ modelIdentifier, proxyEndpoint });
 
 if (!modelIdentifier) {
   throw new Error("REPLICATE_MODEL_IDENTIFIER is not set");

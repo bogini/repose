@@ -54,15 +54,6 @@ export default function App() {
     scale.value = withTiming(1, { duration: 6000 });
   }, [headerCarouselPage]);
 
-  // useAnimatedReaction(
-  //   () => scrollMode.value,
-  //   (current, previous) => {
-  //     if (current !== previous) {
-  //       console.log("SCROLL MODE: ", current);
-  //     }
-  //   }
-  // );
-
   useAnimatedReaction(
     () => gestureScrollPosition.value,
     (current, previous) => {
@@ -153,7 +144,7 @@ export default function App() {
             onScroll={onFlatListScroll}
             renderItem={({ item }) => (
               <Link href={`/photo/${item.id}`} asChild>
-                <Pressable style={{ width: `${100 / 4}%`, aspectRatio: 1 }}>
+                <Pressable style={{ width: "25%", aspectRatio: 1 }}>
                   <Image
                     source={{ uri: item.url }}
                     style={{ width: "100%", height: "100%" }}

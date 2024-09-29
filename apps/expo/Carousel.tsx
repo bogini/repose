@@ -1,8 +1,11 @@
-import { View, Text, ScrollView, Image, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Image, StyleSheet } from "react-native";
 
 type Carousel = {
   title: string;
-  photos: any[];
+  photos: {
+    id: string;
+    url: string;
+  }[];
 };
 
 export default function Carousel({ title, photos }: Carousel) {
@@ -19,7 +22,11 @@ export default function Carousel({ title, photos }: Carousel) {
         decelerationRate="fast"
       >
         {photos.map((photo) => (
-          <Image key={photo.id} source={photo.image} style={styles.image} />
+          <Image
+            key={photo.id}
+            source={{ uri: photo.url }}
+            style={styles.image}
+          />
         ))}
       </ScrollView>
     </View>
@@ -32,7 +39,7 @@ const styles = StyleSheet.create({
   },
   title: {
     padding: 15,
-    fontWeight: '700',
+    fontWeight: "700",
     fontSize: 20,
   },
   images: {
