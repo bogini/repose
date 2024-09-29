@@ -107,7 +107,7 @@ const FACE_CONTROLS: FaceControl[] = [
         min: -15,
         max: 15,
         gesture: "panX",
-        direction: GestureDirection.Inverted,
+        // direction: GestureDirection.Inverted,
       },
       {
         key: "pupilY",

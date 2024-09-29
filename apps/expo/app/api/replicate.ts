@@ -3,7 +3,9 @@ import { debounce } from "lodash";
 
 const modelIdentifier =
   "fofr/expression-editor:bf913bc90e1c44ba288ba3942a538693b72e8cc7df576f3beebe56adc0a92b86";
-const proxyEndpoint = "http://localhost:3000/api/replicate";
+//const proxyEndpoint = "http://localhost:3000/api/replicate";
+const proxyEndpoint =
+  "https://3095-2601-645-8880-4dac-181c-4e27-cc23-e06a.ngrok-free.app/api/replicate";
 
 console.log({ modelIdentifier, proxyEndpoint });
 
