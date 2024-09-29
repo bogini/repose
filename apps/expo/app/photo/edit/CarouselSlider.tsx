@@ -104,9 +104,16 @@ const SliderTick = ({
       [-1, 0, 1],
       ["#FFFFFF", "#FFD409", "#FFFFFF"]
     );
+    const opacity = interpolate(
+      animationValue.value,
+      [-1, 0, 1],
+      isSpecialTick ? [1, 1, 1] : [0.7, 1, 0.7],
+      Extrapolation.CLAMP
+    );
 
     return {
       backgroundColor,
+      opacity,
     };
   });
 
@@ -118,13 +125,7 @@ const SliderTick = ({
           containerStyle,
         ]}
       >
-        <Animated.View
-          style={[
-            styles.tickMark,
-            tickStyle,
-            isSpecialTick && styles.specialTickMark,
-          ]}
-        />
+        <Animated.View style={[styles.tickMark, tickStyle]} />
       </Animated.View>
     </Pressable>
   );
