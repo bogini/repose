@@ -36,21 +36,22 @@ class PhotosService {
 
     const optimizedImage = await this.optimizeImage(fileUri);
 
-    const formData = new FormData();
-    formData.append(
-      "file",
-      await FileSystem.readAsStringAsync(optimizedImage.uri, {
+    const base64String = await FileSystem.readAsStringAsync(
+      optimizedImage.uri,
+      {
         encoding: FileSystem.EncodingType.Base64,
-      })
+      }
     );
+
+    const dataUrl = `data:image/webp;base64,${base64String}`;
 
     try {
       const { data } = await axios.post<UploadResponse>(
         PHOTOS_ENDPOINT,
-        formData,
+        dataUrl,
         {
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type": "text/plain",
           },
         }
       );

@@ -23,11 +23,11 @@ import Animated, {
 } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 
+import UploadImageTile from "../components/UploadImageTile";
+
 export default function App() {
   const { height, width } = useWindowDimensions();
-  const [headerCarouselPage, setHeaderCarouselPage] = useState(0);
 
-  const scale = useSharedValue(1.2);
   const pageScrollViewPosition = useSharedValue(0);
   const gestureScrollPosition = useSharedValue(height / 2);
 
@@ -44,15 +44,6 @@ export default function App() {
   const flatListScrollEnabled = useDerivedValue(
     () => scrollMode.value === "FLAT_LIST"
   );
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  useEffect(() => {
-    scale.value = 1.2;
-    scale.value = withTiming(1, { duration: 6000 });
-  }, [headerCarouselPage]);
 
   useAnimatedReaction(
     () => gestureScrollPosition.value,
@@ -89,18 +80,6 @@ export default function App() {
     }
   });
 
-  const onHeaderCarouselScroll = (
-    e: NativeSyntheticEvent<NativeScrollEvent>
-  ) => {
-    const curPage = Math.max(
-      0,
-      Math.floor((e.nativeEvent.contentOffset.x + width / 2) / width)
-    );
-    if (curPage !== headerCarouselPage) {
-      setHeaderCarouselPage(curPage);
-    }
-  };
-
   const gesture = Gesture.Pan()
     .onChange((e) => {
       if (scrollMode.value === "GESTURE") {
@@ -130,28 +109,42 @@ export default function App() {
         style={[styles.container]}
         onScroll={onPageScroll}
       >
-        {/* Header */}
         <Animated.View style={headerStyle}>
           <Animated.FlatList
             ref={flatListRef}
             style={{ width }}
-            data={photos}
+            data={[
+              ...(photos.length > 3 ? photos.slice(-3) : photos),
+              { id: "upload", url: "" },
+              ...(photos.length > 3 ? photos.slice(0, -3) : []),
+            ]}
             numColumns={4}
             contentContainerStyle={{ gap: 1 }}
             columnWrapperStyle={{ gap: 1 }}
             scrollEnabled={flatListScrollEnabled}
             inverted
             onScroll={onFlatListScroll}
-            renderItem={({ item }) => (
-              <Link href={`/photo/${item.id}`} asChild>
-                <Pressable style={{ width: "25%", aspectRatio: 1 }}>
-                  <Image
-                    source={{ uri: item.url }}
-                    style={{ width: "100%", height: "100%" }}
-                  />
-                </Pressable>
-              </Link>
-            )}
+            renderItem={({ item }) =>
+              item.id === "upload" ? (
+                <UploadImageTile
+                  onUploadSuccess={(response) => {
+                    // Handle successful upload
+                  }}
+                  onUploadError={(error) => {
+                    // Handle upload error
+                  }}
+                />
+              ) : (
+                <Link href={`/photo/${item.id}`} asChild>
+                  <Pressable style={{ width: "25%", aspectRatio: 1 }}>
+                    <Image
+                      source={{ uri: item.url }}
+                      style={{ width: "100%", height: "100%" }}
+                    />
+                  </Pressable>
+                </Link>
+              )
+            }
           />
         </Animated.View>
 

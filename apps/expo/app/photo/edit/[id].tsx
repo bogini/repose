@@ -1,10 +1,4 @@
-import {
-  Text,
-  View,
-  Pressable,
-  StyleSheet,
-  useWindowDimensions,
-} from "react-native";
+import { Text, View, Pressable, StyleSheet } from "react-native";
 import { photos } from "../../../data";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Animated, {
@@ -18,8 +12,8 @@ import Animated, {
 import { SymbolView } from "expo-symbols";
 import { StatusBar } from "expo-status-bar";
 import Carousel, { ICarouselInstance } from "react-native-reanimated-carousel";
-import { useState, useRef, useEffect, useCallback } from "react";
-import { CarouselSlider } from "./CarouselSlider";
+import { useState, useRef, useEffect } from "react";
+
 import {
   GestureHandlerRootView,
   PanGestureHandler,
@@ -32,7 +26,8 @@ import {
   PanGestureHandlerEventPayload,
   RotationGestureHandlerEventPayload,
 } from "react-native-gesture-handler";
-import ReplicateService from "../../api/replicate";
+import ReplicateService from "../../../api/replicate";
+import { CarouselSlider } from "../../../components/CarouselSlider";
 
 enum GestureDirection {
   Normal = "normal",

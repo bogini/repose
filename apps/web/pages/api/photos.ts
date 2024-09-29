@@ -6,7 +6,6 @@ import {
   ListBlobResult,
   PutCommandOptions,
 } from "@vercel/blob";
-import sharp from "sharp";
 
 const token = process.env.BLOB_READ_WRITE_TOKEN;
 
@@ -14,60 +13,60 @@ if (!token) {
   throw new Error("BLOB_READ_WRITE_TOKEN is not defined");
 }
 
-const MAX_FILE_SIZE = 1.5 * 1024 * 1024; // 1.5 MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 const PHOTOS_FOLDER = "photos/";
-
-const optimizeImage = async (file: Buffer): Promise<Buffer> => {
-  return sharp(file)
-    .resize({
-      width: 1024,
-      height: 1024,
-      fit: "inside",
-      withoutEnlargement: true,
-    })
-    .toFormat("webp", { quality: 80 })
-    .toBuffer();
-};
+const IMAGE_FORMAT = "webp";
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   try {
     switch (req.method) {
       case "GET":
         const photos: ListBlobResult = await list({ prefix: PHOTOS_FOLDER });
-        const photoUrls = photos.blobs.map((photo) => ({
-          url: photo.downloadUrl,
-        }));
-        return res.status(200).json(photoUrls);
+        const basePhotos = photos.blobs.filter((photo) =>
+          photo.pathname.endsWith("base.webp")
+        );
+
+        return res.status(200).json(basePhotos);
 
       case "POST":
-        const file = req.body;
+        const dataUrl = req.body;
 
-        if (!file) {
+        if (!dataUrl) {
+          console.error("POST Error: File is not provided");
           return res.status(400).json({ error: "File is not provided" });
         }
 
-        const optimizedImage = await optimizeImage(file);
+        const matches = dataUrl.match(/^data:image\/webp;base64,(.+)$/);
 
-        if (optimizedImage.length > MAX_FILE_SIZE) {
+        if (!matches || matches.length !== 2) {
+          console.error("POST Error: Invalid data URL");
+          return res.status(400).json({ error: "Invalid data URL" });
+        }
+
+        const fileBase64 = matches[1];
+        const file = Buffer.from(fileBase64, "base64");
+
+        if (file.length > MAX_FILE_SIZE) {
+          console.error("POST Error: File size exceeds the limit of 5 MB");
           return res
             .status(400)
-            .json({ error: "File size exceeds the limit of 1.5 MB" });
+            .json({ error: "File size exceeds the limit of 5 MB" });
         }
 
-        {
-          const fileName = `${PHOTOS_FOLDER}photo-${Date.now()}.webp`;
-          const options: PutCommandOptions = {
-            access: "public",
-            token,
-          };
-          const result = await put(fileName, optimizedImage, options);
+        const uniqueFolder = `${PHOTOS_FOLDER}${Date.now()}/`;
+        const fileName = `${uniqueFolder}base.${IMAGE_FORMAT}`;
+        const options: PutCommandOptions = {
+          access: "public",
+          token,
+        };
+        const result = await put(fileName, file, options);
 
-          return res.status(200).json(result);
-        }
+        return res.status(200).json(result);
 
       case "DELETE": {
         const { fileName } = req.body;
         if (!fileName) {
+          console.error("DELETE Error: File name is not provided");
           return res.status(400).json({ error: "File name is not provided" });
         }
 

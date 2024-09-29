@@ -155,8 +155,4 @@ export const photos = [
     id: 39,
     url: "https://images.unsplash.com/photo-1595211877493-41a4e5f236b3?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MjB8fGhlYWRzaG90fGVufDB8fDB8fHww",
   },
-  {
-    id: 40,
-    url: "https://plus.unsplash.com/premium_photo-1691784781482-9af9bce05096?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mzd8fGhlYWRzaG90fGVufDB8fDB8fHww",
-  },
 ];
