@@ -152,18 +152,26 @@ export default function EditScreen() {
   const [loading, setLoading] = useState(false);
   const [selectedControl, setSelectedControl] = useState(FACE_CONTROLS[0]);
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [imageUrl, setImageUrl] = useState(() => {
+  const [originalImageUrl, setOriginalImageUrl] = useState<
+    string | undefined
+  >();
+  const [editedImageUrl, setEditedImageUrl] = useState<string | undefined>();
+
+  useEffect(() => {
     const photo = photos.find((p) => p.id === Number.parseInt(id));
-    return photo ? photo.url : undefined;
-  });
+    if (photo) {
+      setOriginalImageUrl(photo.url);
+      setEditedImageUrl(photo.url);
+    }
+  }, [id]);
 
   const router = useRouter();
 
   const runEditor = async (values: FaceValues) => {
-    if (imageUrl) {
+    if (originalImageUrl) {
       setLoading(true);
       const updatedImageUrl = await ReplicateService.runExpressionEditor({
-        image: imageUrl,
+        image: originalImageUrl,
         rotatePitch: values.pitch,
         rotateYaw: values.yaw,
         rotateRoll: values.roll,
@@ -173,13 +181,13 @@ export default function EditScreen() {
         blink: values.blink,
         wink: values.wink,
       });
-      setImageUrl(updatedImageUrl);
+      setEditedImageUrl(updatedImageUrl);
       setLoading(false);
       setFaceValues(values);
     }
   };
 
-  if (!imageUrl) {
+  if (!originalImageUrl) {
     return <Text>Photo not found</Text>;
   }
 
@@ -189,13 +197,15 @@ export default function EditScreen() {
       <TopBar onBack={() => router.back()} />
       <AdjustBar />
       <Text>Brightness</Text>
-      <ImageContainer
-        loading={loading}
-        faceValues={faceValues}
-        handleFaceValuesChange={runEditor}
-        selectedControl={selectedControl}
-        imageUrl={imageUrl}
-      />
+      {editedImageUrl && (
+        <ImageContainer
+          loading={loading}
+          faceValues={faceValues}
+          handleFaceValuesChange={runEditor}
+          selectedControl={selectedControl}
+          imageUrl={editedImageUrl}
+        />
+      )}
       <FaceControlsComponent
         faceValues={faceValues}
         onFaceValuesChange={runEditor}
