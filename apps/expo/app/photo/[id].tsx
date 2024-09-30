@@ -10,6 +10,7 @@ import {
 import { Gesture } from "react-native-gesture-handler";
 import { SymbolView } from "expo-symbols";
 import PhotosService, { Photo } from "../../api/photos";
+import ReplicateService from "../../api/replicate";
 
 interface TopBarProps {
   router: ReturnType<typeof useRouter>;
@@ -37,7 +38,12 @@ export default function PhotoScreen() {
     const fetchPhoto = async () => {
       try {
         const fetchedPhoto = await PhotosService.getPhotoById(id);
-        setPhoto(fetchedPhoto);
+        if (fetchedPhoto) {
+          setPhoto(fetchedPhoto);
+          ReplicateService.runExpressionEditorWithAllRotations(
+            fetchedPhoto.url
+          );
+        }
       } catch (error) {
         console.error("Error fetching photo:", error);
       } finally {

@@ -33,7 +33,6 @@ class PhotosService {
     // Check if the photo is in the cache
     const cachedPhoto = this.photoCache.find((photo) => photo.id === id);
     if (cachedPhoto) {
-      console.log(`Photo ${id} found in cache`);
       return cachedPhoto;
     }
 

@@ -1,7 +1,8 @@
 import axios from "axios";
 import { BASE_URL } from "./constants";
-import NodeCache from "node-cache";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Crypto from "expo-crypto";
+import { Image } from "expo-image";
 
 const MODEL_IDENTIFIER =
   "fofr/expression-editor:bf913bc90e1c44ba288ba3942a538693b72e8cc7df576f3beebe56adc0a92b86";
@@ -76,8 +77,6 @@ interface ReplicateResponse {
   url: string;
 }
 
-const cache = new NodeCache({ stdTTL: 3600 }); // Cache for 1 hour
-
 class ReplicateService {
   private cancelTokenSource = axios.CancelToken.source();
 
@@ -134,11 +133,18 @@ class ReplicateService {
         Crypto.CryptoDigestAlgorithm.MD5,
         JSON.stringify(payload)
       );
-      const cachedResponse = cache.get(cacheKey);
+      const cachedResponse = (await AsyncStorage.getItem(cacheKey)) as
+        | string
+        | undefined;
 
       if (cachedResponse) {
         const cacheHitTime = Date.now() - startTime;
         console.log(`Cache hit in ${cacheHitTime}ms`, cachedResponse);
+
+        Image.prefetch(cachedResponse, {
+          cachePolicy: "memory-disk",
+        });
+
         return cachedResponse as string;
       }
 
@@ -157,9 +163,15 @@ class ReplicateService {
 
       console.log(`Response received in ${responseTime}ms`, data);
 
-      cache.set(cacheKey, data.url);
+      const imageUrl = data.url;
 
-      return data.url;
+      Image.prefetch(imageUrl, {
+        cachePolicy: "memory-disk",
+      });
+
+      AsyncStorage.setItem(cacheKey, imageUrl);
+
+      return imageUrl;
     } catch (error) {
       if (axios.isAxiosError(error)) {
         if (error.response) {

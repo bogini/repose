@@ -344,7 +344,7 @@ const ImageContainer = ({
 
   useEffect(() => {
     pulseAnimation.value = loading
-      ? withRepeat(withTiming(0.5, { duration: 750 }), -1, true)
+      ? withRepeat(withTiming(0.8, { duration: 500 }), -1, true)
       : withTiming(1, { duration: 250 });
   }, [loading, pulseAnimation]);
 
@@ -462,8 +462,14 @@ const ImageContainer = ({
               <Animated.View style={[styles.fullSize, animatedStyle]}>
                 <Image
                   source={{ uri: imageUrl }}
+                  cachePolicy={"memory-disk"}
+                  placeholder={{ uri: imageUrl }}
+                  placeholderContentFit="contain"
+                  allowDownscaling={false}
+                  priority={"high"}
+                  recyclingKey={imageUrl + loading ? "loading" : "loaded"}
                   transition={{
-                    duration: 50,
+                    duration: 10,
                     effect: "cross-dissolve",
                     timing: "ease-in-out",
                   }}
