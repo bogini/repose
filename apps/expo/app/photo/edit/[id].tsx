@@ -160,6 +160,7 @@ export default function EditScreen() {
         }
         setOriginalImageUrl(fetchedPhoto.url);
         setEditedImageUrl(fetchedPhoto.url);
+        runEditor(faceValues);
       } catch (error) {
         console.error("Error fetching photo:", error);
       }
@@ -503,16 +504,17 @@ const FaceControlsComponent = ({
   setSelectedControl,
 }: FaceControlsComponentProps) => {
   const carouselRef = useRef<ICarouselInstance>(null);
-  const [showSliders, setShowSliders] = useState(false);
+  //const [showSliders, setShowSliders] = useState(false);
+  const showSliders = true;
   const slidersAnimation = useSharedValue(0);
 
   const scrollToIndex = (index: number) => {
     carouselRef.current?.scrollTo({ index, animated: true });
-    if (selectedControl.key === FACE_CONTROLS[index].key) {
-      setShowSliders(!showSliders);
-    } else {
-      setShowSliders(true);
-    }
+    // if (selectedControl.key === FACE_CONTROLS[index].key) {
+    //   setShowSliders(!showSliders);
+    // } else {
+    //   setShowSliders(true);
+    // }
     setSelectedControl(FACE_CONTROLS[index]);
   };
 

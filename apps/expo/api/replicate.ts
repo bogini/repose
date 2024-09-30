@@ -1,8 +1,9 @@
 import axios from "axios";
 import { BASE_URL } from "./constants";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from "@react-native-community/async-storage";
 import * as Crypto from "expo-crypto";
 import { Image } from "expo-image";
+import { setStatusBarNetworkActivityIndicatorVisible } from "expo-status-bar";
 
 const MODEL_IDENTIFIER =
   "fofr/expression-editor:bf913bc90e1c44ba288ba3942a538693b72e8cc7df576f3beebe56adc0a92b86";
@@ -130,7 +131,7 @@ class ReplicateService {
       };
 
       const cacheKey = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.MD5,
+        Crypto.CryptoDigestAlgorithm.SHA256,
         JSON.stringify(payload)
       );
       const cachedResponse = (await AsyncStorage.getItem(cacheKey)) as
@@ -140,11 +141,6 @@ class ReplicateService {
       if (cachedResponse) {
         const cacheHitTime = Date.now() - startTime;
         console.log(`Cache hit in ${cacheHitTime}ms`, cachedResponse);
-
-        Image.prefetch(cachedResponse, {
-          cachePolicy: "memory-disk",
-        });
-
         return cachedResponse as string;
       }
 
@@ -165,11 +161,8 @@ class ReplicateService {
 
       const imageUrl = data.url;
 
-      Image.prefetch(imageUrl, {
-        cachePolicy: "memory-disk",
-      });
-
-      AsyncStorage.setItem(cacheKey, imageUrl);
+      console.log("Saving to cache", cacheKey, imageUrl);
+      await AsyncStorage.setItem(cacheKey, imageUrl);
 
       return imageUrl;
     } catch (error) {
@@ -193,6 +186,9 @@ class ReplicateService {
     parallelism: number = 15
   ): Promise<string[]> {
     const startTime = Date.now();
+
+    setStatusBarNetworkActivityIndicatorVisible(true);
+
     const rotationMin = -20;
     const rotationMax = 20;
 
@@ -249,7 +245,17 @@ class ReplicateService {
 
     const endTime = Date.now();
     const elapsedTime = endTime - startTime;
+
+    await Image.prefetch(results, {
+      cachePolicy: "memory-disk",
+    });
+
     console.log(`runExpressionEditorWithAllRotations took ${elapsedTime}ms`);
+
+    const keys = await AsyncStorage.getAllKeys();
+
+    console.log({ cacheKeys: keys.length });
+    setStatusBarNetworkActivityIndicatorVisible(false);
 
     return results;
   }
