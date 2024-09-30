@@ -149,9 +149,6 @@ export default function App() {
                       <UploadImageTile
                         onUploadSuccess={(response: Photo) => {
                           setPhotos((prevPhotos) => [...prevPhotos, response]);
-                          ReplicateService.runExpressionEditorWithAllRotations(
-                            response.url
-                          );
                         }}
                       />
                     </View>
@@ -189,7 +186,7 @@ export default function App() {
           </>
         )}
 
-        {/* <StatusBar style="auto" /> */}
+        <StatusBar style="auto" />
       </Animated.ScrollView>
     </GestureDetector>
   );

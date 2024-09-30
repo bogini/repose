@@ -24,6 +24,8 @@ import {
   PinchGestureHandlerEventPayload,
   PanGestureHandlerEventPayload,
   RotationGestureHandlerEventPayload,
+  State,
+  HandlerStateChangeEvent,
 } from "react-native-gesture-handler";
 import ReplicateService, {
   DEFAULT_VALUES,
@@ -172,6 +174,8 @@ export default function EditScreen() {
 
   const runEditor = useCallback(
     async (values: FaceValues) => {
+      setFaceValues(values);
+
       if (originalImageUrl) {
         const requestTimestamp = Date.now();
 
@@ -199,13 +203,11 @@ export default function EditScreen() {
           if (loadingTimeout) {
             clearTimeout(loadingTimeout);
             if (requestTimestamp > lastStateUpdateTimestampRef.current) {
-              setFaceValues(values);
               setEditedImageUrl(updatedImageUrl);
               lastStateUpdateTimestampRef.current = requestTimestamp;
             }
           } else {
             if (requestTimestamp > lastStateUpdateTimestampRef.current) {
-              setFaceValues(values);
               setEditedImageUrl(updatedImageUrl);
               lastStateUpdateTimestampRef.current = requestTimestamp;
             }
@@ -232,7 +234,7 @@ export default function EditScreen() {
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [originalImageUrl, faceValues, runEditor]);
+  }, [originalImageUrl]);
 
   const generateVariations = async () => {
     if (originalImageUrl) {
@@ -251,7 +253,11 @@ export default function EditScreen() {
   };
 
   if (!originalImageUrl) {
-    return <Text>Photo not found</Text>;
+    return (
+      <View
+        style={{ backgroundColor: "black", width: "100%", height: "100%" }}
+      />
+    );
   }
 
   return (
@@ -376,73 +382,88 @@ const ImageContainer = ({
       const prevValue =
         faceValues[control.key] || DEFAULT_VALUES[control.key] || 0;
       const newValue = getBucketValue(
-        prevValue + range * (percentChange / 100),
+        prevValue + (range * percentChange) / 50,
         control.min,
         control.max
       );
 
-      console.log(
-        `Gesture: ${gesture}, Percent Change: ${percentChange}, Control Key: ${control.key}, Previous Value: ${prevValue}, New Value: ${newValue}`
-      );
+      console.log({
+        gesture,
+        control: control.key,
+        percentChange,
+        prevValue,
+        newValue,
+      });
 
-      handleFaceValuesChange({
+      const newFaceValues = {
         ...faceValues,
         [control.key]: newValue,
-      });
+      };
+
+      handleFaceValuesChange(newFaceValues);
     }
   };
 
   const handlePanGesture = (
-    event: GestureEvent<PanGestureHandlerEventPayload>
+    event: HandlerStateChangeEvent<PanGestureHandlerEventPayload>
   ) => {
-    const { translationX, translationY } = event.nativeEvent;
-    const { width: imageWidth, height: imageHeight } = imageDimensions;
+    if (event.nativeEvent.state === State.END) {
+      const { translationX, translationY } = event.nativeEvent;
+      const { width: imageWidth, height: imageHeight } = imageDimensions;
 
-    const panXPercentage = (translationX / imageWidth) * 100;
-    const panYPercentage = (translationY / imageHeight) * 100;
+      const panXPercentage = (translationX / imageWidth) * 100;
+      const panYPercentage = (translationY / imageHeight) * 100;
 
-    console.log(
-      `Panned ${panXPercentage.toFixed(1)}% horizontally and ${panYPercentage.toFixed(1)}% vertically`
-    );
+      console.log(
+        `Panned ${panXPercentage.toFixed(1)}% horizontally and ${panYPercentage.toFixed(1)}% vertically`
+      );
 
-    const panXControls = selectedControl.values.filter(
-      (control) => control.gesture === "panX"
-    );
-    const panYControls = selectedControl.values.filter(
-      (control) => control.gesture === "panY"
-    );
+      const panXControls = selectedControl.values.filter(
+        (control) => control.gesture === "panX"
+      );
+      const panYControls = selectedControl.values.filter(
+        (control) => control.gesture === "panY"
+      );
 
-    panXControls.forEach((control) => {
-      const value =
-        control.direction === GestureDirection.Inverted
-          ? -panXPercentage
-          : panXPercentage;
-      handleGesture("panX", value);
-    });
+      panXControls.forEach((control) => {
+        const value =
+          control.direction === GestureDirection.Inverted
+            ? -panXPercentage
+            : panXPercentage;
+        handleGesture("panX", value);
+      });
 
-    panYControls.forEach((control) => {
-      const value =
-        control.direction === GestureDirection.Inverted
-          ? -panYPercentage
-          : panYPercentage;
-      handleGesture("panY", value);
-    });
+      panYControls.forEach((control) => {
+        const value =
+          control.direction === GestureDirection.Inverted
+            ? -panYPercentage
+            : panYPercentage;
+        handleGesture("panY", value);
+      });
+    }
   };
 
   const handlePinchGesture = (
-    event: GestureEvent<PinchGestureHandlerEventPayload>
+    event: HandlerStateChangeEvent<PinchGestureHandlerEventPayload>
   ) => {
-    const { scale } = event.nativeEvent;
-    const { width: imageWidth, height: imageHeight } = imageDimensions;
-    const diagonal = Math.sqrt(imageWidth ** 2 + imageHeight ** 2);
-    const normalizedValue = (scale - 1) * (diagonal / 2);
+    if (event.nativeEvent.state === State.END) {
+      const { scale } = event.nativeEvent;
 
-    selectedControl.values.forEach((control) => {
-      if (control.gesture === "pinch") {
-        const value = getBucketValue(normalizedValue, control.min, control.max);
-        handleGesture("pinch", value ?? 0);
-      }
-    });
+      const pinchPercentage = (scale - 1) / 4;
+      const clampedPercentage = Math.max(-1, Math.min(1, pinchPercentage));
+
+      console.log(`Pinched ${clampedPercentage.toFixed(2)} percent`);
+
+      selectedControl.values.forEach((control) => {
+        if (control.gesture === "pinch") {
+          const value =
+            control.direction === GestureDirection.Inverted
+              ? -clampedPercentage
+              : clampedPercentage;
+          handleGesture("pinch", value);
+        }
+      });
+    }
   };
 
   const handleRotationGesture = (
@@ -484,10 +505,12 @@ const ImageContainer = ({
   return (
     <GestureHandlerRootView style={styles.imageContainer}>
       <PanGestureHandler
-        onGestureEvent={loading ? undefined : handlePanGesture}
+        onHandlerStateChange={(event) =>
+          loading ? undefined : handlePanGesture(event)
+        }
       >
         <PinchGestureHandler
-          onGestureEvent={loading ? undefined : handlePinchGesture}
+          onHandlerStateChange={loading ? undefined : handlePinchGesture}
           simultaneousHandlers={[rotationRef, tapRef]}
         >
           <RotationGestureHandler
@@ -604,9 +627,7 @@ const FaceControlsComponent = ({
       <Animated.View style={[styles.slidersContainer, slidersContainerStyle]}>
         {selectedControl.values.map((value) => (
           <View key={value.label} style={styles.sliderContainer}>
-            <Text style={styles.sliderLabel}>
-              {value.label} {faceValues[value.key]}
-            </Text>
+            <Text style={styles.sliderLabel}>{value.label}</Text>
             <CarouselSlider
               key={value.label}
               min={value.min}

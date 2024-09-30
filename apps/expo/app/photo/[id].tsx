@@ -15,6 +15,7 @@ import ReplicateService from "../../api/replicate";
 interface TopBarProps {
   router: ReturnType<typeof useRouter>;
   photo: Photo;
+  isExpressionEditorComplete: boolean;
 }
 
 interface ImageContainerProps {
@@ -32,7 +33,8 @@ export default function PhotoScreen() {
   const router = useRouter();
   const scale = useSharedValue(1);
   const [photo, setPhoto] = useState<Photo | undefined>(undefined);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isExpressionEditorComplete, setIsExpressionEditorComplete] =
+    useState(false);
 
   useEffect(() => {
     const fetchPhoto = async () => {
@@ -40,14 +42,13 @@ export default function PhotoScreen() {
         const fetchedPhoto = await PhotosService.getPhotoById(id);
         if (fetchedPhoto) {
           setPhoto(fetchedPhoto);
-          ReplicateService.runExpressionEditorWithAllRotations(
+          await ReplicateService.runExpressionEditorWithAllRotations(
             fetchedPhoto.url
           );
+          setIsExpressionEditorComplete(true);
         }
       } catch (error) {
         console.error("Error fetching photo:", error);
-      } finally {
-        setIsLoading(false);
       }
     };
 
@@ -70,17 +71,17 @@ export default function PhotoScreen() {
       }
     });
 
-  if (isLoading) {
-    return <Text>Loading...</Text>;
-  }
-
   if (!photo) {
     return <Text>Photo not found</Text>;
   }
 
   return (
     <View style={styles.container}>
-      <TopBar router={router} photo={photo} />
+      <TopBar
+        router={router}
+        photo={photo}
+        isExpressionEditorComplete={isExpressionEditorComplete}
+      />
       <ImageContainer
         imageUrl={photo.url}
         gesture={gesture}
@@ -91,11 +92,13 @@ export default function PhotoScreen() {
   );
 }
 
-const TopBar = ({ router, photo }: TopBarProps) => (
+const TopBar = ({ router, isExpressionEditorComplete }: TopBarProps) => (
   <View style={styles.topBar}>
     <View style={styles.photoInfo}>
       <Text style={styles.titleText}>Yesterday</Text>
-      <Text style={styles.subheadingText}>9:41 AM</Text>
+      <Text style={styles.subheadingText}>
+        {isExpressionEditorComplete ? "9:41 AM" : "9:40 AM"}
+      </Text>
     </View>
     <View style={styles.topButtons}>
       <Pressable style={styles.topButton}>
