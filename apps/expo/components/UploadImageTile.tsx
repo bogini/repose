@@ -15,7 +15,6 @@ export default function UploadImageTile({
   onUploadSuccess,
   onUploadError,
 }: UploadImageTileProps) {
-  const [image, setImage] = useState<string | null>(null);
   const [cameraPermissionInformation, requestCameraPermission] =
     ImagePicker.useCameraPermissions();
   const [mediaLibraryPermissionInformation, requestMediaLibraryPermission] =
@@ -52,33 +51,47 @@ export default function UploadImageTile({
       return;
     }
 
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
+    Alert.alert("Add Photo", "Take a new photo or choose from your library.", [
+      {
+        text: "Take Photo",
+        onPress: async () => {
+          const result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 1,
+          });
 
-    if (result.canceled) {
-      const libraryResult = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 1,
-      });
+          if (!result.canceled) {
+            const uri = result.assets[0].uri;
 
-      if (!libraryResult.canceled) {
-        const uri = libraryResult.assets[0].uri;
-        setImage(uri);
-        onImagePicked?.(uri);
-        await uploadImage(uri);
-      }
-    } else {
-      const uri = result.assets[0].uri;
-      setImage(uri);
-      onImagePicked?.(uri);
-      await uploadImage(uri);
-    }
+            onImagePicked?.(uri);
+            await uploadImage(uri);
+          }
+        },
+      },
+      {
+        text: "Photo Library",
+        onPress: async () => {
+          const libraryResult = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 1,
+          });
+
+          if (!libraryResult.canceled) {
+            const uri = libraryResult.assets[0].uri;
+            onImagePicked?.(uri);
+            await uploadImage(uri);
+          }
+        },
+      },
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+    ]);
   };
 
   const uploadImage = async (uri: string) => {
