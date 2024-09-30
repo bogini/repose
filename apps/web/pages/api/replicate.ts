@@ -52,7 +52,6 @@ const getCachedPrediction = async (
 ): Promise<string | null> => {
   try {
     const response: ListBlobResult = await list({ prefix: cachePath });
-    console.log({ cachePath, blobs: response.blobs });
     if (response.blobs.length > 0) {
       const blob = response.blobs[0];
       console.log(`Cache hit: ${blob.url}`);

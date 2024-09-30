@@ -25,7 +25,10 @@ import {
   PanGestureHandlerEventPayload,
   RotationGestureHandlerEventPayload,
 } from "react-native-gesture-handler";
-import ReplicateService from "../../../api/replicate";
+import ReplicateService, {
+  DEFAULT_VALUES,
+  FaceValues,
+} from "../../../api/replicate";
 import { CarouselSlider } from "../../../components/CarouselSlider";
 
 enum GestureDirection {
@@ -52,27 +55,27 @@ interface FaceControl {
   }[];
 }
 
-type FaceValues = {
-  eyebrow: number;
-  pitch: number;
-  yaw: number;
-  roll: number;
-  blink: number;
-  wink: number;
-  pupilX: number;
-  pupilY: number;
-  smile: number;
-};
-
 const FACE_CONTROLS: FaceControl[] = [
   {
     key: "face",
     icon: "face.smiling",
     label: "FACE",
     values: [
-      { key: "pitch", label: "PITCH", min: -20, max: 20, gesture: "panY" },
-      { key: "yaw", label: "YAW", min: -20, max: 20, gesture: "panX" },
-      { key: "roll", label: "ROLL", min: -20, max: 20, gesture: "rotation" },
+      {
+        key: "rotatePitch",
+        label: "PITCH",
+        min: -20,
+        max: 20,
+        gesture: "panY",
+      },
+      { key: "rotateYaw", label: "YAW", min: -20, max: 20, gesture: "panX" },
+      {
+        key: "rotateRoll",
+        label: "ROLL",
+        min: -20,
+        max: 20,
+        gesture: "rotation",
+      },
     ],
   },
   {
@@ -131,17 +134,7 @@ const FACE_CONTROLS: FaceControl[] = [
 ];
 
 export default function EditScreen() {
-  const [faceValues, setFaceValues] = useState<FaceValues>({
-    pitch: 0,
-    yaw: 0,
-    eyebrow: 0,
-    roll: 0,
-    blink: 0,
-    wink: 0,
-    pupilX: 0,
-    pupilY: 0,
-    smile: 0,
-  });
+  const [faceValues, setFaceValues] = useState<FaceValues>(DEFAULT_VALUES);
   const [loading, setLoading] = useState(false);
   const [selectedControl, setSelectedControl] = useState(FACE_CONTROLS[0]);
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -174,9 +167,9 @@ export default function EditScreen() {
       setLoading(true);
       const updatedImageUrl = await ReplicateService.runExpressionEditor({
         image: originalImageUrl,
-        rotatePitch: values.pitch,
-        rotateYaw: values.yaw,
-        rotateRoll: values.roll,
+        rotatePitch: values.rotatePitch,
+        rotateYaw: values.rotateYaw,
+        rotateRoll: values.rotateRoll,
         pupilX: values.pupilX,
         eyebrow: values.eyebrow,
         pupilY: values.pupilY,
@@ -190,6 +183,22 @@ export default function EditScreen() {
     }
   };
 
+  const generateVariations = async () => {
+    if (originalImageUrl) {
+      setLoading(true);
+      try {
+        const variations =
+          await ReplicateService.runExpressionEditorWithAllRotations(
+            originalImageUrl
+          );
+        console.log("Generated variations:", variations.length);
+      } catch (error) {
+        console.error("Error generating variations:", error);
+      }
+      setLoading(false);
+    }
+  };
+
   if (!originalImageUrl) {
     return <Text>Photo not found</Text>;
   }
@@ -199,7 +208,7 @@ export default function EditScreen() {
       <StatusBar hidden={true} />
       <View>
         <TopBar onBack={() => router.back()} />
-        <AdjustBar />
+        <AdjustBar onGenerateVariations={generateVariations} />
       </View>
       {editedImageUrl && (
         <ImageContainer
@@ -236,7 +245,11 @@ const TopBar = ({ onBack }: TopBarProps) => (
   </View>
 );
 
-const AdjustBar = () => (
+const AdjustBar = ({
+  onGenerateVariations,
+}: {
+  onGenerateVariations: () => void;
+}) => (
   <View style={styles.adjustBar}>
     <View style={styles.rowWithGap}>
       <SymbolView
@@ -254,12 +267,14 @@ const AdjustBar = () => (
     </View>
     <Text style={styles.adjustText}>ADJUST</Text>
     <View style={styles.rowWithGap}>
-      <SymbolView
-        name="pencil.tip.crop.circle"
-        weight="medium"
-        style={styles.adjustSymbolActive}
-        resizeMode="scaleAspectFit"
-      />
+      <Pressable onPress={onGenerateVariations}>
+        <SymbolView
+          name="pencil.tip.crop.circle"
+          weight="medium"
+          style={styles.adjustSymbolActive}
+          resizeMode="scaleAspectFit"
+        />
+      </Pressable>
       <SymbolView
         name="ellipsis.circle"
         weight="medium"

@@ -7,6 +7,30 @@ const REPLICATE_ENDPOINT = BASE_URL + "/api/replicate";
 
 const NUM_BUCKETS = 5;
 
+export type FaceValues = {
+  rotatePitch: number;
+  rotateYaw: number;
+  eyebrow: number;
+  rotateRoll: number;
+  pupilX: number;
+  pupilY: number;
+  smile: number;
+  blink: number;
+  wink: number;
+};
+
+export const DEFAULT_VALUES: FaceValues = {
+  rotatePitch: 0,
+  rotateYaw: 0,
+  eyebrow: 0,
+  rotateRoll: 0,
+  pupilX: 0,
+  pupilY: 0,
+  smile: 0,
+  blink: 0,
+  wink: 0,
+};
+
 const getBucketValue = (
   value: number | undefined,
   min: number,
@@ -22,7 +46,7 @@ const getBucketValue = (
   console.log(
     `getBucketValue: value=${value}, min=${min}, max=${max}, bucketValue=${bucketValue}`
   );
-  return Math.round(bucketValue * 10) / 10;
+  return Math.round(bucketValue * 100) / 100;
 };
 
 interface ExpressionEditorInput {
@@ -56,7 +80,10 @@ interface ReplicateResponse {
 class ReplicateService {
   private cancelTokenSource = axios.CancelToken.source();
 
-  async runExpressionEditor(input: ExpressionEditorInput): Promise<string> {
+  async runExpressionEditor(
+    input: ExpressionEditorInput,
+    shouldCancel: boolean = true
+  ): Promise<string> {
     const {
       outputFormat = DEFAULT_OUTPUT_FORMAT,
       outputQuality = DEFAULT_OUTPUT_QUALITY,
@@ -66,18 +93,20 @@ class ReplicateService {
       ...rest
     } = input;
 
-    try {
-      // Cancel previous request if it exists
-      this.cancelTokenSource.cancel("Request canceled due to new request");
-    } catch (error) {
-      if (!axios.isCancel(error)) {
-        console.error("Error canceling previous request:", error);
-        throw error;
+    if (shouldCancel) {
+      try {
+        // Cancel previous request if it exists
+        this.cancelTokenSource.cancel("Request canceled due to new request");
+      } catch (error) {
+        if (!axios.isCancel(error)) {
+          console.error("Error canceling previous request:", error);
+          throw error;
+        }
       }
-    }
 
-    // Create a new cancel token for the current request
-    this.cancelTokenSource = axios.CancelToken.source();
+      // Create a new cancel token for the current request
+      this.cancelTokenSource = axios.CancelToken.source();
+    }
 
     try {
       const payload = {
@@ -95,6 +124,7 @@ class ReplicateService {
         eyebrow: getBucketValue(rest.eyebrow, -10, 15),
         crop_factor: cropFactor,
         src_ratio: srcRatio,
+        image: rest.image,
       };
 
       console.log("Request", {
@@ -128,6 +158,66 @@ class ReplicateService {
       }
       throw error;
     }
+  }
+
+  async runExpressionEditorWithAllRotations(
+    image: ExpressionEditorInput["image"],
+    parallelism: number = 20
+  ): Promise<string[]> {
+    const rotationMin = -20;
+    const rotationMax = 20;
+    const rotationValues = Array.from({ length: NUM_BUCKETS }, (_, i) => {
+      const percentage = i / (NUM_BUCKETS - 1);
+      return rotationMin + percentage * (rotationMax - rotationMin);
+    });
+
+    const results: string[] = [];
+    const promises: Promise<void>[] = [];
+
+    for (const rotatePitch of rotationValues) {
+      for (const rotateYaw of rotationValues) {
+        for (const rotateRoll of rotationValues) {
+          const updatedInput: ExpressionEditorInput = {
+            image,
+            rotatePitch,
+            rotateYaw,
+            rotateRoll,
+            pupilX: DEFAULT_VALUES.pupilX,
+            pupilY: DEFAULT_VALUES.pupilY,
+            smile: DEFAULT_VALUES.smile,
+            blink: DEFAULT_VALUES.blink,
+            eyebrow: DEFAULT_VALUES.eyebrow,
+            cropFactor: DEFAULT_CROP_FACTOR,
+            srcRatio: DEFAULT_SRC_RATIO,
+            outputFormat: DEFAULT_OUTPUT_FORMAT,
+            outputQuality: DEFAULT_OUTPUT_QUALITY,
+            sampleRatio: DEFAULT_SAMPLE_RATIO,
+          };
+
+          const promise = this.runExpressionEditor(updatedInput, false)
+            .then((result) => {
+              results.push(result);
+            })
+            .catch((error) => {
+              console.error(
+                `Error running expression editor with input: ${JSON.stringify(updatedInput)}`,
+                error
+              );
+            });
+
+          promises.push(promise);
+
+          if (promises.length >= parallelism) {
+            await Promise.all(promises);
+            promises.length = 0;
+          }
+        }
+      }
+    }
+
+    await Promise.all(promises);
+
+    return results;
   }
 }
 
