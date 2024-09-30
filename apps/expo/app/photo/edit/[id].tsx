@@ -11,8 +11,8 @@ import Animated, {
 import { SymbolView } from "expo-symbols";
 import { StatusBar } from "expo-status-bar";
 import Carousel, { ICarouselInstance } from "react-native-reanimated-carousel";
-import { useState, useRef, useEffect } from "react";
-import PhotosService, { Photo } from "../../../api/photos";
+import { useState, useRef, useEffect, useCallback } from "react";
+import PhotosService from "../../../api/photos";
 import {
   GestureHandlerRootView,
   PanGestureHandler,
@@ -142,6 +142,7 @@ export default function EditScreen() {
     string | undefined
   >();
   const [editedImageUrl, setEditedImageUrl] = useState<string | undefined>();
+  const currentRequestIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     const fetchPhoto = async () => {
@@ -165,26 +166,36 @@ export default function EditScreen() {
   const runEditor = async (values: FaceValues) => {
     if (originalImageUrl) {
       const loadingTimeout = setTimeout(() => setLoading(true), 50);
+      const requestId = Date.now();
+      console.log({ requestId });
+      currentRequestIdRef.current = requestId;
 
       try {
-        const updatedImageUrl = await ReplicateService.runExpressionEditor({
-          image: originalImageUrl,
-          rotatePitch: values.rotatePitch,
-          rotateYaw: values.rotateYaw,
-          rotateRoll: values.rotateRoll,
-          pupilX: values.pupilX,
-          eyebrow: values.eyebrow,
-          pupilY: values.pupilY,
-          smile: values.smile,
-          blink: values.blink,
-          wink: values.wink,
-        });
+        const updatedImageUrl = await ReplicateService.runExpressionEditor(
+          {
+            image: originalImageUrl,
+            rotatePitch: values.rotatePitch,
+            rotateYaw: values.rotateYaw,
+            rotateRoll: values.rotateRoll,
+            pupilX: values.pupilX,
+            eyebrow: values.eyebrow,
+            pupilY: values.pupilY,
+            smile: values.smile,
+            blink: values.blink,
+            wink: values.wink,
+          },
+          false
+        );
         clearTimeout(loadingTimeout);
-        setEditedImageUrl(updatedImageUrl);
-        setFaceValues(values);
+        if (requestId === currentRequestIdRef.current) {
+          setEditedImageUrl(updatedImageUrl);
+          setFaceValues(values);
+        }
       } finally {
         clearTimeout(loadingTimeout);
-        setLoading(false);
+        if (requestId === currentRequestIdRef.current) {
+          setLoading(false);
+        }
       }
     }
   };
@@ -307,7 +318,7 @@ const ImageContainer = ({
   imageUrl,
 }: ImageContainerProps) => {
   const pulseAnimation = useSharedValue(1);
-  const [gestureValues, setGestureValues] = useState<FaceValues>(faceValues);
+
   const [imageDimensions, setImageDimensions] = useState({
     width: 0,
     height: 0,
@@ -327,19 +338,20 @@ const ImageContainer = ({
     const control = selectedControl.values.find((v) => v.gesture === gesture);
     if (control) {
       const range = control.max - control.min;
-      const normalizedValue = isNaN(value) ? 0 : (value / 100) * range * 2;
+      const normalizedValue = isNaN(value) ? 0 : (value / 100) * range;
+      const prevValues = { ...faceValues };
+      const newValue = Math.min(
+        Math.max(prevValues[control.key] + normalizedValue, control.min),
+        control.max
+      );
 
-      setGestureValues((prevValues) => {
-        const newValue = Math.round(
-          Math.min(
-            Math.max(prevValues[control.key] + normalizedValue, control.min),
-            control.max
-          )
-        );
-        console.log(
-          `Gesture: ${gesture}, Value: ${value}, Control Key: ${control.key}, Normalized Value: ${normalizedValue}, New Value: ${newValue}`
-        );
-        return { ...prevValues, [control.key]: newValue };
+      console.log(
+        `Gesture: ${gesture}, Value: ${value}, Control Key: ${control.key}, Normalized Value: ${normalizedValue}, New Value: ${newValue}`
+      );
+
+      handleFaceValuesChange({
+        ...prevValues,
+        [control.key]: newValue,
       });
     }
   };
@@ -407,10 +419,6 @@ const ImageContainer = ({
     const tapYValue = y < imageHeight / 2 ? 10 : -10;
     handleGesture("tapY", tapYValue);
   };
-
-  useEffect(() => {
-    handleFaceValuesChange(gestureValues);
-  }, [gestureValues]);
 
   const rotationRef = useRef(null);
   const tapRef = useRef(null);

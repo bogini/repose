@@ -163,7 +163,7 @@ class ReplicateService {
         } else if (error.request) {
           console.error("Axios error request:", error.request);
         } else {
-          console.error("Axios error message:", error.message);
+          // console.error("Other error message:", error.message);
         }
       } else {
         console.error("Request error:", error);
@@ -174,7 +174,7 @@ class ReplicateService {
 
   async runExpressionEditorWithAllRotations(
     image: ExpressionEditorInput["image"],
-    parallelism: number = 20
+    parallelism: number = 5
   ): Promise<string[]> {
     const rotationMin = -20;
     const rotationMax = 20;
