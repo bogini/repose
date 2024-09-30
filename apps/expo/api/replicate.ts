@@ -67,9 +67,9 @@ interface ExpressionEditorInput {
 }
 
 const DEFAULT_OUTPUT_FORMAT = "webp";
-const DEFAULT_OUTPUT_QUALITY = 95;
+const DEFAULT_OUTPUT_QUALITY = 100;
 const DEFAULT_SAMPLE_RATIO = 1;
-const DEFAULT_CROP_FACTOR = 1.5;
+const DEFAULT_CROP_FACTOR = 2.5;
 const DEFAULT_SRC_RATIO = 1;
 
 interface ReplicateResponse {
@@ -178,7 +178,7 @@ class ReplicateService {
 
   async runExpressionEditorWithAllRotations(
     image: ExpressionEditorInput["image"],
-    parallelism: number = 20
+    parallelism: number = 15
   ): Promise<string[]> {
     const startTime = Date.now();
     const rotationMin = -20;
