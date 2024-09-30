@@ -23,12 +23,12 @@ interface ExpressionEditorInput {
   outputQuality?: number;
 }
 
-const DEFAULT_OUTPUT_FORMAT = "png";
+const DEFAULT_OUTPUT_FORMAT = "webp";
 const DEFAULT_OUTPUT_QUALITY = 95;
 const DEFAULT_SAMPLE_RATIO = 1;
 
 interface ReplicateResponse {
-  [index: number]: string;
+  url: string;
 }
 
 class ReplicateService {
@@ -83,9 +83,9 @@ class ReplicateService {
         { cancelToken: this.cancelTokenSource.token }
       );
 
-      console.log(`Model output: ${JSON.stringify(data)}`);
+      console.log("Response", data);
 
-      return data[0];
+      return data.url;
     } catch (error) {
       if (axios.isAxiosError(error)) {
         if (error.code === "ECONNABORTED") {

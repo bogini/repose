@@ -76,7 +76,7 @@ export default function PhotoScreen() {
     <View style={styles.container}>
       <TopBar router={router} photo={photo} />
       <ImageContainer
-        imageUrl={photo.downloadUrl}
+        imageUrl={photo.url}
         gesture={gesture}
         animatedStyle={animatedStyle}
       />

@@ -133,7 +133,7 @@ export default function App() {
                 style={{ width }}
                 data={[
                   ...(photos.length > 3 ? photos.slice(-3) : photos),
-                  { id: "upload", downloadUrl: "" },
+                  { id: "upload", url: "" },
                   ...(photos.length > 3 ? photos.slice(0, -3) : []),
                 ]}
                 numColumns={4}
@@ -155,7 +155,7 @@ export default function App() {
                     <Link href={`/photo/${item.id}`} asChild>
                       <Pressable style={{ width: "25%", aspectRatio: 1 }}>
                         <Image
-                          source={{ uri: item.downloadUrl }}
+                          source={{ uri: item.url }}
                           style={{ width: "100%", height: "100%" }}
                         />
                       </Pressable>
@@ -170,14 +170,14 @@ export default function App() {
                   title="People"
                   photos={photos.slice(3, 6).map((photo) => ({
                     id: photo.pathname,
-                    url: photo.downloadUrl,
+                    url: photo.url,
                   }))}
                 />
                 <Carousel
                   title="Featured"
                   photos={photos.slice(6, 10).map((photo) => ({
                     id: photo.pathname,
-                    url: photo.downloadUrl,
+                    url: photo.url,
                   }))}
                 />
               </>

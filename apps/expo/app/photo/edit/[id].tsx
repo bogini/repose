@@ -157,8 +157,8 @@ export default function EditScreen() {
         if (!fetchedPhoto) {
           throw new Error("Photo not found");
         }
-        setOriginalImageUrl(fetchedPhoto.downloadUrl);
-        setEditedImageUrl(fetchedPhoto.downloadUrl);
+        setOriginalImageUrl(fetchedPhoto.url);
+        setEditedImageUrl(fetchedPhoto.url);
       } catch (error) {
         console.error("Error fetching photo:", error);
       }
