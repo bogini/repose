@@ -189,7 +189,7 @@ export default function App() {
           </>
         )}
 
-        <StatusBar style="auto" />
+        {/* <StatusBar style="auto" /> */}
       </Animated.ScrollView>
     </GestureDetector>
   );

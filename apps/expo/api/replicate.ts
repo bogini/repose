@@ -12,27 +12,15 @@ const REPLICATE_ENDPOINT = BASE_URL + "/api/replicate";
 const NUM_BUCKETS = 5;
 
 export type FaceValues = {
-  rotatePitch: number;
-  rotateYaw: number;
-  eyebrow: number;
-  rotateRoll: number;
-  pupilX: number;
-  pupilY: number;
-  smile: number;
-  blink: number;
-  wink: number;
-};
-
-export const DEFAULT_VALUES: FaceValues = {
-  rotatePitch: 0,
-  rotateYaw: 0,
-  eyebrow: 0,
-  rotateRoll: 0,
-  pupilX: 0,
-  pupilY: 0,
-  smile: 0,
-  blink: 0,
-  wink: 0,
+  rotatePitch?: number;
+  rotateYaw?: number;
+  eyebrow?: number;
+  rotateRoll?: number;
+  pupilX?: number;
+  pupilY?: number;
+  smile?: number;
+  blink?: number;
+  wink?: number;
 };
 
 const getBucketValue = (
@@ -48,6 +36,18 @@ const getBucketValue = (
   const bucketIndex = Math.round((value - min) / bucketSize);
   const bucketValue = min + bucketIndex * bucketSize;
   return Math.round(bucketValue * 100) / 100;
+};
+
+export const DEFAULT_VALUES: FaceValues = {
+  rotatePitch: getBucketValue(0, -20, 20),
+  rotateYaw: getBucketValue(0, -20, 20),
+  eyebrow: getBucketValue(0, -10, 15),
+  rotateRoll: getBucketValue(0, -20, 20),
+  pupilX: getBucketValue(0, -15, 15),
+  pupilY: getBucketValue(0, -15, 15),
+  smile: getBucketValue(0, -0.3, 1.3),
+  blink: getBucketValue(0, -20, 5),
+  wink: getBucketValue(0, 0, 1),
 };
 
 interface ExpressionEditorInput {
@@ -113,21 +113,21 @@ class ReplicateService {
 
     try {
       const payload = {
+        blink: getBucketValue(rest.blink, -20, 5),
+        crop_factor: cropFactor,
+        eyebrow: getBucketValue(rest.eyebrow, -10, 15),
+        image: rest.image,
         modelIdentifier: MODEL_IDENTIFIER,
         output_format: outputFormat,
         output_quality: outputQuality,
-        sample_ratio: sampleRatio,
-        rotate_pitch: getBucketValue(rest.rotatePitch, -20, 20),
-        rotate_yaw: getBucketValue(rest.rotateYaw, -20, 20),
-        rotate_roll: getBucketValue(rest.rotateRoll, -20, 20),
         pupil_x: getBucketValue(rest.pupilX, -15, 15),
         pupil_y: getBucketValue(rest.pupilY, -15, 15),
+        rotate_pitch: getBucketValue(rest.rotatePitch, -20, 20),
+        rotate_roll: getBucketValue(rest.rotateRoll, -20, 20),
+        rotate_yaw: getBucketValue(rest.rotateYaw, -20, 20),
+        sample_ratio: sampleRatio,
         smile: getBucketValue(rest.smile, -0.3, 1.3),
-        blink: getBucketValue(rest.blink, -20, 5),
-        eyebrow: getBucketValue(rest.eyebrow, -10, 15),
-        crop_factor: cropFactor,
         src_ratio: srcRatio,
-        image: rest.image,
       };
 
       const cacheKey = await Crypto.digestStringAsync(
@@ -192,33 +192,34 @@ class ReplicateService {
     const rotationMin = -20;
     const rotationMax = 20;
 
-    const rotationValues = Array.from({ length: NUM_BUCKETS }, (_, i) => {
-      const percentage = i / (NUM_BUCKETS - 1);
-      return rotationMin + percentage * (rotationMax - rotationMin);
-    }).sort((a, b) => Math.abs(a) - Math.abs(b));
-
     const results: string[] = [];
     const promises: Promise<void>[] = [];
 
-    for (const rotatePitch of rotationValues) {
-      for (const rotateYaw of rotationValues) {
-        for (const rotateRoll of rotationValues) {
+    for (let i = 0; i < NUM_BUCKETS; i++) {
+      const rotatePitch = getBucketValue(i, rotationMin, rotationMax);
+      for (let j = 0; j < NUM_BUCKETS; j++) {
+        const rotateYaw = getBucketValue(j, rotationMin, rotationMax);
+        for (let k = 0; k < NUM_BUCKETS; k++) {
+          const rotateRoll = getBucketValue(k, rotationMin, rotationMax);
+
           const updatedInput: ExpressionEditorInput = {
-            image,
-            rotatePitch,
-            rotateYaw,
-            rotateRoll,
-            pupilX: DEFAULT_VALUES.pupilX,
-            pupilY: DEFAULT_VALUES.pupilY,
-            smile: DEFAULT_VALUES.smile,
             blink: DEFAULT_VALUES.blink,
-            eyebrow: DEFAULT_VALUES.eyebrow,
             cropFactor: DEFAULT_CROP_FACTOR,
-            srcRatio: DEFAULT_SRC_RATIO,
+            eyebrow: DEFAULT_VALUES.eyebrow,
+            image,
             outputFormat: DEFAULT_OUTPUT_FORMAT,
             outputQuality: DEFAULT_OUTPUT_QUALITY,
+            pupilX: DEFAULT_VALUES.pupilX,
+            pupilY: DEFAULT_VALUES.pupilY,
+            rotatePitch,
+            rotateRoll,
+            rotateYaw,
             sampleRatio: DEFAULT_SAMPLE_RATIO,
+            smile: DEFAULT_VALUES.smile,
+            srcRatio: DEFAULT_SRC_RATIO,
           };
+
+          console.log(updatedInput);
 
           const promise = this.runExpressionEditor(updatedInput, false)
             .then((result) => {

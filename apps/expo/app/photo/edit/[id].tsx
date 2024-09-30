@@ -141,6 +141,7 @@ const FACE_CONTROLS: FaceControl[] = [
 ];
 
 export default function EditScreen() {
+  const router = useRouter();
   const [faceValues, setFaceValues] = useState<FaceValues>(DEFAULT_VALUES);
   const [loading, setLoading] = useState(false);
   const [selectedControl, setSelectedControl] = useState(FACE_CONTROLS[0]);
@@ -160,7 +161,6 @@ export default function EditScreen() {
         }
         setOriginalImageUrl(fetchedPhoto.url);
         setEditedImageUrl(fetchedPhoto.url);
-        runEditor(faceValues);
       } catch (error) {
         console.error("Error fetching photo:", error);
       }
@@ -169,55 +169,70 @@ export default function EditScreen() {
     fetchPhoto();
   }, [id]);
 
-  const router = useRouter();
+  const runEditor = useCallback(
+    async (values: FaceValues) => {
+      console.log({ originalImageUrl });
+      if (originalImageUrl) {
+        const requestTimestamp = Date.now();
 
-  const runEditor = async (values: FaceValues) => {
-    if (originalImageUrl) {
-      const requestTimestamp = Date.now();
+        // Only show loading after 50ms if waiting
+        const loadingTimeout = setTimeout(() => setLoading(true), 50);
 
-      // Only show loading after 50ms if waiting
-      const loadingTimeout = setTimeout(() => setLoading(true), 50);
+        try {
+          const updatedImageUrl = await ReplicateService.runExpressionEditor(
+            {
+              image: originalImageUrl,
+              rotatePitch: values.rotatePitch,
+              rotateYaw: values.rotateYaw,
+              rotateRoll: values.rotateRoll,
+              pupilX: values.pupilX,
+              eyebrow: values.eyebrow,
+              pupilY: values.pupilY,
+              smile: values.smile,
+              blink: values.blink,
+              wink: values.wink,
+            },
+            true
+          );
 
-      try {
-        const updatedImageUrl = await ReplicateService.runExpressionEditor(
-          {
-            image: originalImageUrl,
-            rotatePitch: values.rotatePitch,
-            rotateYaw: values.rotateYaw,
-            rotateRoll: values.rotateRoll,
-            pupilX: values.pupilX,
-            eyebrow: values.eyebrow,
-            pupilY: values.pupilY,
-            smile: values.smile,
-            blink: values.blink,
-            wink: values.wink,
-          },
-          false
-        );
-
-        // Only update the state if the request timestamp is greater than the last state update timestamp
-        if (loadingTimeout) {
-          clearTimeout(loadingTimeout);
-          if (requestTimestamp > lastStateUpdateTimestampRef.current) {
-            setFaceValues(values);
-            setEditedImageUrl(updatedImageUrl);
-            lastStateUpdateTimestampRef.current = requestTimestamp;
+          // Only update the state if the request timestamp is greater than the last state update timestamp
+          if (loadingTimeout) {
+            clearTimeout(loadingTimeout);
+            if (requestTimestamp > lastStateUpdateTimestampRef.current) {
+              setFaceValues(values);
+              setEditedImageUrl(updatedImageUrl);
+              lastStateUpdateTimestampRef.current = requestTimestamp;
+            }
+          } else {
+            if (requestTimestamp > lastStateUpdateTimestampRef.current) {
+              setFaceValues(values);
+              setEditedImageUrl(updatedImageUrl);
+              lastStateUpdateTimestampRef.current = requestTimestamp;
+            }
           }
-        } else {
-          if (requestTimestamp > lastStateUpdateTimestampRef.current) {
-            setFaceValues(values);
-            setEditedImageUrl(updatedImageUrl);
-            lastStateUpdateTimestampRef.current = requestTimestamp;
+        } finally {
+          if (loadingTimeout) {
+            clearTimeout(loadingTimeout);
+            setLoading(false);
           }
-        }
-      } finally {
-        if (loadingTimeout) {
-          clearTimeout(loadingTimeout);
-          setLoading(false);
         }
       }
-    }
-  };
+    },
+    [originalImageUrl]
+  );
+
+  useEffect(() => {
+    // Initial run
+    const timeoutId = setTimeout(() => {
+      if (originalImageUrl) {
+        runEditor(faceValues);
+      }
+    }, 150);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [originalImageUrl, faceValues, runEditor]);
 
   const generateVariations = async () => {
     if (originalImageUrl) {
@@ -468,9 +483,8 @@ const ImageContainer = ({
                   placeholderContentFit="contain"
                   allowDownscaling={false}
                   priority={"high"}
-                  recyclingKey={imageUrl + loading ? "loading" : "loaded"}
                   transition={{
-                    duration: 10,
+                    duration: 400,
                     effect: "cross-dissolve",
                     timing: "ease-in-out",
                   }}
