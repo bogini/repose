@@ -178,15 +178,16 @@ class ReplicateService {
 
   async runExpressionEditorWithAllRotations(
     image: ExpressionEditorInput["image"],
-    parallelism: number = 10
+    parallelism: number = 20
   ): Promise<string[]> {
     const startTime = Date.now();
     const rotationMin = -20;
     const rotationMax = 20;
+
     const rotationValues = Array.from({ length: NUM_BUCKETS }, (_, i) => {
       const percentage = i / (NUM_BUCKETS - 1);
       return rotationMin + percentage * (rotationMax - rotationMin);
-    });
+    }).sort((a, b) => Math.abs(a) - Math.abs(b));
 
     const results: string[] = [];
     const promises: Promise<void>[] = [];

@@ -33,16 +33,14 @@ module.exports = config;
  * @returns {import('expo/metro-config').MetroConfig}
  */
 function withMonorepoPaths(config) {
-  const projectRoot = __dirname;
-  const workspaceRoot = path.resolve(projectRoot, "../..");
+  const projectRoot = path.resolve(__dirname, "./");
 
-  // #1 - Watch all files in the monorepo
-  config.watchFolders = [workspaceRoot];
+  // #1 - Watch only the files in the Expo app directory
+  config.watchFolders = [projectRoot];
 
-  // #2 - Resolve modules within the project's `node_modules` first, then all monorepo modules
+  // #2 - Resolve modules within the Expo app's `node_modules` first
   config.resolver.nodeModulesPaths = [
     path.resolve(projectRoot, "node_modules"),
-    path.resolve(workspaceRoot, "node_modules"),
   ];
 
   return config;

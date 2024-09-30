@@ -121,30 +121,40 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     const cachedPrediction = await getCachedPrediction(cachePath);
 
     if (cachedPrediction) {
-      console.log(`Cache hit for key: ${cacheKey}`);
-      const end = Date.now();
-      console.log(`Request took ${end - start} ms`);
+      const duration = Date.now() - start;
+      console.log({
+        cacheKey,
+        duration,
+        cacheHit: true,
+      });
       return res.status(200).json({ url: cachedPrediction });
     }
 
-    console.log(`Running model with input: ${JSON.stringify(input)}`);
-
     const prediction = await runModel(modelIdentifier, input);
 
-    console.log(`Model output: ${prediction}`);
+    console.log({ modelIdentifier, prediction, input });
 
     const url = prediction[0];
 
     cachePrediction(cachePath, url, outputFormat);
 
-    const end = Date.now();
-    console.log(`Request took ${end - start} ms`);
+    const duration = Date.now() - start;
+
+    console.log({
+      cacheKey,
+      duration,
+      cacheHit: false,
+    });
 
     return res.status(200).json({ url });
   } catch (error) {
-    console.error(`Error processing request: ${error}`);
-    const end = Date.now();
-    console.log(`Request took ${end - start} ms`);
+    const duration = Date.now() - start;
+
+    console.error({
+      error: error instanceof Error ? error.message : error,
+      duration,
+    });
+
     return res.status(500).json({
       error: `Error processing request: ${error instanceof Error ? error.message : error}`,
     });
