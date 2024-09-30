@@ -178,7 +178,7 @@ class ReplicateService {
 
   async runExpressionEditorWithAllRotations(
     image: ExpressionEditorInput["image"],
-    parallelism: number = 20
+    parallelism: number = 10
   ): Promise<string[]> {
     const rotationMin = -20;
     const rotationMax = 20;
