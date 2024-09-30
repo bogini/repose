@@ -142,7 +142,7 @@ export default function EditScreen() {
     string | undefined
   >();
   const [editedImageUrl, setEditedImageUrl] = useState<string | undefined>();
-  const currentRequestIdRef = useRef<number | null>(null);
+  const lastStateUpdateTimestampRef = useRef(0);
 
   useEffect(() => {
     const fetchPhoto = async () => {
@@ -165,9 +165,10 @@ export default function EditScreen() {
 
   const runEditor = async (values: FaceValues) => {
     if (originalImageUrl) {
+      const requestTimestamp = Date.now();
+
+      // Only show loading after 50ms if waiting
       const loadingTimeout = setTimeout(() => setLoading(true), 50);
-      const requestId = Date.now();
-      currentRequestIdRef.current = requestId;
 
       try {
         const updatedImageUrl = await ReplicateService.runExpressionEditor(
@@ -185,22 +186,26 @@ export default function EditScreen() {
           },
           false
         );
+
+        // Only update the state if the request timestamp is greater than the last state update timestamp
         if (loadingTimeout) {
           clearTimeout(loadingTimeout);
-          if (requestId === currentRequestIdRef.current) {
-            setEditedImageUrl(updatedImageUrl);
+          if (requestTimestamp > lastStateUpdateTimestampRef.current) {
             setFaceValues(values);
+            setEditedImageUrl(updatedImageUrl);
+            lastStateUpdateTimestampRef.current = requestTimestamp;
           }
         } else {
-          setEditedImageUrl(updatedImageUrl);
-          setFaceValues(values);
+          if (requestTimestamp > lastStateUpdateTimestampRef.current) {
+            setFaceValues(values);
+            setEditedImageUrl(updatedImageUrl);
+            lastStateUpdateTimestampRef.current = requestTimestamp;
+          }
         }
       } finally {
         if (loadingTimeout) {
           clearTimeout(loadingTimeout);
-          if (requestId === currentRequestIdRef.current) {
-            setLoading(false);
-          }
+          setLoading(false);
         }
       }
     }

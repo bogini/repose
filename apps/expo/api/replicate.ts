@@ -85,6 +85,8 @@ class ReplicateService {
     input: ExpressionEditorInput,
     shouldCancel: boolean = true
   ): Promise<string> {
+    const startTime = Date.now();
+
     const {
       outputFormat = DEFAULT_OUTPUT_FORMAT,
       outputQuality = DEFAULT_OUTPUT_QUALITY,
@@ -129,13 +131,14 @@ class ReplicateService {
       };
 
       const cacheKey = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
+        Crypto.CryptoDigestAlgorithm.MD5,
         JSON.stringify(payload)
       );
       const cachedResponse = cache.get(cacheKey);
 
       if (cachedResponse) {
-        console.log("Cache hit", cachedResponse);
+        const cacheHitTime = Date.now() - startTime;
+        console.log(`Cache hit in ${cacheHitTime}ms`, cachedResponse);
         return cachedResponse as string;
       }
 
@@ -150,8 +153,9 @@ class ReplicateService {
         payload,
         { cancelToken: this.cancelTokenSource.token }
       );
+      const responseTime = Date.now() - startTime;
 
-      console.log("Response", data);
+      console.log(`Response received in ${responseTime}ms`, data);
 
       cache.set(cacheKey, data.url);
 
@@ -174,7 +178,7 @@ class ReplicateService {
 
   async runExpressionEditorWithAllRotations(
     image: ExpressionEditorInput["image"],
-    parallelism: number = 5
+    parallelism: number = 20
   ): Promise<string[]> {
     const rotationMin = -20;
     const rotationMax = 20;

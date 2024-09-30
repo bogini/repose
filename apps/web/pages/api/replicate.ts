@@ -34,7 +34,7 @@ const replicate = new Replicate({
 const CACHE_VERSION = "v1";
 
 const getCacheKey = (modelIdentifier: string, input: ExpressionEditorInput) => {
-  return createHash("sha256")
+  return createHash("md5")
     .update(JSON.stringify({ modelIdentifier, input }))
     .digest("hex");
 };
