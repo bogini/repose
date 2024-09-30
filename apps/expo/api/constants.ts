@@ -1,5 +1,4 @@
 //export const BASE_URL = "http://localhost:3000";
-export const BASE_URL =
-  "https://5ca5-2601-645-8880-4dac-181c-4e27-cc23-e06a.ngrok-free.app";
+export const BASE_URL = "https://expo-photo-expression-editor-web.vercel.app";
 
 console.log({ BASE_URL });

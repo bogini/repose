@@ -167,7 +167,6 @@ export default function EditScreen() {
     if (originalImageUrl) {
       const loadingTimeout = setTimeout(() => setLoading(true), 50);
       const requestId = Date.now();
-      console.log({ requestId });
       currentRequestIdRef.current = requestId;
 
       try {
@@ -186,15 +185,22 @@ export default function EditScreen() {
           },
           false
         );
-        clearTimeout(loadingTimeout);
-        if (requestId === currentRequestIdRef.current) {
+        if (loadingTimeout) {
+          clearTimeout(loadingTimeout);
+          if (requestId === currentRequestIdRef.current) {
+            setEditedImageUrl(updatedImageUrl);
+            setFaceValues(values);
+          }
+        } else {
           setEditedImageUrl(updatedImageUrl);
           setFaceValues(values);
         }
       } finally {
-        clearTimeout(loadingTimeout);
-        if (requestId === currentRequestIdRef.current) {
-          setLoading(false);
+        if (loadingTimeout) {
+          clearTimeout(loadingTimeout);
+          if (requestId === currentRequestIdRef.current) {
+            setLoading(false);
+          }
         }
       }
     }
