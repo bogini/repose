@@ -180,6 +180,7 @@ class ReplicateService {
     image: ExpressionEditorInput["image"],
     parallelism: number = 10
   ): Promise<string[]> {
+    const startTime = Date.now();
     const rotationMin = -20;
     const rotationMax = 20;
     const rotationValues = Array.from({ length: NUM_BUCKETS }, (_, i) => {
@@ -232,6 +233,10 @@ class ReplicateService {
     }
 
     await Promise.all(promises);
+
+    const endTime = Date.now();
+    const elapsedTime = endTime - startTime;
+    console.log(`runExpressionEditorWithAllRotations took ${elapsedTime}ms`);
 
     return results;
   }

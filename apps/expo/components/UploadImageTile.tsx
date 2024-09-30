@@ -1,12 +1,5 @@
 import React, { useState } from "react";
-import {
-  Button,
-  Image,
-  View,
-  StyleSheet,
-  Alert,
-  Pressable,
-} from "react-native";
+import { View, StyleSheet, Alert, Pressable } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import PhotosService from "../api/photos";
 import { SymbolView } from "expo-symbols";

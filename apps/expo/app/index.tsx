@@ -23,6 +23,7 @@ import { useState, useEffect } from "react";
 import { ActivityIndicator } from "react-native";
 import PhotosService, { Photo } from "../api/photos";
 import UploadImageTile from "../components/UploadImageTile";
+import ReplicateService from "../api/replicate";
 
 export default function App() {
   const { height, width } = useWindowDimensions();
@@ -146,8 +147,11 @@ export default function App() {
                   item.id === "upload" ? (
                     <View style={{ width: "25%", aspectRatio: 1 }}>
                       <UploadImageTile
-                        onUploadSuccess={(response) => {
+                        onUploadSuccess={(response: Photo) => {
                           setPhotos((prevPhotos) => [...prevPhotos, response]);
+                          ReplicateService.runExpressionEditorWithAllRotations(
+                            response.url
+                          );
                         }}
                       />
                     </View>
