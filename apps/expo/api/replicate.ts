@@ -22,8 +22,7 @@ export type FaceValues = {
   blink?: number;
   wink?: number;
 };
-
-const getBucketValue = (
+export const getBucketValue = (
   value: number | undefined,
   min: number,
   max: number
@@ -34,7 +33,10 @@ const getBucketValue = (
   const range = max - min;
   const bucketSize = range / NUM_BUCKETS;
   const bucketIndex = Math.round((value - min) / bucketSize);
-  const bucketValue = min + bucketIndex * bucketSize;
+  const bucketValue = Math.min(
+    Math.max(min + bucketIndex * bucketSize, min),
+    max
+  );
   return Math.round(bucketValue * 100) / 100;
 };
 
@@ -191,16 +193,30 @@ class ReplicateService {
 
     const rotationMin = -20;
     const rotationMax = 20;
+    const range = rotationMax - rotationMin;
+    const bucketSize = range / NUM_BUCKETS;
 
     const results: string[] = [];
     const promises: Promise<void>[] = [];
 
-    for (let i = 0; i < NUM_BUCKETS; i++) {
-      const rotatePitch = getBucketValue(i, rotationMin, rotationMax);
-      for (let j = 0; j < NUM_BUCKETS; j++) {
-        const rotateYaw = getBucketValue(j, rotationMin, rotationMax);
-        for (let k = 0; k < NUM_BUCKETS; k++) {
-          const rotateRoll = getBucketValue(k, rotationMin, rotationMax);
+    for (let i = 0; i <= NUM_BUCKETS; i++) {
+      const rotatePitch = getBucketValue(
+        rotationMin + bucketSize * i,
+        rotationMin,
+        rotationMax
+      );
+      for (let j = 0; j <= NUM_BUCKETS; j++) {
+        const rotateYaw = getBucketValue(
+          rotationMin + bucketSize * j,
+          rotationMin,
+          rotationMax
+        );
+        for (let k = 0; k <= NUM_BUCKETS; k++) {
+          const rotateRoll = getBucketValue(
+            rotationMin + bucketSize * k,
+            rotationMin,
+            rotationMax
+          );
 
           const updatedInput: ExpressionEditorInput = {
             blink: DEFAULT_VALUES.blink,

@@ -28,6 +28,7 @@ import {
 import ReplicateService, {
   DEFAULT_VALUES,
   FaceValues,
+  getBucketValue,
 } from "../../../api/replicate";
 import { CarouselSlider } from "../../../components/CarouselSlider";
 import { Image } from "expo-image";
@@ -171,7 +172,6 @@ export default function EditScreen() {
 
   const runEditor = useCallback(
     async (values: FaceValues) => {
-      console.log({ originalImageUrl });
       if (originalImageUrl) {
         const requestTimestamp = Date.now();
 
@@ -227,7 +227,7 @@ export default function EditScreen() {
       if (originalImageUrl) {
         runEditor(faceValues);
       }
-    }, 150);
+    }, 1000);
 
     return () => {
       clearTimeout(timeoutId);
@@ -368,23 +368,25 @@ const ImageContainer = ({
     opacity: pulseAnimation.value,
   }));
 
-  const handleGesture = (gesture: string, value: number) => {
+  const handleGesture = (gesture: string, percentChange: number) => {
     const control = selectedControl.values.find((v) => v.gesture === gesture);
+
     if (control) {
       const range = control.max - control.min;
-      const normalizedValue = isNaN(value) ? 0 : (value / 100) * range;
-      const prevValues = { ...faceValues };
-      const newValue = Math.min(
-        Math.max(prevValues[control.key] + normalizedValue, control.min),
+      const prevValue =
+        faceValues[control.key] || DEFAULT_VALUES[control.key] || 0;
+      const newValue = getBucketValue(
+        prevValue + range * (percentChange / 100),
+        control.min,
         control.max
       );
 
       console.log(
-        `Gesture: ${gesture}, Value: ${value}, Control Key: ${control.key}, Normalized Value: ${normalizedValue}, New Value: ${newValue}`
+        `Gesture: ${gesture}, Percent Change: ${percentChange}, Control Key: ${control.key}, Previous Value: ${prevValue}, New Value: ${newValue}`
       );
 
       handleFaceValuesChange({
-        ...prevValues,
+        ...faceValues,
         [control.key]: newValue,
       });
     }
@@ -396,23 +398,34 @@ const ImageContainer = ({
     const { translationX, translationY } = event.nativeEvent;
     const { width: imageWidth, height: imageHeight } = imageDimensions;
 
-    const normalizedX = (translationX / imageWidth) * 700;
-    const normalizedY = (translationY / imageHeight) * 700;
+    const panXPercentage = (translationX / imageWidth) * 100;
+    const panYPercentage = (translationY / imageHeight) * 100;
 
-    selectedControl.values.forEach((control) => {
-      if (control.gesture === "panX") {
-        const value =
-          control.direction === GestureDirection.Inverted
-            ? -normalizedX
-            : normalizedX;
-        handleGesture("panX", value);
-      } else if (control.gesture === "panY") {
-        const value =
-          control.direction === GestureDirection.Inverted
-            ? -normalizedY
-            : normalizedY;
-        handleGesture("panY", value);
-      }
+    console.log(
+      `Panned ${panXPercentage.toFixed(1)}% horizontally and ${panYPercentage.toFixed(1)}% vertically`
+    );
+
+    const panXControls = selectedControl.values.filter(
+      (control) => control.gesture === "panX"
+    );
+    const panYControls = selectedControl.values.filter(
+      (control) => control.gesture === "panY"
+    );
+
+    panXControls.forEach((control) => {
+      const value =
+        control.direction === GestureDirection.Inverted
+          ? -panXPercentage
+          : panXPercentage;
+      handleGesture("panX", value);
+    });
+
+    panYControls.forEach((control) => {
+      const value =
+        control.direction === GestureDirection.Inverted
+          ? -panYPercentage
+          : panYPercentage;
+      handleGesture("panY", value);
     });
   };
 
@@ -420,7 +433,16 @@ const ImageContainer = ({
     event: GestureEvent<PinchGestureHandlerEventPayload>
   ) => {
     const { scale } = event.nativeEvent;
-    handleGesture("pinch", (scale - 1) * 10);
+    const { width: imageWidth, height: imageHeight } = imageDimensions;
+    const diagonal = Math.sqrt(imageWidth ** 2 + imageHeight ** 2);
+    const normalizedValue = (scale - 1) * (diagonal / 2);
+
+    selectedControl.values.forEach((control) => {
+      if (control.gesture === "pinch") {
+        const value = getBucketValue(normalizedValue, control.min, control.max);
+        handleGesture("pinch", value ?? 0);
+      }
+    });
   };
 
   const handleRotationGesture = (
@@ -429,16 +451,18 @@ const ImageContainer = ({
     const { rotation } = event.nativeEvent;
     const { width: imageWidth, height: imageHeight } = imageDimensions;
     const diagonal = Math.sqrt(imageWidth ** 2 + imageHeight ** 2);
-    const normalizedRotation =
-      (rotation / (Math.PI * 2)) * (diagonal / 2) * 200;
+    const normalizedValue = (rotation / (Math.PI * 2)) * (diagonal / 2);
 
     selectedControl.values.forEach((control) => {
       if (control.gesture === "rotation") {
-        const value =
+        const value = getBucketValue(
           control.direction === GestureDirection.Inverted
-            ? -normalizedRotation
-            : normalizedRotation;
-        handleGesture("rotation", value);
+            ? -normalizedValue
+            : normalizedValue,
+          control.min,
+          control.max
+        );
+        handleGesture("rotation", value ?? 0);
       }
     });
   };
@@ -484,7 +508,7 @@ const ImageContainer = ({
                   allowDownscaling={false}
                   priority={"high"}
                   transition={{
-                    duration: 400,
+                    duration: 250,
                     effect: "cross-dissolve",
                     timing: "ease-in-out",
                   }}
@@ -580,7 +604,9 @@ const FaceControlsComponent = ({
       <Animated.View style={[styles.slidersContainer, slidersContainerStyle]}>
         {selectedControl.values.map((value) => (
           <View key={value.label} style={styles.sliderContainer}>
-            <Text style={styles.sliderLabel}>{value.label}</Text>
+            <Text style={styles.sliderLabel}>
+              {value.label} {faceValues[value.key]}
+            </Text>
             <CarouselSlider
               key={value.label}
               min={value.min}
