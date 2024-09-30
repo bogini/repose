@@ -164,22 +164,28 @@ export default function EditScreen() {
 
   const runEditor = async (values: FaceValues) => {
     if (originalImageUrl) {
-      setLoading(true);
-      const updatedImageUrl = await ReplicateService.runExpressionEditor({
-        image: originalImageUrl,
-        rotatePitch: values.rotatePitch,
-        rotateYaw: values.rotateYaw,
-        rotateRoll: values.rotateRoll,
-        pupilX: values.pupilX,
-        eyebrow: values.eyebrow,
-        pupilY: values.pupilY,
-        smile: values.smile,
-        blink: values.blink,
-        wink: values.wink,
-      });
-      setEditedImageUrl(updatedImageUrl);
-      setLoading(false);
-      setFaceValues(values);
+      const loadingTimeout = setTimeout(() => setLoading(true), 50);
+
+      try {
+        const updatedImageUrl = await ReplicateService.runExpressionEditor({
+          image: originalImageUrl,
+          rotatePitch: values.rotatePitch,
+          rotateYaw: values.rotateYaw,
+          rotateRoll: values.rotateRoll,
+          pupilX: values.pupilX,
+          eyebrow: values.eyebrow,
+          pupilY: values.pupilY,
+          smile: values.smile,
+          blink: values.blink,
+          wink: values.wink,
+        });
+        clearTimeout(loadingTimeout);
+        setEditedImageUrl(updatedImageUrl);
+        setFaceValues(values);
+      } finally {
+        clearTimeout(loadingTimeout);
+        setLoading(false);
+      }
     }
   };
 

@@ -1,5 +1,7 @@
 import axios from "axios";
 import { BASE_URL } from "./constants";
+import NodeCache from "node-cache";
+import * as Crypto from "expo-crypto";
 
 const MODEL_IDENTIFIER =
   "fofr/expression-editor:bf913bc90e1c44ba288ba3942a538693b72e8cc7df576f3beebe56adc0a92b86";
@@ -43,9 +45,6 @@ const getBucketValue = (
   const bucketSize = range / NUM_BUCKETS;
   const bucketIndex = Math.round((value - min) / bucketSize);
   const bucketValue = min + bucketIndex * bucketSize;
-  console.log(
-    `getBucketValue: value=${value}, min=${min}, max=${max}, bucketValue=${bucketValue}`
-  );
   return Math.round(bucketValue * 100) / 100;
 };
 
@@ -76,6 +75,8 @@ const DEFAULT_SRC_RATIO = 1;
 interface ReplicateResponse {
   url: string;
 }
+
+const cache = new NodeCache({ stdTTL: 3600 }); // Cache for 1 hour
 
 class ReplicateService {
   private cancelTokenSource = axios.CancelToken.source();
@@ -127,6 +128,17 @@ class ReplicateService {
         image: rest.image,
       };
 
+      const cacheKey = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        JSON.stringify(payload)
+      );
+      const cachedResponse = cache.get(cacheKey);
+
+      if (cachedResponse) {
+        console.log("Cache hit", cachedResponse);
+        return cachedResponse as string;
+      }
+
       console.log("Request", {
         proxyEndpoint: REPLICATE_ENDPOINT,
         modelIdentifier: MODEL_IDENTIFIER,
@@ -141,17 +153,17 @@ class ReplicateService {
 
       console.log("Response", data);
 
+      cache.set(cacheKey, data.url);
+
       return data.url;
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        if (error.code === "ECONNABORTED") {
-          console.error("Request timeout:", error);
-        } else if (error.message === "Network Error") {
-          console.error(
-            "Network error: Please check your connection or server status."
-          );
+        if (error.response) {
+          console.error("Axios error response:", error.response.data);
+        } else if (error.request) {
+          console.error("Axios error request:", error.request);
         } else {
-          // console.error("Axios error response:", error);
+          console.error("Axios error message:", error.message);
         }
       } else {
         console.error("Request error:", error);
