@@ -30,6 +30,7 @@ import ReplicateService, {
   FaceValues,
 } from "../../../api/replicate";
 import { CarouselSlider } from "../../../components/CarouselSlider";
+import { Image } from "expo-image";
 
 enum GestureDirection {
   Normal = "normal",
@@ -62,16 +63,22 @@ const FACE_CONTROLS: FaceControl[] = [
     label: "FACE",
     values: [
       {
+        key: "rotateYaw",
+        label: "HORIZONTAL",
+        min: -20,
+        max: 20,
+        gesture: "panX",
+      },
+      {
         key: "rotatePitch",
-        label: "PITCH",
+        label: "VERTICAL",
         min: -20,
         max: 20,
         gesture: "panY",
       },
-      { key: "rotateYaw", label: "YAW", min: -20, max: 20, gesture: "panX" },
       {
         key: "rotateRoll",
-        label: "ROLL",
+        label: "TILT",
         min: -20,
         max: 20,
         gesture: "rotation",
@@ -453,10 +460,15 @@ const ImageContainer = ({
               ref={tapRef}
             >
               <Animated.View style={[styles.fullSize, animatedStyle]}>
-                <Animated.Image
+                <Image
                   source={{ uri: imageUrl }}
+                  transition={{
+                    duration: 50,
+                    effect: "cross-dissolve",
+                    timing: "ease-in-out",
+                  }}
                   style={styles.fullSize}
-                  resizeMode="contain"
+                  contentFit="contain"
                   onLayout={(event) => {
                     const { width, height } = event.nativeEvent.layout;
                     setImageDimensions({ width, height });
