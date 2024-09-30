@@ -1,6 +1,5 @@
-import { NextApiRequest, NextApiResponse } from "next";
+import { NextRequest, NextResponse } from "next/server";
 import Replicate from "replicate";
-import { createHash } from "crypto";
 import { list, put, ListBlobResult } from "@vercel/blob";
 
 interface ExpressionEditorInput {
@@ -33,10 +32,16 @@ const replicate = new Replicate({
 
 const CACHE_VERSION = "v1";
 
-const getCacheKey = (modelIdentifier: string, input: ExpressionEditorInput) => {
-  return createHash("md5")
-    .update(JSON.stringify({ modelIdentifier, input }))
-    .digest("hex");
+const getCacheKey = async (
+  modelIdentifier: string,
+  input: ExpressionEditorInput
+) => {
+  const data = new TextEncoder().encode(
+    JSON.stringify({ modelIdentifier, input })
+  );
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hash));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 };
 
 const getCachePath = (modelIdentifier: string, cacheKey: string) => {
@@ -54,10 +59,8 @@ const getCachedPrediction = async (
     const response: ListBlobResult = await list({ prefix: cachePath });
     if (response.blobs.length > 0) {
       const blob = response.blobs[0];
-      console.log(`Cache hit: ${blob.url}`);
       return blob.url;
     }
-    console.log(`Cache miss: ${cachePath}`);
     return null;
   } catch (error) {
     console.error(`Error getting cached prediction: ${error}`);
@@ -71,13 +74,11 @@ const cachePrediction = async (
   fileExtension: string
 ) => {
   try {
-    console.log(`Updating cache for path: ${cachePath}`);
     const response = await fetch(predictionUrl);
     const blob = await response.blob();
     await put(`${cachePath}.${fileExtension}`, blob, {
       access: "public",
     });
-    console.log(`Cache updated successfully for path: ${cachePath}`);
   } catch (error) {
     console.error(`Error updating cache for path ${cachePath}: ${error}`);
   }
@@ -96,26 +97,39 @@ const runModel = async (
   }
 };
 
-const handler = async (req: NextApiRequest, res: NextApiResponse) => {
+export const runtime = "edge";
+export const preferredRegion = ["sfo1"];
+export const dynamic = "force-dynamic";
+export const maxDuration = 60 * 3; // 3 minutes
+
+const handler = async (req: NextRequest) => {
   const start = Date.now();
 
   if (req.method !== "POST") {
-    res.setHeader("Allow", ["POST"]);
-    return res.status(405).end(`Method ${req.method} Not Allowed`);
+    return new NextResponse(null, {
+      status: 405,
+      headers: { Allow: "POST" },
+    });
   }
 
   const {
     modelIdentifier,
     outputFormat = "webp",
     ...input
-  } = req.body as RequestBody;
+  } = (await req.json()) as RequestBody;
 
   if (!modelIdentifier) {
-    return res.status(400).json({ error: "modelIdentifier is not set" });
+    return new NextResponse(
+      JSON.stringify({ error: "modelIdentifier is not set" }),
+      {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
 
   try {
-    const cacheKey = getCacheKey(modelIdentifier, input);
+    const cacheKey = await getCacheKey(modelIdentifier, input);
     const cachePath = getCachePath(modelIdentifier, cacheKey);
 
     const cachedPrediction = await getCachedPrediction(cachePath);
@@ -127,7 +141,10 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
         duration,
         cacheHit: true,
       });
-      return res.status(200).json({ url: cachedPrediction });
+      return new NextResponse(JSON.stringify({ url: cachedPrediction }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     const prediction = await runModel(modelIdentifier, input);
@@ -146,7 +163,10 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       cacheHit: false,
     });
 
-    return res.status(200).json({ url });
+    return new NextResponse(JSON.stringify({ url }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
   } catch (error) {
     const duration = Date.now() - start;
 
@@ -155,9 +175,15 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       duration,
     });
 
-    return res.status(500).json({
-      error: `Error processing request: ${error instanceof Error ? error.message : error}`,
-    });
+    return new NextResponse(
+      JSON.stringify({
+        error: `Error processing request: ${error instanceof Error ? error.message : error}`,
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
 };
 
