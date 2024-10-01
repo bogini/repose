@@ -14,7 +14,7 @@
   "dependencies": {
     "@react-native-community/async-storage": "^1.12.1",
     "axios": "^1.7.7",
-    "expo": "^51.0.34",
+    "expo": "~51.0.35",
     "expo-constants": "~16.0.2",
     "expo-crypto": "~13.0.2",
     "expo-dev-client": "~4.0.27",
