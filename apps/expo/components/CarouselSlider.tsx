@@ -9,7 +9,10 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
+import { debounce } from "lodash";
 
+const DEBOUNCE_TIME_MS = 25;
+const NUM_TICKS = 40;
 interface SliderProps {
   min?: number;
   max?: number;
@@ -23,13 +26,7 @@ export const CarouselSlider: React.FC<SliderProps> = ({
   value = 0,
   onValueChange,
 }) => {
-  const numTicks = 50;
   const carouselRef = useRef<ICarouselInstance>(null);
-  const animatedValue = useSharedValue(value);
-
-  useEffect(() => {
-    animatedValue.value = withTiming(value, { duration: 150 });
-  }, [value]);
 
   const scrollToIndex = (index: number) => {
     carouselRef.current?.scrollTo({
@@ -39,14 +36,21 @@ export const CarouselSlider: React.FC<SliderProps> = ({
   };
 
   const handleValueChange = (index: number) => {
-    const normalizedValue = (index / (numTicks - 1)) * (max - min) + min;
+    const normalizedValue = (index / (NUM_TICKS - 1)) * (max - min) + min;
     const roundedValue = Math.round(normalizedValue);
-    onValueChange(roundedValue);
+    if (roundedValue !== value) {
+      onValueChange(roundedValue);
+    }
   };
 
+  const debouncedHandleValueChange = useMemo(
+    () => debounce(handleValueChange, DEBOUNCE_TIME_MS),
+    [handleValueChange]
+  );
+
   const data = useMemo(
-    () => Array.from({ length: numTicks }, (_, i) => i),
-    [numTicks]
+    () => Array.from({ length: NUM_TICKS }, (_, i) => i),
+    [NUM_TICKS]
   );
 
   return (
@@ -58,15 +62,18 @@ export const CarouselSlider: React.FC<SliderProps> = ({
         height={14}
         data={data}
         defaultIndex={Math.round(
-          ((value - min) / (max - min)) * (numTicks - 1)
+          ((value - min) / (max - min)) * (NUM_TICKS - 1)
         )}
         loop={false}
-        onSnapToItem={(index) => handleValueChange(index)}
+        onScrollEnd={(index) => handleValueChange(index)}
+        onProgressChange={(_offsetProgress, absoluteProgress) =>
+          debouncedHandleValueChange(absoluteProgress)
+        }
         renderItem={({ index, animationValue }) => (
           <SliderTick
             animationValue={animationValue}
             onPress={() => scrollToIndex(index)}
-            isSpecialTick={index % 10 === 0 || index === numTicks - 1}
+            isSpecialTick={index % 10 === 0 || index === NUM_TICKS - 1}
           />
         )}
       />

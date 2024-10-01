@@ -1,6 +1,4 @@
 import Carousel, { ICarouselInstance } from "react-native-reanimated-carousel";
-import { FaceValues } from "../api/replicate";
-import { FaceControl } from "../app/photo/edit/[id]";
 import { useEffect, useRef } from "react";
 import Animated, {
   Extrapolation,
@@ -12,6 +10,7 @@ import Animated, {
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { CarouselSlider } from "./CarouselSlider";
 import { SymbolView } from "expo-symbols";
+import { FaceControl, FaceValues } from "../lib/faceControl";
 
 interface FaceControlsComponentProps {
   controls: FaceControl[];

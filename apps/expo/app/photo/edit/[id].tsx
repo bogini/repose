@@ -123,7 +123,7 @@ export default function EditScreen() {
 
       <View style={styles.imageContainer}>
         <FaceGestureControl
-          debug={false}
+          debug={true}
           imageUrl={editedImageUrl}
           faceValues={faceValues}
           onFaceValuesChange={handleFaceValuesChange}
@@ -215,6 +215,7 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: "#000",
     flex: 1,
+    paddingBottom: 60,
   },
   imageContainer: {
     flex: 1,
