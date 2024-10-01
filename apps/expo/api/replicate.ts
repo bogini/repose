@@ -3,7 +3,7 @@ import { BASE_URL } from "./constants";
 import AsyncStorage from "@react-native-community/async-storage";
 import * as Crypto from "expo-crypto";
 import { Image } from "expo-image";
-import { setStatusBarNetworkActivityIndicatorVisible } from "expo-status-bar";
+import { DEFAULT_FACE_VALUES } from "../lib/faceControl";
 
 const MODEL_IDENTIFIER =
   "fofr/expression-editor:bf913bc90e1c44ba288ba3942a538693b72e8cc7df576f3beebe56adc0a92b86";
@@ -11,17 +11,6 @@ const REPLICATE_ENDPOINT = BASE_URL + "/api/replicate";
 
 const NUM_BUCKETS = 5;
 
-export type FaceValues = {
-  rotatePitch?: number;
-  rotateYaw?: number;
-  eyebrow?: number;
-  rotateRoll?: number;
-  pupilX?: number;
-  pupilY?: number;
-  smile?: number;
-  blink?: number;
-  wink?: number;
-};
 const getBucketValue = (
   value: number | undefined,
   min: number,
@@ -38,18 +27,6 @@ const getBucketValue = (
     max
   );
   return Math.round(bucketValue * 100) / 100;
-};
-
-export const DEFAULT_VALUES: FaceValues = {
-  rotatePitch: getBucketValue(0, -20, 20),
-  rotateYaw: getBucketValue(0, -20, 20),
-  eyebrow: getBucketValue(0, -10, 15),
-  rotateRoll: getBucketValue(0, -20, 20),
-  pupilX: getBucketValue(0, -15, 15),
-  pupilY: getBucketValue(0, -15, 15),
-  smile: getBucketValue(0, -0.3, 1.3),
-  blink: getBucketValue(0, -20, 5),
-  wink: getBucketValue(0, 0, 1),
 };
 
 interface ExpressionEditorInput {
@@ -82,12 +59,40 @@ interface ReplicateResponse {
 
 class ReplicateService {
   private cancelTokenSource = axios.CancelToken.source();
+  private inMemoryCache: Record<string, string> = {};
+
+  private async getFromCache(key: string): Promise<string | undefined> {
+    // Check in-memory cache first
+    const inMemoryValue = this.inMemoryCache[key];
+    if (inMemoryValue) {
+      return inMemoryValue;
+    }
+
+    // Check AsyncStorage cache
+    const asyncStorageValue = await AsyncStorage.getItem(key);
+    if (asyncStorageValue) {
+      // Store in in-memory cache for faster access next time
+      this.inMemoryCache[key] = asyncStorageValue;
+      return asyncStorageValue;
+    }
+
+    return undefined;
+  }
+
+  private async setInCache(key: string, value: string): Promise<void> {
+    this.inMemoryCache[key] = value;
+    await AsyncStorage.setItem(key, value);
+  }
+
+  clearInMemoryCache(): void {
+    this.inMemoryCache = {};
+  }
 
   async runExpressionEditor(
     input: ExpressionEditorInput,
     shouldCancel: boolean = true
   ): Promise<string> {
-    const startTime = Date.now();
+    const startTime = performance.now();
 
     const {
       outputFormat = DEFAULT_OUTPUT_FORMAT,
@@ -136,14 +141,14 @@ class ReplicateService {
         Crypto.CryptoDigestAlgorithm.SHA256,
         JSON.stringify(payload)
       );
-      const cachedResponse = (await AsyncStorage.getItem(cacheKey)) as
-        | string
-        | undefined;
 
+      const cacheStartTime = performance.now();
+      const cachedResponse = await this.getFromCache(cacheKey);
+      const cacheEndTime = performance.now();
       if (cachedResponse) {
-        const cacheHitTime = Date.now() - startTime;
-        console.log(`Cache hit in ${cacheHitTime}ms`, cacheKey);
-        return cachedResponse as string;
+        const cacheHitTime = cacheEndTime - cacheStartTime;
+        console.log(`Cache hit in ${cacheHitTime.toFixed(0)}ms`, cacheKey);
+        return cachedResponse;
       }
 
       console.log("Request", cacheKey);
@@ -153,13 +158,14 @@ class ReplicateService {
         payload,
         { cancelToken: this.cancelTokenSource.token }
       );
-      const responseTime = Date.now() - startTime;
-
-      console.log(`Response ${responseTime}ms`, cacheKey);
 
       const imageUrl = data.url;
 
-      AsyncStorage.setItem(cacheKey, imageUrl);
+      this.setInCache(cacheKey, imageUrl);
+
+      const endTime = performance.now();
+      const totalTime = endTime - startTime;
+      console.log(`Response ${totalTime.toFixed(0)}ms`, cacheKey);
 
       return imageUrl;
     } catch (error) {
@@ -182,9 +188,7 @@ class ReplicateService {
     image: ExpressionEditorInput["image"],
     parallelism: number = 15
   ): Promise<string[]> {
-    const startTime = Date.now();
-
-    setStatusBarNetworkActivityIndicatorVisible(true);
+    const startTime = performance.now();
 
     const rotationMin = -20;
     const rotationMax = 20;
@@ -214,19 +218,19 @@ class ReplicateService {
           );
 
           const updatedInput: ExpressionEditorInput = {
-            blink: DEFAULT_VALUES.blink,
+            blink: DEFAULT_FACE_VALUES.blink,
             cropFactor: DEFAULT_CROP_FACTOR,
-            eyebrow: DEFAULT_VALUES.eyebrow,
+            eyebrow: DEFAULT_FACE_VALUES.eyebrow,
             image,
             outputFormat: DEFAULT_OUTPUT_FORMAT,
             outputQuality: DEFAULT_OUTPUT_QUALITY,
-            pupilX: DEFAULT_VALUES.pupilX,
-            pupilY: DEFAULT_VALUES.pupilY,
+            pupilX: DEFAULT_FACE_VALUES.pupilX,
+            pupilY: DEFAULT_FACE_VALUES.pupilY,
             rotatePitch,
             rotateRoll,
             rotateYaw,
             sampleRatio: DEFAULT_SAMPLE_RATIO,
-            smile: DEFAULT_VALUES.smile,
+            smile: DEFAULT_FACE_VALUES.smile,
             srcRatio: DEFAULT_SRC_RATIO,
           };
 
@@ -248,19 +252,16 @@ class ReplicateService {
 
     await Promise.all(promises);
 
-    const endTime = Date.now();
+    const endTime = performance.now();
     const elapsedTime = endTime - startTime;
 
     Image.prefetch(results, {
       cachePolicy: "memory-disk",
     });
 
-    console.log(`runExpressionEditorWithAllRotations took ${elapsedTime}ms`);
-
-    const keys = await AsyncStorage.getAllKeys();
-
-    console.log({ cacheKeys: keys.length });
-    setStatusBarNetworkActivityIndicatorVisible(false);
+    console.log(
+      `runExpressionEditorWithAllRotations took ${elapsedTime.toFixed(0)}ms`
+    );
 
     return results;
   }

@@ -4,120 +4,18 @@ import { SymbolView } from "expo-symbols";
 import { StatusBar } from "expo-status-bar";
 import { useState, useRef, useEffect, useCallback } from "react";
 import PhotosService from "../../../api/photos";
-import ReplicateService, {
-  DEFAULT_VALUES,
-  FaceValues,
-} from "../../../api/replicate";
+import ReplicateService from "../../../api/replicate";
 import { FaceControlsComponent } from "../../../components/FaceControls";
 import { FaceGestureControl } from "../../../components/FaceGestureControl";
-
-export enum GestureDirection {
-  Normal = "normal",
-  Inverted = "inverted",
-}
-
-export interface FaceControl {
-  key: string;
-  icon: string;
-  label: string;
-  values: {
-    key: keyof FaceValues;
-    label: string;
-    min: number;
-    max: number;
-    gesture: "x" | "y" | "rotation" | "scale";
-    direction?: GestureDirection;
-  }[];
-}
-
-const FACE_CONTROLS: FaceControl[] = [
-  {
-    key: "face",
-    icon: "face.smiling",
-    label: "FACE",
-    values: [
-      {
-        key: "rotateYaw",
-        label: "HORIZONTAL",
-        min: -20,
-        max: 20,
-        gesture: "x",
-      },
-      {
-        key: "rotatePitch",
-        label: "VERTICAL",
-        min: -20,
-        max: 20,
-        gesture: "y",
-        direction: GestureDirection.Inverted,
-      },
-      {
-        key: "rotateRoll",
-        label: "TILT",
-        min: -20,
-        max: 20,
-        gesture: "rotation",
-      },
-    ],
-  },
-  {
-    key: "mouth",
-    icon: "mouth",
-    label: "MOUTH",
-    values: [
-      { key: "smile", label: "SMILE", min: -0.3, max: 1.3, gesture: "scale" },
-    ],
-  },
-  {
-    key: "eyes",
-    icon: "eye",
-    label: "EYES",
-    values: [
-      {
-        key: "blink",
-        label: "EYELID APERTURE",
-        min: -20,
-        max: 5,
-        gesture: "scale",
-      },
-      {
-        key: "pupilX",
-        label: "HORIZONTAL",
-        min: -15,
-        max: 15,
-        gesture: "x",
-        // direction: GestureDirection.Inverted,
-      },
-      {
-        key: "pupilY",
-        label: "VERTICAL",
-        min: -15,
-        max: 15,
-        gesture: "y",
-        direction: GestureDirection.Inverted,
-      },
-    ],
-  },
-  {
-    key: "eyebrows",
-    icon: "eyebrow",
-    label: "EYEBROWS",
-    values: [
-      {
-        key: "eyebrow",
-        label: "HEIGHT",
-        min: -10,
-        max: 15,
-        gesture: "y",
-        direction: GestureDirection.Inverted,
-      },
-    ],
-  },
-];
+import {
+  DEFAULT_FACE_VALUES,
+  FACE_CONTROLS,
+  FaceValues,
+} from "../../../lib/faceControl";
 
 export default function EditScreen() {
   const router = useRouter();
-  const [faceValues, setFaceValues] = useState<FaceValues>(DEFAULT_VALUES);
+  const [faceValues, setFaceValues] = useState<FaceValues>(DEFAULT_FACE_VALUES);
   const [loading, setLoading] = useState(false);
   const [selectedControl, setSelectedControl] = useState(FACE_CONTROLS[0]);
   const { id } = useLocalSearchParams<{ id: string }>();

@@ -29,6 +29,8 @@ export const ImageContainer = ({
     opacity: pulseAnimation.value,
   }));
 
+  const startTime = performance.now();
+
   return (
     <Animated.View style={[styles.fullSize, animatedStyle]}>
       <Image
@@ -38,13 +40,13 @@ export const ImageContainer = ({
         placeholderContentFit="cover"
         allowDownscaling={false}
         priority={"high"}
-        transition={{
-          duration: 50,
-          effect: "cross-dissolve",
-          timing: "ease-in-out",
-        }}
         style={styles.fullSize}
         contentFit="cover"
+        onLoad={() => {
+          const endTime = performance.now();
+          const duration = endTime - startTime;
+          console.log(`Image loaded in ${duration.toFixed(0)}ms`);
+        }}
       />
     </Animated.View>
   );

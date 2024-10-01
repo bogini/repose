@@ -1,5 +1,4 @@
-import { FaceValues } from "../api/replicate";
-import { FaceControl, GestureDirection } from "../app/photo/edit/[id]";
+import { FaceControl, FaceValues, GestureDirection } from "../lib/faceControl";
 import GestureControl, { GestureControlValue } from "./GestureControl";
 import { ImageContainer } from "./ImageContainer";
 import { useMemo } from "react";

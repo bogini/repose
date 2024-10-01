@@ -114,6 +114,7 @@ export default function App() {
     };
 
     fetchPhotos();
+    ReplicateService.clearInMemoryCache();
   }, []);
 
   return (
