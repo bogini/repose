@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useMemo } from "react";
+import React, { useRef, useEffect, useMemo, useState } from "react";
 import { View, StyleSheet, Pressable } from "react-native";
 import Carousel, { ICarouselInstance } from "react-native-reanimated-carousel";
 import Animated, {
@@ -7,18 +7,20 @@ import Animated, {
   interpolateColor,
   useAnimatedStyle,
   useSharedValue,
-  withTiming,
 } from "react-native-reanimated";
 import { debounce } from "lodash";
 
-const DEBOUNCE_TIME_MS = 25;
+const DEBOUNCE_TIME_MS = 15;
 const SCROLL_DURATION_MS = 500;
 const NUM_TICKS = 40;
+
 interface SliderProps {
   min?: number;
   max?: number;
   value?: number;
   onValueChange: (value: number) => void;
+  onScrollBegin?: () => void;
+  onScrollEnd?: () => void;
 }
 
 export const CarouselSlider: React.FC<SliderProps> = ({
@@ -26,9 +28,12 @@ export const CarouselSlider: React.FC<SliderProps> = ({
   max = 100,
   value = 0,
   onValueChange,
+  onScrollBegin,
+  onScrollEnd,
 }) => {
   const carouselRef = useRef<ICarouselInstance>(null);
   const isScrolling = useSharedValue(false);
+  const [isUserInteracting, setIsUserInteracting] = useState(false);
 
   const scrollToIndex = (index: number) => {
     isScrolling.value = true;
@@ -47,10 +52,12 @@ export const CarouselSlider: React.FC<SliderProps> = ({
   }, [value, min, max]);
 
   const handleValueChange = (index: number) => {
-    const normalizedValue = (index / (NUM_TICKS - 1)) * (max - min) + min;
-    const roundedValue = Math.round(normalizedValue);
-    if (roundedValue !== value) {
-      onValueChange(roundedValue);
+    if (isUserInteracting) {
+      const normalizedValue = (index / (NUM_TICKS - 1)) * (max - min) + min;
+      const roundedValue = Math.round(normalizedValue);
+      if (roundedValue !== value) {
+        onValueChange(roundedValue);
+      }
     }
   };
 
@@ -75,13 +82,21 @@ export const CarouselSlider: React.FC<SliderProps> = ({
         scrollAnimationDuration={SCROLL_DURATION_MS}
         defaultIndex={Math.round((NUM_TICKS - 1) / 2)}
         loop={false}
+        onScrollBegin={() => {
+          setIsUserInteracting(true);
+          onScrollBegin?.();
+        }}
         onScrollEnd={(index) => {
           if (!isScrolling.value) {
             handleValueChange(index);
+            onScrollEnd?.();
+            setIsUserInteracting(false);
           }
         }}
         onProgressChange={(_offsetProgress, absoluteProgress) =>
-          !isScrolling.value && debouncedHandleValueChange(absoluteProgress)
+          !isScrolling.value &&
+          isUserInteracting &&
+          debouncedHandleValueChange(absoluteProgress)
         }
         renderItem={({ index, animationValue }) => (
           <SliderTick
@@ -94,6 +109,15 @@ export const CarouselSlider: React.FC<SliderProps> = ({
     </View>
   );
 };
+
+interface SliderProps {
+  min?: number;
+  max?: number;
+  value?: number;
+  onValueChange: (value: number) => void;
+  onScrollStart?: () => void;
+  onScrollEnd?: () => void;
+}
 
 interface CarouselItemProps {
   animationValue: Animated.SharedValue<number>;
@@ -161,7 +185,7 @@ const styles = StyleSheet.create({
   },
   carousel: {
     flex: 1,
-    width: "200%",
+    width: "220%",
     justifyContent: "center",
     alignItems: "center",
   },

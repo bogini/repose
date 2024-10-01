@@ -14,7 +14,7 @@ import { debounce } from "lodash";
 
 const FOCAL_POINT_SIZE = 34;
 const FLING_MULTIPLIER = 0.5;
-const DEBOUNCE_TIME_MS = 30;
+const DEBOUNCE_TIME_MS = 15;
 
 export interface GestureControlValue {
   x: number;

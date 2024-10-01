@@ -123,7 +123,7 @@ export default function EditScreen() {
 
       <View style={styles.imageContainer}>
         <FaceGestureControl
-          debug={false}
+          debug={true}
           imageUrl={editedImageUrl}
           faceValues={faceValues}
           onFaceValuesChange={handleFaceValuesChange}
@@ -136,8 +136,8 @@ export default function EditScreen() {
         controls={FACE_CONTROLS}
         faceValues={faceValues}
         onFaceValuesChange={handleFaceValuesChange}
-        selectedControl={selectedControl}
-        setSelectedControl={setSelectedControl}
+        selectedControlKey={selectedControl.key}
+        onControlChange={setSelectedControl}
       />
     </View>
   );

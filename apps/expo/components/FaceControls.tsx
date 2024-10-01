@@ -1,5 +1,6 @@
 import Carousel, { ICarouselInstance } from "react-native-reanimated-carousel";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import debounce from "lodash/debounce";
 import Animated, {
   Extrapolation,
   interpolate,
@@ -16,38 +17,50 @@ interface FaceControlsComponentProps {
   controls: FaceControl[];
   faceValues: FaceValues;
   onFaceValuesChange: (values: FaceValues) => void;
-  selectedControl: FaceControl;
-  setSelectedControl: React.Dispatch<React.SetStateAction<FaceControl>>;
+  selectedControlKey: FaceControl["key"];
+  onControlChange: (control: FaceControl) => void;
 }
 
 export const FaceControlsComponent = ({
   controls,
   faceValues,
   onFaceValuesChange,
-  selectedControl,
-  setSelectedControl,
+  selectedControlKey,
+  onControlChange: setSelectedControl,
 }: FaceControlsComponentProps) => {
   const carouselRef = useRef<ICarouselInstance>(null);
-  //const [showSliders, setShowSliders] = useState(false);
-  const showSliders = true;
+  const [showSliders, setShowSliders] = useState(true);
   const slidersAnimation = useSharedValue(0);
+  const [isUserInteracting, setIsUserInteracting] = useState(false);
+  const [debouncedFaceValues, setDebouncedFaceValues] = useState(faceValues);
+
+  const selectedControl = controls.find(
+    (control) => control.key === selectedControlKey
+  );
 
   const scrollToIndex = (index: number) => {
     carouselRef.current?.scrollTo({ index, animated: true });
-    // if (selectedControl.key === FACE_CONTROLS[index].key) {
-    //   setShowSliders(!showSliders);
-    // } else {
-    //   setShowSliders(true);
-    // }
     setSelectedControl(controls[index]);
   };
 
   const handleValueChange = (key: keyof FaceValues, value: number) => {
-    if (faceValues[key] !== value) {
-      console.log("handleValueChange", key, value);
+    console.log({ isUserInteracting, key, value });
+    if (isUserInteracting && faceValues[key] !== value) {
       onFaceValuesChange({ ...faceValues, [key]: value });
     }
   };
+
+  useEffect(() => {
+    const debouncedSetFaceValues = debounce((values) => {
+      setDebouncedFaceValues(values);
+    }, 200);
+
+    debouncedSetFaceValues(faceValues);
+
+    return () => {
+      debouncedSetFaceValues.cancel();
+    };
+  }, [faceValues]);
 
   useEffect(() => {
     slidersAnimation.value = withTiming(showSliders ? 1 : 0, { duration: 250 });
@@ -59,7 +72,7 @@ export const FaceControlsComponent = ({
         translateY: interpolate(
           slidersAnimation.value,
           [0, 1],
-          [-10, 0],
+          [10, 0],
           Extrapolation.CLAMP
         ),
       },
@@ -69,7 +82,29 @@ export const FaceControlsComponent = ({
 
   return (
     <View style={styles.faceControls}>
-      <Text style={styles.selectedLabel}>{selectedControl.label}</Text>
+      {selectedControl && (
+        <>
+          <Animated.View
+            style={[styles.slidersContainer, slidersContainerStyle]}
+          >
+            {selectedControl.values.map((value) => (
+              <View key={value.label} style={styles.sliderContainer}>
+                <Text style={styles.sliderLabel}>{value.label}</Text>
+                <CarouselSlider
+                  key={value.label}
+                  min={value.min}
+                  max={value.max}
+                  value={debouncedFaceValues[value.key]}
+                  onValueChange={(val) => handleValueChange(value.key, val)}
+                  onScrollBegin={() => setIsUserInteracting(true)}
+                  onScrollEnd={() => setIsUserInteracting(false)}
+                />
+              </View>
+            ))}
+          </Animated.View>
+          <Text style={styles.selectedLabel}>{selectedControl.label}</Text>
+        </>
+      )}
       <View style={styles.carouselContainer}>
         <Carousel
           style={styles.carousel}
@@ -79,31 +114,25 @@ export const FaceControlsComponent = ({
           data={controls}
           defaultIndex={0}
           loop={false}
-          onSnapToItem={(index) => scrollToIndex(index)}
+          onProgressChange={(_ofset, index) => {
+            if (isUserInteracting) {
+              const roundedIndex = Math.round(index);
+              const nextControl = controls[roundedIndex];
+              if (selectedControl && nextControl.key !== selectedControl.key) {
+                setSelectedControl(nextControl);
+              }
+            }
+          }}
           renderItem={({ item, animationValue, index }) => (
             <FaceControlIcon
               animationValue={animationValue}
               icon={item.icon}
               onPress={() => scrollToIndex(index)}
-              isSelected={selectedControl.key === item.key && showSliders}
+              isSelected={selectedControlKey === item.key && showSliders}
             />
           )}
         />
       </View>
-      <Animated.View style={[styles.slidersContainer, slidersContainerStyle]}>
-        {selectedControl.values.map((value) => (
-          <View key={value.label} style={styles.sliderContainer}>
-            <Text style={styles.sliderLabel}>{value.label}</Text>
-            <CarouselSlider
-              key={value.label}
-              min={value.min}
-              max={value.max}
-              value={faceValues[value.key]}
-              onValueChange={(val) => handleValueChange(value.key, val)}
-            />
-          </View>
-        ))}
-      </Animated.View>
     </View>
   );
 };
