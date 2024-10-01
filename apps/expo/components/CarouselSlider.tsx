@@ -80,9 +80,9 @@ export const CarouselSlider: React.FC<SliderProps> = ({
             handleValueChange(index);
           }
         }}
-        // onProgressChange={(_offsetProgress, absoluteProgress) =>
-        //   !isScrolling.value && debouncedHandleValueChange(absoluteProgress)
-        // }
+        onProgressChange={(_offsetProgress, absoluteProgress) =>
+          !isScrolling.value && debouncedHandleValueChange(absoluteProgress)
+        }
         renderItem={({ index, animationValue }) => (
           <SliderTick
             animationValue={animationValue}

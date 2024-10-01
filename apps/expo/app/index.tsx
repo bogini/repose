@@ -24,6 +24,7 @@ import { ActivityIndicator } from "react-native";
 import PhotosService, { Photo } from "../api/photos";
 import UploadImageTile from "../components/UploadImageTile";
 import ReplicateService from "../api/replicate";
+import { ImageContainer } from "../components/ImageContainer";
 
 export default function App() {
   const { height, width } = useWindowDimensions();
@@ -156,10 +157,7 @@ export default function App() {
                   ) : (
                     <Link href={`/photo/${item.id}`} asChild>
                       <Pressable style={{ width: "25%", aspectRatio: 1 }}>
-                        <Image
-                          source={{ uri: item.url }}
-                          style={{ width: "100%", height: "100%" }}
-                        />
+                        <ImageContainer imageUrl={item.url} />
                       </Pressable>
                     </Link>
                   )
@@ -169,7 +167,7 @@ export default function App() {
             {photos.length >= 10 && (
               <>
                 <Carousel
-                  title="People"
+                  title="Albums"
                   photos={photos.slice(3, 6).map((photo) => ({
                     id: photo.pathname,
                     url: photo.url,

@@ -107,7 +107,7 @@ class PhotosService {
     const manipResult = await ImageManipulator.manipulateAsync(
       fileUri,
       [{ resize: { width: 1024, height: 1024 } }],
-      { compress: 0.8, format: ImageManipulator.SaveFormat.WEBP, base64: true }
+      { format: ImageManipulator.SaveFormat.WEBP, base64: true }
     );
     return manipResult;
   }
