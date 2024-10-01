@@ -8,14 +8,13 @@ import {
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withTiming,
-  withSpring,
 } from "react-native-reanimated";
 import { ViewStyle } from "react-native";
 
-const FOCAL_POINT_SIZE = 20;
+const FOCAL_POINT_SIZE = 34;
+const FLING_MULTIPLIER = 0.5;
 
-interface FocalPointPadProps {
+interface GestureControlProps {
   value?: { x: number; y: number; rotation: number; scale: number };
   onChange?: (value: {
     x: number;
@@ -24,20 +23,46 @@ interface FocalPointPadProps {
     scale: number;
   }) => void;
   style?: ViewStyle;
+  debug?: boolean;
 }
 
-export const FocalPointPad: React.FC<FocalPointPadProps> = ({
-  value = { x: 50, y: 50, rotation: 0, scale: 1 },
+export const GestureControl: React.FC<GestureControlProps> = ({
+  value = { x: 0, y: 0, rotation: 0, scale: 0 },
   onChange,
   style,
+  debug = false,
 }) => {
   const [size, setSize] = useState({ width: 0, height: 0 });
-  const translateX = useSharedValue(value.x - FOCAL_POINT_SIZE / 2);
-  const translateY = useSharedValue(value.y - FOCAL_POINT_SIZE / 2);
+  const translateX = useSharedValue(
+    value.x * (size.width / 2) + size.width / 2 - FOCAL_POINT_SIZE / 2
+  );
+  const translateY = useSharedValue(
+    -value.y * (size.height / 2) + size.height / 2 - FOCAL_POINT_SIZE / 2
+  );
   const prevTranslateX = useSharedValue(translateX.value);
   const prevTranslateY = useSharedValue(translateY.value);
   const scale = useSharedValue(value.scale);
   const rotation = useSharedValue(value.rotation);
+
+  const handleValueChange = (source: string) => {
+    const x =
+      (translateX.value + FOCAL_POINT_SIZE / 2 - size.width / 2) /
+      (size.width / 2);
+    const y =
+      -(translateY.value + FOCAL_POINT_SIZE / 2 - size.height / 2) /
+      (size.height / 2);
+
+    if (!isNaN(x) && !isNaN(y)) {
+      const logValue = {
+        x,
+        y,
+        rotation: rotation.value,
+        scale: scale.value,
+      };
+      onChange?.(logValue);
+      console.log(`onChange called from ${source}`, logValue);
+    }
+  };
 
   const handlePanUpdate = (event: any) => {
     const maxTranslateX = size.width - FOCAL_POINT_SIZE / 2;
@@ -58,12 +83,7 @@ export const FocalPointPad: React.FC<FocalPointPadProps> = ({
       maxTranslateY
     );
 
-    onChange?.({
-      x: translateX.value,
-      y: translateY.value,
-      rotation: rotation.value,
-      scale: scale.value,
-    });
+    handleValueChange("handlePanUpdate");
   };
 
   const handlePanStart = () => {
@@ -77,59 +97,40 @@ export const FocalPointPad: React.FC<FocalPointPadProps> = ({
   };
 
   const handleRotationUpdate = (event: any) => {
-    rotation.value = event.rotation;
-    onChange?.({
-      x: translateX.value,
-      y: translateY.value,
-      rotation: event.rotation,
-      scale: scale.value,
-    });
+    rotation.value = Math.min(Math.max(event.rotation, -1), 1);
+    handleValueChange("handleRotationUpdate");
   };
 
   const handleRotationEnd = () => {
-    rotation.value = withTiming(value.rotation);
+    value.rotation = rotation.value;
   };
 
   const handlePinchUpdate = (event: any) => {
-    scale.value = event.scale;
-    onChange?.({
-      x: translateX.value,
-      y: translateY.value,
-      rotation: rotation.value,
-      scale: event.scale,
-    });
+    scale.value = Math.min(event.scale, 1);
+    handleValueChange("handlePinchUpdate");
   };
 
   const handlePinchEnd = () => {
-    scale.value = withTiming(value.scale);
+    value.scale = scale.value;
   };
 
   const handleTap = (event: any) => {
     const { locationX, locationY } = event.nativeEvent;
-    const newX = Math.min(
-      Math.max(locationX - FOCAL_POINT_SIZE / 2, -FOCAL_POINT_SIZE / 2),
-      size.width - FOCAL_POINT_SIZE / 2
-    );
-    const newY = Math.min(
-      Math.max(locationY - FOCAL_POINT_SIZE / 2, -FOCAL_POINT_SIZE / 2),
-      size.height - FOCAL_POINT_SIZE / 2
-    );
+    const newX = (locationX - size.width / 2) / (size.width / 2);
+    const newY = -(locationY - size.height / 2) / (size.height / 2);
 
-    translateX.value = newX;
-    translateY.value = newY;
+    translateX.value =
+      newX * (size.width / 2) + size.width / 2 - FOCAL_POINT_SIZE / 2;
+    translateY.value =
+      -newY * (size.height / 2) + size.height / 2 - FOCAL_POINT_SIZE / 2;
 
-    onChange?.({
-      x: newX + FOCAL_POINT_SIZE / 2,
-      y: newY + FOCAL_POINT_SIZE / 2,
-      rotation: rotation.value,
-      scale: scale.value,
-    });
+    handleValueChange("handleTap");
   };
 
   const handleFlingEnd = (event: any) => {
     const { velocityX, velocityY } = event;
-    const flingDistanceX = velocityX * 0.1; // Adjust the multiplier as needed
-    const flingDistanceY = velocityY * 0.1; // Adjust the multiplier as needed
+    const flingDistanceX = velocityX * FLING_MULTIPLIER;
+    const flingDistanceY = velocityY * FLING_MULTIPLIER;
 
     const maxTranslateX = size.width - FOCAL_POINT_SIZE / 2;
     const maxTranslateY = size.height - FOCAL_POINT_SIZE / 2;
@@ -143,12 +144,15 @@ export const FocalPointPad: React.FC<FocalPointPadProps> = ({
       maxTranslateY
     );
 
-    onChange?.({
-      x: translateX.value,
-      y: translateY.value,
-      rotation: rotation.value,
-      scale: scale.value,
-    });
+    handleValueChange("handleFlingEnd");
+  };
+
+  const handleDoubleTap = () => {
+    translateX.value = size.width / 2 - FOCAL_POINT_SIZE / 2;
+    translateY.value = size.height / 2 - FOCAL_POINT_SIZE / 2;
+    rotation.value = 0;
+    scale.value = 0;
+    handleValueChange("handleDoubleTap");
   };
 
   const panGesture = Gesture.Pan()
@@ -171,26 +175,31 @@ export const FocalPointPad: React.FC<FocalPointPadProps> = ({
     )
     .onEnd(handleFlingEnd);
 
-  const composedGestures = Gesture.Race(
-    panGesture,
-    Gesture.Simultaneous(rotationGesture, pinchGesture, flingGesture)
+  const doubleTapGesture = Gesture.Tap()
+    .numberOfTaps(2)
+    .onStart(handleDoubleTap);
+
+  const composedGestures = Gesture.Simultaneous(
+    Gesture.Simultaneous(panGesture, pinchGesture, flingGesture),
+    rotationGesture,
+    doubleTapGesture
   );
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: translateX.value },
       { translateY: translateY.value },
-      { scale: scale.value },
+      { scale: scale.value + 1 },
       { rotateZ: `${rotation.value}rad` },
     ],
   }));
 
   return (
-    <View style={[styles.container, style]}>
+    <View style={[styles.container, style, { opacity: debug ? 1 : 0 }]}>
       <GestureDetector gesture={composedGestures}>
         <TouchableWithoutFeedback onPress={handleTap}>
           <Animated.View
-            style={[styles.pad]}
+            style={[styles.surface]}
             onLayout={(event) => {
               const { width, height } = event.nativeEvent.layout;
               setSize({ width, height });
@@ -209,13 +218,13 @@ export const FocalPointPad: React.FC<FocalPointPadProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "white",
+    borderColor: "white",
+    borderWidth: 2,
     width: "100%",
     height: "100%",
   },
-  pad: {
+  surface: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
     overflow: "hidden",
   },
   focalPoint: {
@@ -240,4 +249,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default FocalPointPad;
+export default GestureControl;
