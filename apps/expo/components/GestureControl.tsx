@@ -84,7 +84,7 @@ export const GestureControl: React.FC<GestureControlProps> = ({
         scale: Number(scale.value.toFixed(2)),
       };
       onChange?.(logValue);
-      console.log(`onChange called from ${source}`, logValue);
+      //console.log(`onChange called from ${source}`, logValue);
     }
   }, DEBOUNCE_TIME_MS);
 

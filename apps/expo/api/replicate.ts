@@ -22,7 +22,7 @@ export type FaceValues = {
   blink?: number;
   wink?: number;
 };
-export const getBucketValue = (
+const getBucketValue = (
   value: number | undefined,
   min: number,
   max: number
@@ -142,15 +142,11 @@ class ReplicateService {
 
       if (cachedResponse) {
         const cacheHitTime = Date.now() - startTime;
-        console.log(`Cache hit in ${cacheHitTime}ms`, cachedResponse);
+        console.log(`Cache hit in ${cacheHitTime}ms`, cacheKey);
         return cachedResponse as string;
       }
 
-      console.log("Request", {
-        proxyEndpoint: REPLICATE_ENDPOINT,
-        modelIdentifier: MODEL_IDENTIFIER,
-        payload,
-      });
+      console.log("Request", cacheKey);
 
       const { data } = await axios.post<ReplicateResponse>(
         REPLICATE_ENDPOINT!,
@@ -159,12 +155,11 @@ class ReplicateService {
       );
       const responseTime = Date.now() - startTime;
 
-      console.log(`Response received in ${responseTime}ms`, data);
+      console.log(`Response ${responseTime}ms`, cacheKey);
 
       const imageUrl = data.url;
 
-      console.log("Saving to cache", cacheKey, imageUrl);
-      await AsyncStorage.setItem(cacheKey, imageUrl);
+      AsyncStorage.setItem(cacheKey, imageUrl);
 
       return imageUrl;
     } catch (error) {
@@ -235,18 +230,11 @@ class ReplicateService {
             srcRatio: DEFAULT_SRC_RATIO,
           };
 
-          console.log(updatedInput);
-
           const promise = this.runExpressionEditor(updatedInput, false)
             .then((result) => {
               results.push(result);
             })
-            .catch((error) => {
-              console.error(
-                `Error running expression editor with input: ${JSON.stringify(updatedInput)}`,
-                error
-              );
-            });
+            .catch(() => {});
 
           promises.push(promise);
 
@@ -263,7 +251,7 @@ class ReplicateService {
     const endTime = Date.now();
     const elapsedTime = endTime - startTime;
 
-    await Image.prefetch(results, {
+    Image.prefetch(results, {
       cachePolicy: "memory-disk",
     });
 

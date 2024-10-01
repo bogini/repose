@@ -9,11 +9,14 @@ import Animated, {
 import { useEffect } from "react";
 
 interface ImageContainerProps {
-  loading: boolean;
+  loading?: boolean;
   imageUrl: string;
 }
 
-export const ImageContainer = ({ loading, imageUrl }: ImageContainerProps) => {
+export const ImageContainer = ({
+  loading = false,
+  imageUrl,
+}: ImageContainerProps) => {
   const pulseAnimation = useSharedValue(1);
 
   useEffect(() => {

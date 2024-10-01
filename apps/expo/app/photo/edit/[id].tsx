@@ -146,7 +146,6 @@ export default function EditScreen() {
 
   const handleFaceValuesChange = useCallback(
     async (values: FaceValues) => {
-      console.log("values", values);
       setFaceValues(values);
 
       if (originalImageUrl) {

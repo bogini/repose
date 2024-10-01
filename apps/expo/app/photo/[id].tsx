@@ -1,37 +1,14 @@
 import { Text, View, Pressable, StyleSheet, Image } from "react-native";
 import { useEffect, useState } from "react";
 import { Link, useLocalSearchParams, useRouter } from "expo-router";
-import {
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
-import { Gesture } from "react-native-gesture-handler";
 import { SymbolView } from "expo-symbols";
 import PhotosService, { Photo } from "../../api/photos";
 import ReplicateService from "../../api/replicate";
-
-interface TopBarProps {
-  router: ReturnType<typeof useRouter>;
-  photo: Photo;
-  isExpressionEditorComplete: boolean;
-}
-
-interface ImageContainerProps {
-  imageUrl: string;
-  gesture: ReturnType<typeof Gesture.Pinch>;
-  animatedStyle: ReturnType<typeof useAnimatedStyle>;
-}
-
-interface BottomBarProps {
-  id: string;
-}
+import { ImageContainer } from "../../components/ImageContainer";
 
 export default function PhotoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const scale = useSharedValue(1);
   const [photo, setPhoto] = useState<Photo | undefined>(undefined);
   const [isExpressionEditorComplete, setIsExpressionEditorComplete] =
     useState(false);
@@ -42,9 +19,9 @@ export default function PhotoScreen() {
         const fetchedPhoto = await PhotosService.getPhotoById(id);
         if (fetchedPhoto) {
           setPhoto(fetchedPhoto);
-          // await ReplicateService.runExpressionEditorWithAllRotations(
-          //   fetchedPhoto.url
-          // );
+          await ReplicateService.runExpressionEditorWithAllRotations(
+            fetchedPhoto.url
+          );
           setIsExpressionEditorComplete(true);
         }
       } catch (error) {
@@ -54,22 +31,6 @@ export default function PhotoScreen() {
 
     fetchPhoto();
   }, [id]);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const gesture = Gesture.Pinch()
-    .onChange((e) => {
-      scale.value = e.scale;
-    })
-    .onEnd((e) => {
-      if (e.velocity < 0) {
-        runOnJS(router.back)();
-      } else {
-        scale.value = withTiming(1);
-      }
-    });
 
   if (!photo) {
     return <Text>Photo not found</Text>;
@@ -82,17 +43,22 @@ export default function PhotoScreen() {
         photo={photo}
         isExpressionEditorComplete={isExpressionEditorComplete}
       />
-      <ImageContainer
-        imageUrl={photo.url}
-        gesture={gesture}
-        animatedStyle={animatedStyle}
-      />
+      <View style={styles.imageContainer}>
+        <ImageContainer imageUrl={photo.url} />
+      </View>
       <BottomBar id={photo.id} />
     </View>
   );
 }
 
-const TopBar = ({ router, isExpressionEditorComplete }: TopBarProps) => (
+const TopBar = ({
+  router,
+  isExpressionEditorComplete,
+}: {
+  router: ReturnType<typeof useRouter>;
+  photo: Photo;
+  isExpressionEditorComplete: boolean;
+}) => (
   <View style={styles.topBar}>
     <View style={styles.photoInfo}>
       <Text style={styles.titleText}>Yesterday</Text>
@@ -121,17 +87,7 @@ const TopBar = ({ router, isExpressionEditorComplete }: TopBarProps) => (
   </View>
 );
 
-const ImageContainer = ({ imageUrl }: ImageContainerProps) => (
-  <View style={styles.imageContainer}>
-    <Image
-      source={{ uri: imageUrl }}
-      style={{ width: "100%", height: "100%" }}
-      resizeMode="contain"
-    />
-  </View>
-);
-
-const BottomBar = ({ id }: BottomBarProps) => (
+const BottomBar = ({ id }: { id: string }) => (
   <View style={styles.bottomBar}>
     <Pressable style={styles.roundButton}>
       <SymbolView
@@ -187,6 +143,7 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     flex: 1,
+    marginVertical: 100,
   },
   symbol: {
     height: 28,
