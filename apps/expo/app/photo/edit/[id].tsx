@@ -1,51 +1,25 @@
 import { Text, View, Pressable, StyleSheet } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import Animated, {
-  Extrapolation,
-  interpolate,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from "react-native-reanimated";
 import { SymbolView } from "expo-symbols";
 import { StatusBar } from "expo-status-bar";
-import Carousel, { ICarouselInstance } from "react-native-reanimated-carousel";
+
 import { useState, useRef, useEffect, useCallback } from "react";
 import PhotosService from "../../../api/photos";
-import {
-  GestureHandlerRootView,
-  PanGestureHandler,
-  PinchGestureHandler,
-  TapGestureHandler,
-  GestureEvent,
-  TapGestureHandlerEventPayload,
-  RotationGestureHandler,
-  PinchGestureHandlerEventPayload,
-  PanGestureHandlerEventPayload,
-  RotationGestureHandlerEventPayload,
-  State,
-  HandlerStateChangeEvent,
-} from "react-native-gesture-handler";
 import ReplicateService, {
   DEFAULT_VALUES,
   FaceValues,
-  getBucketValue,
 } from "../../../api/replicate";
-import { CarouselSlider } from "../../../components/CarouselSlider";
-import { Image } from "expo-image";
+
+import { ImageContainer } from "../../../components/ImageContainer";
+import { GestureControl } from "../../../components/GestureControl";
+import { FaceControlsComponent } from "../../../components/FaceControls";
 
 enum GestureDirection {
   Normal = "normal",
   Inverted = "inverted",
 }
 
-interface Photo {
-  id: number;
-  url: string;
-}
-
-interface FaceControl {
+export interface FaceControl {
   key: string;
   icon: string;
   label: string;
@@ -236,22 +210,6 @@ export default function EditScreen() {
     };
   }, [originalImageUrl]);
 
-  const generateVariations = async () => {
-    if (originalImageUrl) {
-      setLoading(true);
-      try {
-        const variations =
-          await ReplicateService.runExpressionEditorWithAllRotations(
-            originalImageUrl
-          );
-        console.log("Generated variations:", variations.length);
-      } catch (error) {
-        console.error("Error generating variations:", error);
-      }
-      setLoading(false);
-    }
-  };
-
   if (!originalImageUrl) {
     return (
       <View
@@ -263,35 +221,30 @@ export default function EditScreen() {
   return (
     <View style={styles.container}>
       <StatusBar hidden={true} />
-      <View>
-        <TopBar onBack={() => router.back()} />
-        <AdjustBar onGenerateVariations={generateVariations} />
+
+      <TopBar onBack={() => router.back()} />
+      <AdjustBar />
+
+      <View style={styles.imageContainer}>
+        <GestureControl debug={false}>
+          {editedImageUrl && (
+            <ImageContainer loading={loading} imageUrl={editedImageUrl} />
+          )}
+        </GestureControl>
       </View>
-      {editedImageUrl && (
-        <ImageContainer
-          loading={loading}
-          faceValues={faceValues}
-          handleFaceValuesChange={runEditor}
-          selectedControl={selectedControl}
-          imageUrl={editedImageUrl}
-        />
-      )}
+
       <FaceControlsComponent
+        controls={FACE_CONTROLS}
         faceValues={faceValues}
         onFaceValuesChange={runEditor}
         selectedControl={selectedControl}
         setSelectedControl={setSelectedControl}
       />
-      <View style={{ backgroundColor: "black", width: "100%", height: 80 }} />
     </View>
   );
 }
 
-interface TopBarProps {
-  onBack: () => void;
-}
-
-const TopBar = ({ onBack }: TopBarProps) => (
+const TopBar = ({ onBack }: { onBack: () => void }) => (
   <View style={styles.topBar}>
     <Pressable style={styles.topBarButton} onPress={onBack}>
       <Text style={styles.topBarButtonText}>Cancel</Text>
@@ -302,11 +255,7 @@ const TopBar = ({ onBack }: TopBarProps) => (
   </View>
 );
 
-const AdjustBar = ({
-  onGenerateVariations,
-}: {
-  onGenerateVariations: () => void;
-}) => (
+const AdjustBar = ({}: {}) => (
   <View style={styles.adjustBar}>
     <View style={styles.rowWithGap}>
       <SymbolView
@@ -324,14 +273,12 @@ const AdjustBar = ({
     </View>
     <Text style={styles.adjustText}>ADJUST</Text>
     <View style={styles.rowWithGap}>
-      <Pressable onPress={onGenerateVariations}>
-        <SymbolView
-          name="pencil.tip.crop.circle"
-          weight="medium"
-          style={styles.adjustSymbolActive}
-          resizeMode="scaleAspectFit"
-        />
-      </Pressable>
+      <SymbolView
+        name="pencil.tip.crop.circle"
+        weight="medium"
+        style={styles.adjustSymbolActive}
+        resizeMode="scaleAspectFit"
+      />
       <SymbolView
         name="ellipsis.circle"
         weight="medium"
@@ -342,381 +289,7 @@ const AdjustBar = ({
   </View>
 );
 
-interface ImageContainerProps {
-  loading: boolean;
-  faceValues: FaceValues;
-  handleFaceValuesChange: (values: FaceValues) => void;
-  selectedControl: FaceControl;
-  imageUrl: string;
-}
-
-const ImageContainer = ({
-  loading,
-  faceValues,
-  handleFaceValuesChange,
-  selectedControl,
-  imageUrl,
-}: ImageContainerProps) => {
-  const pulseAnimation = useSharedValue(1);
-
-  const [imageDimensions, setImageDimensions] = useState({
-    width: 0,
-    height: 0,
-  });
-
-  useEffect(() => {
-    pulseAnimation.value = loading
-      ? withRepeat(withTiming(0.8, { duration: 500 }), -1, true)
-      : withTiming(1, { duration: 250 });
-  }, [loading, pulseAnimation]);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: pulseAnimation.value,
-  }));
-
-  const handleGesture = (gesture: string, percentChange: number) => {
-    const control = selectedControl.values.find((v) => v.gesture === gesture);
-
-    if (control) {
-      const range = control.max - control.min;
-      const prevValue =
-        faceValues[control.key] || DEFAULT_VALUES[control.key] || 0;
-      const newValue = getBucketValue(
-        prevValue + (range * percentChange) / 50,
-        control.min,
-        control.max
-      );
-
-      console.log({
-        gesture,
-        control: control.key,
-        percentChange,
-        prevValue,
-        newValue,
-      });
-
-      const newFaceValues = {
-        ...faceValues,
-        [control.key]: newValue,
-      };
-
-      handleFaceValuesChange(newFaceValues);
-    }
-  };
-
-  const handlePanGesture = (
-    event: HandlerStateChangeEvent<PanGestureHandlerEventPayload>
-  ) => {
-    if (event.nativeEvent.state === State.END) {
-      const { translationX, translationY } = event.nativeEvent;
-      const { width: imageWidth, height: imageHeight } = imageDimensions;
-
-      const panXPercentage = (translationX / imageWidth) * 100;
-      const panYPercentage = (translationY / imageHeight) * 100;
-
-      console.log(
-        `Panned ${panXPercentage.toFixed(1)}% horizontally and ${panYPercentage.toFixed(1)}% vertically`
-      );
-
-      const panXControls = selectedControl.values.filter(
-        (control) => control.gesture === "panX"
-      );
-      const panYControls = selectedControl.values.filter(
-        (control) => control.gesture === "panY"
-      );
-
-      panXControls.forEach((control) => {
-        const value =
-          control.direction === GestureDirection.Inverted
-            ? -panXPercentage
-            : panXPercentage;
-        handleGesture("panX", value);
-      });
-
-      panYControls.forEach((control) => {
-        const value =
-          control.direction === GestureDirection.Inverted
-            ? -panYPercentage
-            : panYPercentage;
-        handleGesture("panY", value);
-      });
-    }
-  };
-
-  const handlePinchGesture = (
-    event: HandlerStateChangeEvent<PinchGestureHandlerEventPayload>
-  ) => {
-    if (event.nativeEvent.state === State.END) {
-      const { scale } = event.nativeEvent;
-
-      const pinchPercentage = (scale - 1) / 4;
-      const clampedPercentage = Math.max(-1, Math.min(1, pinchPercentage));
-
-      console.log(`Pinched ${clampedPercentage.toFixed(2)} percent`);
-
-      selectedControl.values.forEach((control) => {
-        if (control.gesture === "pinch") {
-          const value =
-            control.direction === GestureDirection.Inverted
-              ? -clampedPercentage
-              : clampedPercentage;
-          handleGesture("pinch", value);
-        }
-      });
-    }
-  };
-
-  const handleRotationGesture = (
-    event: GestureEvent<RotationGestureHandlerEventPayload>
-  ) => {
-    const { rotation } = event.nativeEvent;
-    const { width: imageWidth, height: imageHeight } = imageDimensions;
-    const diagonal = Math.sqrt(imageWidth ** 2 + imageHeight ** 2);
-    const normalizedValue = (rotation / (Math.PI * 2)) * (diagonal / 2);
-
-    selectedControl.values.forEach((control) => {
-      if (control.gesture === "rotation") {
-        const value = getBucketValue(
-          control.direction === GestureDirection.Inverted
-            ? -normalizedValue
-            : normalizedValue,
-          control.min,
-          control.max
-        );
-        handleGesture("rotation", value ?? 0);
-      }
-    });
-  };
-
-  const handleTapGesture = (
-    event: GestureEvent<TapGestureHandlerEventPayload>
-  ) => {
-    const { x, y } = event.nativeEvent;
-    const { width: imageWidth, height: imageHeight } = imageDimensions;
-    const tapXValue = x < imageWidth / 2 ? 10 : -10;
-    handleGesture("tapX", tapXValue);
-    const tapYValue = y < imageHeight / 2 ? 10 : -10;
-    handleGesture("tapY", tapYValue);
-  };
-
-  const rotationRef = useRef(null);
-  const tapRef = useRef(null);
-
-  return (
-    <GestureHandlerRootView style={styles.imageContainer}>
-      <PanGestureHandler
-        onHandlerStateChange={(event) =>
-          loading ? undefined : handlePanGesture(event)
-        }
-      >
-        <PinchGestureHandler
-          onHandlerStateChange={loading ? undefined : handlePinchGesture}
-          simultaneousHandlers={[rotationRef, tapRef]}
-        >
-          <RotationGestureHandler
-            onGestureEvent={loading ? undefined : handleRotationGesture}
-            simultaneousHandlers={[tapRef]}
-            ref={rotationRef}
-          >
-            <TapGestureHandler
-              onGestureEvent={loading ? undefined : handleTapGesture}
-              ref={tapRef}
-            >
-              <Animated.View style={[styles.fullSize, animatedStyle]}>
-                <Image
-                  source={{ uri: imageUrl }}
-                  cachePolicy={"memory-disk"}
-                  placeholder={{ uri: imageUrl }}
-                  placeholderContentFit="contain"
-                  allowDownscaling={false}
-                  priority={"high"}
-                  transition={{
-                    duration: 250,
-                    effect: "cross-dissolve",
-                    timing: "ease-in-out",
-                  }}
-                  style={styles.fullSize}
-                  contentFit="contain"
-                  onLayout={(event) => {
-                    const { width, height } = event.nativeEvent.layout;
-                    setImageDimensions({ width, height });
-                  }}
-                />
-              </Animated.View>
-            </TapGestureHandler>
-          </RotationGestureHandler>
-        </PinchGestureHandler>
-      </PanGestureHandler>
-    </GestureHandlerRootView>
-  );
-};
-
-interface FaceControlsComponentProps {
-  faceValues: FaceValues;
-  onFaceValuesChange: (values: FaceValues) => void;
-  selectedControl: FaceControl;
-  setSelectedControl: React.Dispatch<React.SetStateAction<FaceControl>>;
-}
-
-const FaceControlsComponent = ({
-  faceValues,
-  onFaceValuesChange,
-  selectedControl,
-  setSelectedControl,
-}: FaceControlsComponentProps) => {
-  const carouselRef = useRef<ICarouselInstance>(null);
-  //const [showSliders, setShowSliders] = useState(false);
-  const showSliders = true;
-  const slidersAnimation = useSharedValue(0);
-
-  const scrollToIndex = (index: number) => {
-    carouselRef.current?.scrollTo({ index, animated: true });
-    // if (selectedControl.key === FACE_CONTROLS[index].key) {
-    //   setShowSliders(!showSliders);
-    // } else {
-    //   setShowSliders(true);
-    // }
-    setSelectedControl(FACE_CONTROLS[index]);
-  };
-
-  const handleValueChange = (key: keyof FaceValues, value: number) => {
-    onFaceValuesChange({ ...faceValues, [key]: value });
-  };
-
-  useEffect(() => {
-    slidersAnimation.value = withTiming(showSliders ? 1 : 0, { duration: 250 });
-  }, [showSliders, slidersAnimation]);
-
-  const slidersContainerStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        translateY: interpolate(
-          slidersAnimation.value,
-          [0, 1],
-          [-10, 0],
-          Extrapolation.CLAMP
-        ),
-      },
-    ],
-    opacity: slidersAnimation.value,
-  }));
-
-  return (
-    <View style={styles.bottomPager}>
-      <Text style={styles.selectedLabel}>{selectedControl.label}</Text>
-      <View style={styles.carouselContainer}>
-        <Carousel
-          style={styles.carousel}
-          ref={carouselRef}
-          width={100}
-          height={58}
-          data={FACE_CONTROLS}
-          defaultIndex={0}
-          loop={false}
-          onSnapToItem={(index) => scrollToIndex(index)}
-          renderItem={({ item, animationValue, index }) => (
-            <CarouselItemComponent
-              animationValue={animationValue}
-              icon={item.icon}
-              onPress={() => scrollToIndex(index)}
-              isSelected={selectedControl.key === item.key && showSliders}
-            />
-          )}
-        />
-      </View>
-      <Animated.View style={[styles.slidersContainer, slidersContainerStyle]}>
-        {selectedControl.values.map((value) => (
-          <View key={value.label} style={styles.sliderContainer}>
-            <Text style={styles.sliderLabel}>{value.label}</Text>
-            <CarouselSlider
-              key={value.label}
-              min={value.min}
-              max={value.max}
-              value={faceValues[value.key]}
-              onValueChange={(val) => handleValueChange(value.key, val)}
-            />
-          </View>
-        ))}
-      </Animated.View>
-    </View>
-  );
-};
-
-interface CarouselItemProps {
-  animationValue: Animated.SharedValue<number>;
-  icon: string;
-  onPress: () => void;
-  isSelected: boolean;
-}
-
-const CarouselItemComponent = ({
-  animationValue,
-  icon,
-  onPress,
-  isSelected,
-}: CarouselItemProps) => {
-  const containerStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
-      animationValue.value,
-      [-1, 0, 1],
-      [0.4, 1, 0.4],
-      Extrapolation.CLAMP
-    );
-    return { opacity };
-  }, [animationValue]);
-
-  const borderColorStyle = useAnimatedStyle(() => {
-    const borderColor = isSelected
-      ? withTiming("#FFD409", { duration: 250 })
-      : withTiming("#46454A", { duration: 250 });
-    return { borderColor };
-  }, [isSelected]);
-
-  return (
-    <Pressable onPress={onPress}>
-      <Animated.View
-        style={[
-          { alignItems: "center", justifyContent: "center" },
-          containerStyle,
-        ]}
-      >
-        <Animated.View style={[styles.facePartIconContainer, borderColorStyle]}>
-          <SymbolView
-            name={icon as any}
-            weight="regular"
-            style={styles.facePartIcon}
-            resizeMode="scaleAspectFit"
-          />
-        </Animated.View>
-      </Animated.View>
-    </Pressable>
-  );
-};
-
 const styles = StyleSheet.create({
-  slidersContainer: {
-    gap: 12,
-    flexDirection: "column",
-    marginHorizontal: 20,
-  },
-  sliderContainer: {
-    height: 40,
-    flex: 0,
-    gap: 5,
-    flexDirection: "column",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  facePartIconContainer: {
-    borderRadius: 50,
-    padding: 10,
-    borderWidth: 2,
-  },
-  facePartIcon: {
-    height: 32,
-    width: 32,
-    tintColor: "#8E8D93",
-  },
   adjustBar: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -745,7 +318,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   imageContainer: {
-    height: "50%",
+    flex: 1,
   },
   topBarButton: {
     backgroundColor: "#8E8D93",
@@ -770,38 +343,6 @@ const styles = StyleSheet.create({
   topBarButtonText: {
     fontWeight: "700",
   },
-  symbol: {
-    height: 28,
-    width: 28,
-  },
-  photoInfo: {
-    flexDirection: "column",
-    gap: 3,
-  },
-  topSymbol: {
-    height: 15,
-    width: 15,
-  },
-  topButton: {
-    backgroundColor: "rgba(0, 0, 0, 0.05)",
-    borderRadius: 50,
-    padding: 6,
-  },
-  topButtons: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    alignItems: "center",
-    gap: 7,
-  },
-  closeButton: {
-    position: "absolute",
-    top: 40,
-    left: 20,
-    zIndex: 1,
-    padding: 10,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    borderRadius: 5,
-  },
   topBar: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -811,50 +352,6 @@ const styles = StyleSheet.create({
     zIndex: 1,
     paddingHorizontal: 40,
   },
-  titleText: {
-    color: "#000",
-    fontWeight: "bold",
-    fontSize: 20,
-  },
-  subheadingText: {
-    color: "rgba(0, 0, 0, 0.5)",
-    fontWeight: "light",
-    fontSize: 12,
-  },
-  carouselContainer: {
-    width: "100%",
-    height: 58,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  carousel: {
-    width: "200%",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  fullSize: {
-    width: "100%",
-    height: "100%",
-  },
-  iconButton: {
-    marginHorizontal: 10,
-    backgroundColor: "rgba(255, 255, 255, 0.7)",
-    borderRadius: 25,
-    padding: 10,
-  },
-  selectedLabel: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "thin",
-    textAlign: "center",
-    margin: 10,
-  },
-  bottomPager: {
-    flex: 1,
-    gap: 10,
-    justifyContent: "flex-start",
-    marginVertical: 20,
-  },
   sliderLabel: {
     color: "#8E8D93",
     fontWeight: "500",
@@ -862,5 +359,16 @@ const styles = StyleSheet.create({
   },
   sliderValue: {
     color: "#8E8D93",
+  },
+  selectedLabel: {
+    color: "#fff",
+    fontSize: 16,
+    textAlign: "center",
+    margin: 10,
+  },
+  faceControls: {
+    gap: 10,
+    justifyContent: "flex-start",
+    marginVertical: 20,
   },
 });

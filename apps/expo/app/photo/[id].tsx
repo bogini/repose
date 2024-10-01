@@ -42,9 +42,9 @@ export default function PhotoScreen() {
         const fetchedPhoto = await PhotosService.getPhotoById(id);
         if (fetchedPhoto) {
           setPhoto(fetchedPhoto);
-          await ReplicateService.runExpressionEditorWithAllRotations(
-            fetchedPhoto.url
-          );
+          // await ReplicateService.runExpressionEditorWithAllRotations(
+          //   fetchedPhoto.url
+          // );
           setIsExpressionEditorComplete(true);
         }
       } catch (error) {

@@ -24,6 +24,7 @@ interface GestureControlProps {
   }) => void;
   style?: ViewStyle;
   debug?: boolean;
+  children?: React.ReactNode;
 }
 
 export const GestureControl: React.FC<GestureControlProps> = ({
@@ -31,18 +32,15 @@ export const GestureControl: React.FC<GestureControlProps> = ({
   onChange,
   style,
   debug = false,
+  children,
 }) => {
   const [size, setSize] = useState({ width: 0, height: 0 });
-  const translateX = useSharedValue(
-    value.x * (size.width / 2) + size.width / 2 - FOCAL_POINT_SIZE / 2
-  );
-  const translateY = useSharedValue(
-    -value.y * (size.height / 2) + size.height / 2 - FOCAL_POINT_SIZE / 2
-  );
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
   const prevTranslateX = useSharedValue(translateX.value);
   const prevTranslateY = useSharedValue(translateY.value);
-  const scale = useSharedValue(value.scale);
-  const rotation = useSharedValue(value.rotation);
+  const scale = useSharedValue(0);
+  const rotation = useSharedValue(0);
 
   const handleValueChange = (source: string) => {
     const x =
@@ -192,10 +190,18 @@ export const GestureControl: React.FC<GestureControlProps> = ({
       { scale: scale.value + 1 },
       { rotateZ: `${rotation.value}rad` },
     ],
+    width: FOCAL_POINT_SIZE,
+    height: FOCAL_POINT_SIZE,
   }));
 
   return (
-    <View style={[styles.container, style, { opacity: debug ? 1 : 0 }]}>
+    <View
+      style={[
+        styles.container,
+        style,
+        debug ? { borderColor: "white", borderWidth: 2 } : {},
+      ]}
+    >
       <GestureDetector gesture={composedGestures}>
         <TouchableWithoutFeedback onPress={handleTap}>
           <Animated.View
@@ -203,12 +209,20 @@ export const GestureControl: React.FC<GestureControlProps> = ({
             onLayout={(event) => {
               const { width, height } = event.nativeEvent.layout;
               setSize({ width, height });
+
+              translateX.value = width / 2 - FOCAL_POINT_SIZE / 2;
+              translateY.value = height / 2 - FOCAL_POINT_SIZE / 2;
             }}
           >
-            <Animated.View style={[styles.focalPoint, animatedStyle]}>
-              <View style={styles.dot} />
-              <View style={styles.line} />
-            </Animated.View>
+            {children}
+            {debug && (
+              <Animated.View style={[styles.pointContainer, animatedStyle]}>
+                <View style={styles.point}>
+                  <View style={styles.dot} />
+                  <View style={styles.line} />
+                </View>
+              </Animated.View>
+            )}
           </Animated.View>
         </TouchableWithoutFeedback>
       </GestureDetector>
@@ -218,16 +232,22 @@ export const GestureControl: React.FC<GestureControlProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    borderColor: "white",
-    borderWidth: 2,
     width: "100%",
     height: "100%",
   },
   surface: {
     flex: 1,
     overflow: "hidden",
+    position: "relative",
   },
-  focalPoint: {
+  pointContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  point: {
     width: FOCAL_POINT_SIZE,
     height: FOCAL_POINT_SIZE,
     alignItems: "center",
