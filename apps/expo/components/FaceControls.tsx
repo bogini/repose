@@ -43,7 +43,10 @@ export const FaceControlsComponent = ({
   };
 
   const handleValueChange = (key: keyof FaceValues, value: number) => {
-    onFaceValuesChange({ ...faceValues, [key]: value });
+    if (faceValues[key] !== value) {
+      console.log("handleValueChange", key, value);
+      onFaceValuesChange({ ...faceValues, [key]: value });
+    }
   };
 
   useEffect(() => {

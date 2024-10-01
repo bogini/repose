@@ -12,6 +12,7 @@ import Animated, {
 import { debounce } from "lodash";
 
 const DEBOUNCE_TIME_MS = 25;
+const SCROLL_DURATION_MS = 500;
 const NUM_TICKS = 40;
 interface SliderProps {
   min?: number;
@@ -27,13 +28,23 @@ export const CarouselSlider: React.FC<SliderProps> = ({
   onValueChange,
 }) => {
   const carouselRef = useRef<ICarouselInstance>(null);
+  const isScrolling = useSharedValue(false);
 
   const scrollToIndex = (index: number) => {
+    isScrolling.value = true;
     carouselRef.current?.scrollTo({
       index,
       animated: true,
     });
+    setTimeout(() => {
+      isScrolling.value = false;
+    }, SCROLL_DURATION_MS);
   };
+
+  useEffect(() => {
+    const index = Math.round(((value - min) / (max - min)) * (NUM_TICKS - 1));
+    scrollToIndex(index);
+  }, [value, min, max]);
 
   const handleValueChange = (index: number) => {
     const normalizedValue = (index / (NUM_TICKS - 1)) * (max - min) + min;
@@ -61,14 +72,17 @@ export const CarouselSlider: React.FC<SliderProps> = ({
         width={10}
         height={14}
         data={data}
-        defaultIndex={Math.round(
-          ((value - min) / (max - min)) * (NUM_TICKS - 1)
-        )}
+        scrollAnimationDuration={SCROLL_DURATION_MS}
+        defaultIndex={Math.round((NUM_TICKS - 1) / 2)}
         loop={false}
-        onScrollEnd={(index) => handleValueChange(index)}
-        onProgressChange={(_offsetProgress, absoluteProgress) =>
-          debouncedHandleValueChange(absoluteProgress)
-        }
+        onScrollEnd={(index) => {
+          if (!isScrolling.value) {
+            handleValueChange(index);
+          }
+        }}
+        // onProgressChange={(_offsetProgress, absoluteProgress) =>
+        //   !isScrolling.value && debouncedHandleValueChange(absoluteProgress)
+        // }
         renderItem={({ index, animationValue }) => (
           <SliderTick
             animationValue={animationValue}
@@ -87,56 +101,56 @@ interface CarouselItemProps {
   isSpecialTick: boolean;
 }
 
-const SliderTick = ({
-  animationValue,
-  onPress,
-  isSpecialTick,
-}: CarouselItemProps) => {
-  const containerStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
-      animationValue.value,
-      [-1, 0, 1],
-      [0.5, 1, 0.5],
-      Extrapolation.CLAMP
+const SliderTick = React.memo(
+  ({ animationValue, onPress, isSpecialTick }: CarouselItemProps) => {
+    const containerStyle = useAnimatedStyle(() => {
+      const opacity = interpolate(
+        animationValue.value,
+        [-1, 0, 1],
+        [0.5, 1, 0.5],
+        Extrapolation.CLAMP
+      );
+
+      return {
+        opacity,
+      };
+    }, [animationValue]);
+
+    const tickStyle = useAnimatedStyle(() => {
+      const clampedValue = Math.max(-1, Math.min(animationValue.value, 1));
+      const backgroundColor = interpolateColor(
+        clampedValue,
+        [-1, 0, 1],
+        ["#FFFFFF", "#FFD409", "#FFFFFF"]
+      );
+
+      const opacity = interpolate(
+        clampedValue,
+        [-1, 0, 1],
+        isSpecialTick ? [1, 1, 1] : [0.7, 1, 0.7],
+        Extrapolation.CLAMP
+      );
+
+      return {
+        backgroundColor,
+        opacity,
+      };
+    }, [animationValue, isSpecialTick]);
+
+    return (
+      <Pressable onPress={onPress}>
+        <Animated.View
+          style={[
+            { alignItems: "center", justifyContent: "center" },
+            containerStyle,
+          ]}
+        >
+          <Animated.View style={[styles.tickMark, tickStyle]} />
+        </Animated.View>
+      </Pressable>
     );
-
-    return {
-      opacity,
-    };
-  });
-
-  const tickStyle = useAnimatedStyle(() => {
-    const backgroundColor = interpolateColor(
-      animationValue.value,
-      [-1, 0, 1],
-      ["#FFFFFF", "#FFD409", "#FFFFFF"]
-    );
-    const opacity = interpolate(
-      animationValue.value,
-      [-1, 0, 1],
-      isSpecialTick ? [1, 1, 1] : [0.7, 1, 0.7],
-      Extrapolation.CLAMP
-    );
-
-    return {
-      backgroundColor,
-      opacity,
-    };
-  });
-
-  return (
-    <Pressable onPress={onPress}>
-      <Animated.View
-        style={[
-          { alignItems: "center", justifyContent: "center" },
-          containerStyle,
-        ]}
-      >
-        <Animated.View style={[styles.tickMark, tickStyle]} />
-      </Animated.View>
-    </Pressable>
-  );
-};
+  }
+);
 
 const styles = StyleSheet.create({
   container: {
@@ -153,7 +167,7 @@ const styles = StyleSheet.create({
   },
   tickMark: {
     width: 1,
-    height: 14,
+    height: 16,
     opacity: 0.7,
   },
   specialTickMark: {
