@@ -20,7 +20,7 @@ class PhotosService {
   async listPhotos(): Promise<Photo[]> {
     try {
       const { data } = await axios.get<Photo[]>(PHOTOS_ENDPOINT);
-      console.log("Successfully fetched photos:", data);
+      console.log("Successfully fetched photos:", data.length);
       this.photoCache = data; // Update the cache with the fetched photos
       return data;
     } catch (error) {

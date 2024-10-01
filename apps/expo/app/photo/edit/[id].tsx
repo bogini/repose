@@ -2,19 +2,16 @@ import { Text, View, Pressable, StyleSheet } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import { StatusBar } from "expo-status-bar";
-
 import { useState, useRef, useEffect, useCallback } from "react";
 import PhotosService from "../../../api/photos";
 import ReplicateService, {
   DEFAULT_VALUES,
   FaceValues,
 } from "../../../api/replicate";
-
-import { ImageContainer } from "../../../components/ImageContainer";
-import { GestureControl } from "../../../components/GestureControl";
 import { FaceControlsComponent } from "../../../components/FaceControls";
+import { FaceGestureControl } from "../../../components/FaceGestureControl";
 
-enum GestureDirection {
+export enum GestureDirection {
   Normal = "normal",
   Inverted = "inverted",
 }
@@ -28,7 +25,7 @@ export interface FaceControl {
     label: string;
     min: number;
     max: number;
-    gesture: "panX" | "panY" | "pinch" | "tapX" | "tapY" | "rotation";
+    gesture: "x" | "y" | "rotation" | "scale";
     direction?: GestureDirection;
   }[];
 }
@@ -44,14 +41,15 @@ const FACE_CONTROLS: FaceControl[] = [
         label: "HORIZONTAL",
         min: -20,
         max: 20,
-        gesture: "panX",
+        gesture: "x",
       },
       {
         key: "rotatePitch",
         label: "VERTICAL",
         min: -20,
         max: 20,
-        gesture: "panY",
+        gesture: "y",
+        direction: GestureDirection.Inverted,
       },
       {
         key: "rotateRoll",
@@ -67,7 +65,7 @@ const FACE_CONTROLS: FaceControl[] = [
     icon: "mouth",
     label: "MOUTH",
     values: [
-      { key: "smile", label: "SMILE", min: -0.3, max: 1.3, gesture: "pinch" },
+      { key: "smile", label: "SMILE", min: -0.3, max: 1.3, gesture: "scale" },
     ],
   },
   {
@@ -80,14 +78,14 @@ const FACE_CONTROLS: FaceControl[] = [
         label: "EYELID APERTURE",
         min: -20,
         max: 5,
-        gesture: "pinch",
+        gesture: "scale",
       },
       {
         key: "pupilX",
         label: "HORIZONTAL",
         min: -15,
         max: 15,
-        gesture: "panX",
+        gesture: "x",
         // direction: GestureDirection.Inverted,
       },
       {
@@ -95,7 +93,7 @@ const FACE_CONTROLS: FaceControl[] = [
         label: "VERTICAL",
         min: -15,
         max: 15,
-        gesture: "panY",
+        gesture: "y",
         direction: GestureDirection.Inverted,
       },
     ],
@@ -110,7 +108,7 @@ const FACE_CONTROLS: FaceControl[] = [
         label: "HEIGHT",
         min: -10,
         max: 15,
-        gesture: "panY",
+        gesture: "y",
         direction: GestureDirection.Inverted,
       },
     ],
@@ -146,8 +144,9 @@ export default function EditScreen() {
     fetchPhoto();
   }, [id]);
 
-  const runEditor = useCallback(
+  const handleFaceValuesChange = useCallback(
     async (values: FaceValues) => {
+      console.log("values", values);
       setFaceValues(values);
 
       if (originalImageUrl) {
@@ -201,7 +200,7 @@ export default function EditScreen() {
     // Initial run
     const timeoutId = setTimeout(() => {
       if (originalImageUrl) {
-        runEditor(faceValues);
+        handleFaceValuesChange(faceValues);
       }
     }, 1000);
 
@@ -226,17 +225,20 @@ export default function EditScreen() {
       <AdjustBar />
 
       <View style={styles.imageContainer}>
-        <GestureControl debug={false}>
-          {editedImageUrl && (
-            <ImageContainer loading={loading} imageUrl={editedImageUrl} />
-          )}
-        </GestureControl>
+        <FaceGestureControl
+          debug={false}
+          imageUrl={editedImageUrl}
+          faceValues={faceValues}
+          onFaceValuesChange={handleFaceValuesChange}
+          selectedControl={selectedControl}
+          loading={loading}
+        />
       </View>
 
       <FaceControlsComponent
         controls={FACE_CONTROLS}
         faceValues={faceValues}
-        onFaceValuesChange={runEditor}
+        onFaceValuesChange={handleFaceValuesChange}
         selectedControl={selectedControl}
         setSelectedControl={setSelectedControl}
       />

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, StyleSheet, TouchableWithoutFeedback, Text } from "react-native";
 import {
   Gesture,
@@ -10,12 +10,21 @@ import Animated, {
   useAnimatedStyle,
 } from "react-native-reanimated";
 import { ViewStyle } from "react-native";
+import { debounce } from "lodash";
 
 const FOCAL_POINT_SIZE = 34;
 const FLING_MULTIPLIER = 0.5;
+const DEBOUNCE_TIME_MS = 50;
+
+export interface GestureControlValue {
+  x: number;
+  y: number;
+  rotation: number;
+  scale: number;
+}
 
 interface GestureControlProps {
-  value?: { x: number; y: number; rotation: number; scale: number };
+  value?: GestureControlValue;
   onChange?: (value: {
     x: number;
     y: number;
@@ -42,25 +51,42 @@ export const GestureControl: React.FC<GestureControlProps> = ({
   const scale = useSharedValue(0);
   const rotation = useSharedValue(0);
 
-  const handleValueChange = (source: string) => {
-    const x =
-      (translateX.value + FOCAL_POINT_SIZE / 2 - size.width / 2) /
-      (size.width / 2);
-    const y =
-      -(translateY.value + FOCAL_POINT_SIZE / 2 - size.height / 2) /
-      (size.height / 2);
+  useEffect(() => {
+    if (size.width > 0 && size.height > 0) {
+      translateX.value =
+        value.x * (size.width / 2) + size.width / 2 - FOCAL_POINT_SIZE / 2;
+      translateY.value =
+        -value.y * (size.height / 2) + size.height / 2 - FOCAL_POINT_SIZE / 2;
+      rotation.value = value.rotation;
+      scale.value = value.scale;
+    }
+  }, [value, size]);
+
+  const handleValueChange = debounce((source: string) => {
+    const x = Number(
+      (
+        (translateX.value + FOCAL_POINT_SIZE / 2 - size.width / 2) /
+        (size.width / 2)
+      ).toFixed(2)
+    );
+    const y = Number(
+      (
+        -(translateY.value + FOCAL_POINT_SIZE / 2 - size.height / 2) /
+        (size.height / 2)
+      ).toFixed(2)
+    );
 
     if (!isNaN(x) && !isNaN(y)) {
       const logValue = {
         x,
         y,
-        rotation: rotation.value,
-        scale: scale.value,
+        rotation: Number(rotation.value.toFixed(2)),
+        scale: Number(scale.value.toFixed(2)),
       };
       onChange?.(logValue);
       console.log(`onChange called from ${source}`, logValue);
     }
-  };
+  }, DEBOUNCE_TIME_MS);
 
   const handlePanUpdate = (event: any) => {
     const maxTranslateX = size.width - FOCAL_POINT_SIZE / 2;

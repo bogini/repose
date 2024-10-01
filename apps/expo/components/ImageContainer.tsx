@@ -36,7 +36,7 @@ export const ImageContainer = ({ loading, imageUrl }: ImageContainerProps) => {
         allowDownscaling={false}
         priority={"high"}
         transition={{
-          duration: 250,
+          duration: 50,
           effect: "cross-dissolve",
           timing: "ease-in-out",
         }}
