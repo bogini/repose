@@ -29,7 +29,8 @@ export const FaceControlsComponent = ({
   onControlChange: setSelectedControl,
 }: FaceControlsComponentProps) => {
   const carouselRef = useRef<ICarouselInstance>(null);
-  const [showSliders, setShowSliders] = useState(true);
+  const [showSliders, setShowSliders] = useState(false);
+  const [showSlidersView, setShowSlidersView] = useState(false);
   const slidersAnimation = useSharedValue(0);
   const [isUserInteracting, setIsUserInteracting] = useState(false);
   const [debouncedFaceValues, setDebouncedFaceValues] = useState(faceValues);
@@ -44,7 +45,6 @@ export const FaceControlsComponent = ({
   };
 
   const handleValueChange = (key: keyof FaceValues, value: number) => {
-    console.log({ isUserInteracting, key, value });
     if (isUserInteracting && faceValues[key] !== value) {
       onFaceValuesChange({ ...faceValues, [key]: value });
     }
@@ -64,44 +64,93 @@ export const FaceControlsComponent = ({
 
   useEffect(() => {
     slidersAnimation.value = withTiming(showSliders ? 1 : 0, { duration: 250 });
+
+    const timeout = setTimeout(() => {
+      setShowSlidersView(showSliders);
+    }, 250);
+
+    return () => {
+      clearTimeout(timeout);
+    };
   }, [showSliders, slidersAnimation]);
 
   const slidersContainerStyle = useAnimatedStyle(() => ({
     transform: [
       {
-        translateY: interpolate(
-          slidersAnimation.value,
-          [0, 1],
-          [10, 0],
-          Extrapolation.CLAMP
+        translateY: withTiming(
+          interpolate(
+            slidersAnimation.value,
+            [0, 1],
+            [10, 0],
+            Extrapolation.CLAMP
+          ),
+          { duration: 250 }
         ),
       },
     ],
-    opacity: slidersAnimation.value,
+    opacity: withTiming(
+      interpolate(slidersAnimation.value, [0, 1], [0, 1], Extrapolation.CLAMP),
+      { duration: 250 }
+    ),
+  }));
+
+  const instructionsContainerStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: withTiming(
+          interpolate(
+            slidersAnimation.value,
+            [0, 1],
+            [0, -10],
+            Extrapolation.CLAMP
+          ),
+          { duration: 250 }
+        ),
+      },
+    ],
+    opacity: withTiming(
+      interpolate(slidersAnimation.value, [0, 1], [1, 0], Extrapolation.CLAMP),
+      { duration: 250 }
+    ),
   }));
 
   return (
     <View style={styles.faceControls}>
       {selectedControl && (
         <>
-          <Animated.View
-            style={[styles.slidersContainer, slidersContainerStyle]}
-          >
-            {selectedControl.values.map((value) => (
-              <View key={value.label} style={styles.sliderContainer}>
-                <Text style={styles.sliderLabel}>{value.label}</Text>
-                <CarouselSlider
-                  key={value.label}
-                  min={value.min}
-                  max={value.max}
-                  value={debouncedFaceValues[value.key]}
-                  onValueChange={(val) => handleValueChange(value.key, val)}
-                  onScrollBegin={() => setIsUserInteracting(true)}
-                  onScrollEnd={() => setIsUserInteracting(false)}
-                />
-              </View>
-            ))}
-          </Animated.View>
+          {showSlidersView && (
+            <Animated.View
+              style={[styles.slidersContainer, slidersContainerStyle]}
+            >
+              {selectedControl.values.map((value) => (
+                <View key={value.label} style={styles.sliderContainer}>
+                  <Text style={styles.sliderLabel}>{value.label}</Text>
+                  <CarouselSlider
+                    key={value.label}
+                    min={value.min}
+                    max={value.max}
+                    value={debouncedFaceValues[value.key]}
+                    onValueChange={(val) => {
+                      if (isUserInteracting) {
+                        handleValueChange(value.key, val);
+                      }
+                    }}
+                    onScrollStart={() => setIsUserInteracting(true)}
+                    onScrollEnd={() => setIsUserInteracting(false)}
+                  />
+                </View>
+              ))}
+            </Animated.View>
+          )}
+          {!showSlidersView && (
+            <Animated.View
+              style={[styles.instructionsContainer, instructionsContainerStyle]}
+            >
+              <Text style={styles.instructionsText}>
+                Tap, slide or pinch to adjust
+              </Text>
+            </Animated.View>
+          )}
           <Text style={styles.selectedLabel}>{selectedControl.label}</Text>
         </>
       )}
@@ -127,7 +176,10 @@ export const FaceControlsComponent = ({
             <FaceControlIcon
               animationValue={animationValue}
               icon={item.icon}
-              onPress={() => scrollToIndex(index)}
+              onPress={() => {
+                scrollToIndex(index);
+                setShowSliders(!showSliders);
+              }}
               isSelected={selectedControlKey === item.key && showSliders}
             />
           )}
@@ -194,6 +246,19 @@ const styles = StyleSheet.create({
     flexDirection: "column",
     marginHorizontal: 20,
     minHeight: 150,
+  },
+  instructionsContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    flexDirection: "column",
+    marginHorizontal: 20,
+    minHeight: 150,
+  },
+  instructionsText: {
+    color: "#8E8D93",
+    fontWeight: "500",
+    fontSize: 14,
   },
   sliderContainer: {
     height: 40,
