@@ -7,6 +7,7 @@ export interface FaceControl {
   key: string;
   icon: string;
   label: string;
+  instructions: string;
   values: {
     key: keyof FaceValues;
     label: string;
@@ -22,6 +23,7 @@ export const FACE_CONTROLS: FaceControl[] = [
     key: "face",
     icon: "face.smiling",
     label: "FACE",
+    instructions: "Tap, slide or rotate to adjust the face position",
     values: [
       {
         key: "rotateYaw",
@@ -51,6 +53,7 @@ export const FACE_CONTROLS: FaceControl[] = [
     key: "mouth",
     icon: "mouth",
     label: "MOUTH",
+    instructions: "Pinch to adjust the mouth",
     values: [
       { key: "smile", label: "SMILE", min: -0.3, max: 1.3, gesture: "scale" },
     ],
@@ -59,6 +62,7 @@ export const FACE_CONTROLS: FaceControl[] = [
     key: "eyes",
     icon: "eye",
     label: "EYES",
+    instructions: "Tap, slide or pinch to adjust the eye position",
     values: [
       {
         key: "blink",
@@ -89,6 +93,7 @@ export const FACE_CONTROLS: FaceControl[] = [
     key: "eyebrows",
     icon: "eyebrow",
     label: "EYEBROWS",
+    instructions: "Tap or slide to adjust the eyebrow position",
     values: [
       {
         key: "eyebrow",

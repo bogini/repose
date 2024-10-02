@@ -39,7 +39,6 @@ export const CarouselSlider: React.FC<SliderProps> = ({
   onScrollEnd,
 }) => {
   const carouselRef = useRef<ICarouselInstance>(null);
-  const [isInteracting, setIsInteracting] = useState(false);
 
   const scrollToIndex = useCallback((index: number) => {
     if (carouselRef.current?.getCurrentIndex() !== index) {
@@ -60,20 +59,18 @@ export const CarouselSlider: React.FC<SliderProps> = ({
   );
 
   useEffect(() => {
-    if (isInteracting === false) {
-      const index = Math.round(((value - min) / (max - min)) * (NUM_TICKS - 1));
-      debouncedScrollToIndex(index);
-    }
-  }, [value, min, max, debouncedScrollToIndex, isInteracting]);
+    const index = Math.round(((value - min) / (max - min)) * (NUM_TICKS - 1));
+    debouncedScrollToIndex(index);
+  }, [value, min, max, debouncedScrollToIndex]);
 
   const handleValueChange = useCallback(
     (index: number) => {
-      if (isInteracting) {
-        const normalizedValue = (index / (NUM_TICKS - 1)) * (max - min) + min;
-        const roundedValue = Math.round(normalizedValue);
-        if (roundedValue !== value) {
-          onValueChange(roundedValue);
-        }
+      console.log("handleValueChange", index);
+
+      const normalizedValue = (index / (NUM_TICKS - 1)) * (max - min) + min;
+      const roundedValue = Math.round(normalizedValue);
+      if (roundedValue !== value) {
+        onValueChange(roundedValue);
       }
     },
     [max, min, onValueChange]
@@ -89,17 +86,7 @@ export const CarouselSlider: React.FC<SliderProps> = ({
   );
 
   return (
-    <View
-      style={styles.container}
-      onTouchStart={() => {
-        setIsInteracting(true);
-        onScrollStart?.();
-      }}
-      onTouchEnd={() => {
-        setIsInteracting(false);
-        onScrollEnd?.();
-      }}
-    >
+    <View style={styles.container}>
       <Carousel
         ref={carouselRef}
         style={styles.carousel}
@@ -112,21 +99,17 @@ export const CarouselSlider: React.FC<SliderProps> = ({
         scrollAnimationDuration={SCROLL_DURATION_MS}
         loop={false}
         onScrollBegin={() => {
-          if (isInteracting) {
-            onScrollStart?.();
-          }
+          onScrollStart?.();
         }}
-        onScrollEnd={(index) => {
-          if (isInteracting) {
-            debouncedHandleValueChange(index);
-          }
+        onSnapToItem={(index) => {
+          console.log("onSnapToItem", index);
+          debouncedHandleValueChange(index);
+          onScrollEnd?.();
         }}
         onProgressChange={(_, absoluteProgress) => {
-          if (isInteracting) {
-            const newIndex = Math.round(absoluteProgress);
-            if (carouselRef.current?.getCurrentIndex() !== newIndex) {
-              debouncedHandleValueChange(newIndex);
-            }
+          const newIndex = Math.round(absoluteProgress);
+          if (carouselRef.current?.getCurrentIndex() !== newIndex) {
+            debouncedHandleValueChange(newIndex);
           }
         }}
         renderItem={({ index, animationValue }) => (
@@ -147,58 +130,56 @@ interface CarouselItemProps {
   isSpecialTick: boolean;
 }
 
-const SliderTick = ({
-  animationValue,
-  onPress,
-  isSpecialTick,
-}: CarouselItemProps) => {
-  const containerStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
-      animationValue.value,
-      [-1, 0, 1],
-      [0.5, 1, 0.5],
-      Extrapolation.CLAMP
+const SliderTick = React.memo(
+  ({ animationValue, onPress, isSpecialTick }: CarouselItemProps) => {
+    const containerStyle = useAnimatedStyle(() => {
+      const opacity = interpolate(
+        animationValue.value,
+        [-1, 0, 1],
+        [0.5, 1, 0.5],
+        Extrapolation.CLAMP
+      );
+
+      return {
+        opacity,
+      };
+    }, [animationValue]);
+
+    const tickStyle = useAnimatedStyle(() => {
+      const clampedValue = Math.max(-1, Math.min(animationValue.value, 1));
+      const backgroundColor = interpolateColor(
+        clampedValue,
+        [-1, 0, 1],
+        ["#FFFFFF", "#FFD409", "#FFFFFF"]
+      );
+
+      const opacity = interpolate(
+        clampedValue,
+        [-1, 0, 1],
+        isSpecialTick ? [1, 1, 1] : [0.7, 1, 0.7],
+        Extrapolation.CLAMP
+      );
+
+      return {
+        backgroundColor,
+        opacity,
+      };
+    }, [animationValue, isSpecialTick]);
+
+    return (
+      <Pressable onPress={onPress}>
+        <Animated.View
+          style={[
+            { alignItems: "center", justifyContent: "center" },
+            containerStyle,
+          ]}
+        >
+          <Animated.View style={[styles.tickMark, tickStyle]} />
+        </Animated.View>
+      </Pressable>
     );
-
-    return {
-      opacity,
-    };
-  }, [animationValue]);
-
-  const tickStyle = useAnimatedStyle(() => {
-    const clampedValue = Math.max(-1, Math.min(animationValue.value, 1));
-    const backgroundColor = interpolateColor(
-      clampedValue,
-      [-1, 0, 1],
-      ["#FFFFFF", "#FFD409", "#FFFFFF"]
-    );
-
-    const opacity = interpolate(
-      clampedValue,
-      [-1, 0, 1],
-      isSpecialTick ? [1, 1, 1] : [0.7, 1, 0.7],
-      Extrapolation.CLAMP
-    );
-
-    return {
-      backgroundColor,
-      opacity,
-    };
-  }, [animationValue, isSpecialTick]);
-
-  return (
-    <Pressable onPress={onPress}>
-      <Animated.View
-        style={[
-          { alignItems: "center", justifyContent: "center" },
-          containerStyle,
-        ]}
-      >
-        <Animated.View style={[styles.tickMark, tickStyle]} />
-      </Animated.View>
-    </Pressable>
-  );
-};
+  }
+);
 
 const styles = StyleSheet.create({
   container: {

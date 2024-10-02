@@ -126,7 +126,6 @@ export const FaceControlsComponent = ({
                 <View key={value.label} style={styles.sliderContainer}>
                   <Text style={styles.sliderLabel}>{value.label}</Text>
                   <CarouselSlider
-                    key={value.label}
                     min={value.min}
                     max={value.max}
                     value={debouncedFaceValues[value.key]}
@@ -147,7 +146,7 @@ export const FaceControlsComponent = ({
               style={[styles.instructionsContainer, instructionsContainerStyle]}
             >
               <Text style={styles.instructionsText}>
-                Tap, slide or pinch to adjust
+                {selectedControl.instructions}
               </Text>
             </Animated.View>
           )}
@@ -178,7 +177,9 @@ export const FaceControlsComponent = ({
               icon={item.icon}
               onPress={() => {
                 scrollToIndex(index);
-                setShowSliders(!showSliders);
+                if (selectedControlKey === item.key) {
+                  setShowSliders(!showSliders);
+                }
               }}
               isSelected={selectedControlKey === item.key && showSliders}
             />
@@ -245,7 +246,7 @@ const styles = StyleSheet.create({
     gap: 12,
     flexDirection: "column",
     marginHorizontal: 20,
-    minHeight: 150,
+    height: 150,
   },
   instructionsContainer: {
     alignItems: "center",
@@ -253,11 +254,10 @@ const styles = StyleSheet.create({
     gap: 12,
     flexDirection: "column",
     marginHorizontal: 20,
-    minHeight: 150,
+    height: 50,
   },
   instructionsText: {
     color: "#8E8D93",
-    fontWeight: "500",
     fontSize: 14,
   },
   sliderContainer: {
@@ -304,6 +304,6 @@ const styles = StyleSheet.create({
   faceControls: {
     gap: 10,
     justifyContent: "flex-start",
-    marginVertical: 20,
+    marginVertical: 10,
   },
 });
