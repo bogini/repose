@@ -124,8 +124,10 @@ export const GestureControl: React.FC<GestureControlProps> = ({
   };
 
   const handlePanEnd = () => {
-    if (!isNaN(translateX.value) && !isNaN(translateY.value)) {
+    if (!isNaN(translateX.value)) {
       value.x += translateX.value;
+    }
+    if (!isNaN(translateY.value)) {
       value.y += translateY.value;
     }
   };
@@ -221,10 +223,10 @@ export const GestureControl: React.FC<GestureControlProps> = ({
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { scale: scale.value + 1 },
-      { rotateZ: `${rotation.value}rad` },
+      { translateX: isNaN(translateX.value) ? 0 : translateX.value },
+      { translateY: isNaN(translateY.value) ? 0 : translateY.value },
+      { scale: isNaN(scale.value) ? 1 : scale.value + 1 },
+      { rotateZ: isNaN(rotation.value) ? "0rad" : `${rotation.value}rad` },
     ],
     width: FOCAL_POINT_SIZE,
     height: FOCAL_POINT_SIZE,
@@ -308,7 +310,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     borderWidth: MARGIN_SIZE,
-    borderColor: "white",
+    borderColor: "rgba(1,1,1,0.1)",
     borderStyle: "solid",
   },
 });
