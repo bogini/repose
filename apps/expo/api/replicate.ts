@@ -90,7 +90,8 @@ class ReplicateService {
 
   async runExpressionEditor(
     input: ExpressionEditorInput,
-    shouldCancel: boolean = true
+    shouldCancel: boolean = true,
+    skipCache: boolean = false
   ): Promise<string> {
     const startTime = performance.now();
 
@@ -142,13 +143,15 @@ class ReplicateService {
         JSON.stringify(payload)
       );
 
-      const cacheStartTime = performance.now();
-      const cachedResponse = await this.getFromCache(cacheKey);
-      const cacheEndTime = performance.now();
-      if (cachedResponse) {
-        const cacheHitTime = cacheEndTime - cacheStartTime;
-        console.log(`Cache hit in ${cacheHitTime.toFixed(0)}ms`, cacheKey);
-        return cachedResponse;
+      if (!skipCache) {
+        const cacheStartTime = performance.now();
+        const cachedResponse = await this.getFromCache(cacheKey);
+        const cacheEndTime = performance.now();
+        if (cachedResponse) {
+          const cacheHitTime = cacheEndTime - cacheStartTime;
+          console.log(`Cache hit in ${cacheHitTime.toFixed(0)}ms`, cacheKey);
+          return cachedResponse;
+        }
       }
 
       console.log("Request", cacheKey);

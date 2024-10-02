@@ -25,6 +25,7 @@ import PhotosService, { Photo } from "../api/photos";
 import UploadImageTile from "../components/UploadImageTile";
 import ReplicateService from "../api/replicate";
 import { ImageContainer } from "../components/ImageContainer";
+import { DEFAULT_FACE_VALUES } from "../lib/faceControl";
 
 export default function App() {
   const { height, width } = useWindowDimensions();
@@ -107,6 +108,18 @@ export default function App() {
       try {
         const fetchedPhotos = await PhotosService.listPhotos();
         setPhotos(fetchedPhotos);
+
+        // Warm up the model
+        if (fetchedPhotos.length > 0) {
+          await ReplicateService.runExpressionEditor(
+            {
+              image: fetchedPhotos[0].url,
+              ...DEFAULT_FACE_VALUES,
+            },
+            true,
+            true
+          );
+        }
       } catch (error) {
         console.error("Error fetching photos:", error);
       } finally {
@@ -126,7 +139,7 @@ export default function App() {
         style={[styles.container]}
         onScroll={onPageScroll}
       >
-        {isLoading ? (
+        {photos.length === 0 ? (
           <ActivityIndicator size="large" style={styles.loadingIndicator} />
         ) : (
           <>
@@ -174,7 +187,7 @@ export default function App() {
                   }))}
                 />
                 <Carousel
-                  title="Featured"
+                  title={isLoading ? "Featured" : "People"}
                   photos={photos.slice(6, 10).map((photo) => ({
                     id: photo.pathname,
                     url: photo.url,
