@@ -124,7 +124,7 @@ export default function EditScreen() {
 
       <View style={styles.imageContainer}>
         <FaceGestureControl
-          debug={false}
+          debug={true}
           imageUrl={editedImageUrl}
           faceValues={faceValues}
           onFaceValuesChange={handleFaceValuesChange}

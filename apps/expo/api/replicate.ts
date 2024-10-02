@@ -9,7 +9,7 @@ const MODEL_IDENTIFIER =
   "fofr/expression-editor:bf913bc90e1c44ba288ba3942a538693b72e8cc7df576f3beebe56adc0a92b86";
 const REPLICATE_ENDPOINT = BASE_URL + "/api/replicate";
 
-const NUM_BUCKETS = 5;
+const NUM_BUCKETS = 6;
 
 const getBucketValue = (
   value: number | undefined,

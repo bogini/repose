@@ -8,6 +8,7 @@ import {
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  withSpring,
 } from "react-native-reanimated";
 import { ViewStyle } from "react-native";
 import { debounce } from "lodash";
@@ -15,6 +16,7 @@ import { debounce } from "lodash";
 const FOCAL_POINT_SIZE = 34;
 const FLING_MULTIPLIER = 0.5;
 const DEBOUNCE_TIME_MS = 15;
+const MARGIN_SIZE = 40;
 
 export interface GestureControlValue {
   x: number;
@@ -76,15 +78,21 @@ export const GestureControl: React.FC<GestureControlProps> = ({
       ).toFixed(2)
     );
 
-    if (!isNaN(x) && !isNaN(y)) {
+    if (
+      !isNaN(x) &&
+      !isNaN(y) &&
+      !isNaN(rotation.value) &&
+      !isNaN(scale.value)
+    ) {
       const logValue = {
         x: Number(x.toFixed(2)),
         y: Number(y.toFixed(2)),
         rotation: Number(rotation.value.toFixed(2)),
         scale: Number(scale.value.toFixed(2)),
       };
+
+      console.log(`onChange called from ${source}`, logValue);
       onChange?.(logValue);
-      //console.log(`onChange called from ${source}`, logValue);
     }
   }, DEBOUNCE_TIME_MS);
 
@@ -116,8 +124,10 @@ export const GestureControl: React.FC<GestureControlProps> = ({
   };
 
   const handlePanEnd = () => {
-    value.x += translateX.value;
-    value.y += translateY.value;
+    if (!isNaN(translateX.value) && !isNaN(translateY.value)) {
+      value.x += translateX.value;
+      value.y += translateY.value;
+    }
   };
 
   const handleRotationUpdate = (event: any) => {
@@ -221,13 +231,7 @@ export const GestureControl: React.FC<GestureControlProps> = ({
   }));
 
   return (
-    <View
-      style={[
-        styles.container,
-        style,
-        debug ? { borderColor: "white", borderWidth: 2 } : {},
-      ]}
-    >
+    <View style={[styles.container, style]}>
       <GestureDetector gesture={composedGestures}>
         <TouchableWithoutFeedback onPress={handleTap}>
           <Animated.View
@@ -242,12 +246,15 @@ export const GestureControl: React.FC<GestureControlProps> = ({
           >
             {children}
             {debug && (
-              <Animated.View style={[styles.pointContainer, animatedStyle]}>
-                <View style={styles.point}>
-                  <View style={styles.dot} />
-                  <View style={styles.line} />
-                </View>
-              </Animated.View>
+              <>
+                <View style={[styles.marginContainer]}></View>
+                <Animated.View style={[styles.pointContainer, animatedStyle]}>
+                  <View style={styles.point}>
+                    <View style={styles.dot} />
+                    <View style={styles.line} />
+                  </View>
+                </Animated.View>
+              </>
             )}
           </Animated.View>
         </TouchableWithoutFeedback>
@@ -280,6 +287,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   dot: {
+    zIndex: 1,
     width: FOCAL_POINT_SIZE,
     height: FOCAL_POINT_SIZE,
     borderRadius: FOCAL_POINT_SIZE / 2,
@@ -292,6 +300,16 @@ const styles = StyleSheet.create({
     width: 2,
     height: "100%",
     backgroundColor: "white",
+  },
+  marginContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderWidth: MARGIN_SIZE,
+    borderColor: "white",
+    borderStyle: "solid",
   },
 });
 
