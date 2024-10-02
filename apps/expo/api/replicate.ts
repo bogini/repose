@@ -3,7 +3,7 @@ import { BASE_URL } from "./constants";
 import AsyncStorage from "@react-native-community/async-storage";
 import * as Crypto from "expo-crypto";
 import { DEFAULT_FACE_VALUES } from "../lib/faceControl";
-import FastImage from "react-native-fast-image";
+import { Image } from "expo-image";
 
 const MODEL_IDENTIFIER =
   "fofr/expression-editor:bf913bc90e1c44ba288ba3942a538693b72e8cc7df576f3beebe56adc0a92b86";
@@ -258,11 +258,9 @@ class ReplicateService {
     const endTime = performance.now();
     const elapsedTime = endTime - startTime;
 
-    // Image.prefetch(results, {
-    //   cachePolicy: "memory-disk",
-    // });
-
-    await FastImage.preload(results.map((result) => ({ uri: result })));
+    await Image.prefetch(results, {
+      cachePolicy: "memory-disk",
+    });
 
     console.log(
       `runExpressionEditorWithAllRotations took ${elapsedTime.toFixed(0)}ms`

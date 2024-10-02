@@ -1,5 +1,5 @@
 import { StyleSheet } from "react-native";
-import FastImage from "react-native-fast-image";
+import { Image } from "expo-image";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -35,7 +35,7 @@ export const ImageContainer = ({
 
   return (
     <Animated.View style={[styles.fullSize, animatedStyle]}>
-      <FastImage
+      {/* <FastImage
         key={imageUrl}
         source={{ uri: imageUrl, priority: FastImage.priority.high }}
         style={styles.fullSize}
@@ -49,6 +49,31 @@ export const ImageContainer = ({
           const endTime = performance.now();
           const duration = endTime - startTime.value;
           console.log(`FastImage loaded in ${duration.toFixed(0)}ms`);
+        }}
+      /> */}
+      <Image
+        source={{ uri: imageUrl }}
+        cachePolicy={"memory-disk"}
+        placeholder={{ uri: imageUrl }}
+        placeholderContentFit="cover"
+        blurRadius={loading ? 8 : 0}
+        allowDownscaling={false}
+        priority={"high"}
+        style={styles.fullSize}
+        transition={{
+          duration: 150,
+          effect: "cross-dissolve",
+        }}
+        contentFit="cover"
+        onLoadStart={() => {
+          setDownloading(true);
+          startTime.value = performance.now();
+        }}
+        onLoadEnd={() => {
+          setDownloading(false);
+          const endTime = performance.now();
+          const duration = endTime - startTime.value;
+          console.log(`Image loaded in ${duration.toFixed(0)}ms`);
         }}
       />
     </Animated.View>
