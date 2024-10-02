@@ -1,7 +1,16 @@
 import * as React from "react";
 import Svg, { Path } from "react-native-svg";
 
-export const FaceHorizontal = (props) => (
+interface SvgProps {
+  width?: number;
+  height?: number;
+  viewBox?: string;
+  fill?: string;
+  xmlns?: string;
+  [key: string]: any;
+}
+
+export const FaceHorizontal: React.FC<SvgProps> = (props) => (
   <Svg
     width="32"
     height="32"
@@ -25,7 +34,7 @@ export const FaceHorizontal = (props) => (
   </Svg>
 );
 
-export const FaceVertical = (props) => (
+export const FaceVertical: React.FC<SvgProps> = (props) => (
   <Svg
     width="300"
     height="250"
