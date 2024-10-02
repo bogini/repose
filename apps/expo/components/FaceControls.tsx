@@ -1,5 +1,5 @@
 import Carousel, { ICarouselInstance } from "react-native-reanimated-carousel";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import debounce from "lodash/debounce";
 import Animated, {
   Extrapolation,
@@ -12,6 +12,8 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { CarouselSlider } from "./CarouselSlider";
 import { SymbolView } from "expo-symbols";
 import { FaceControl, FaceValues } from "../lib/faceControl";
+
+const ANIMATION_DURATION_MS = 100;
 
 interface FaceControlsComponentProps {
   controls: FaceControl[];
@@ -31,9 +33,8 @@ export const FaceControlsComponent = ({
   const carouselRef = useRef<ICarouselInstance>(null);
   const [showSliders, setShowSliders] = useState(false);
   const [showSlidersView, setShowSlidersView] = useState(false);
+  const faceControlsHeight = useSharedValue(0);
   const slidersAnimation = useSharedValue(0);
-  const [isUserInteracting, setIsUserInteracting] = useState(false);
-  const [debouncedFaceValues, setDebouncedFaceValues] = useState(faceValues);
 
   const selectedControl = controls.find(
     (control) => control.key === selectedControlKey
@@ -44,35 +45,34 @@ export const FaceControlsComponent = ({
     setSelectedControl(controls[index]);
   };
 
-  const handleValueChange = (key: keyof FaceValues, value: number) => {
-    if (isUserInteracting && faceValues[key] !== value) {
-      onFaceValuesChange({ ...faceValues, [key]: value });
-    }
-  };
+  const handleValueChange = useCallback(
+    (key: keyof FaceValues, value: number) => {
+      if (faceValues[key] !== value) {
+        onFaceValuesChange({ ...faceValues, [key]: value });
+      }
+    },
+    [faceValues, onFaceValuesChange]
+  );
 
   useEffect(() => {
-    const debouncedSetFaceValues = debounce((values) => {
-      setDebouncedFaceValues(values);
-    }, 200);
-
-    debouncedSetFaceValues(faceValues);
-
-    return () => {
-      debouncedSetFaceValues.cancel();
-    };
-  }, [faceValues]);
-
-  useEffect(() => {
-    slidersAnimation.value = withTiming(showSliders ? 1 : 0, { duration: 250 });
-
-    const timeout = setTimeout(() => {
-      setShowSlidersView(showSliders);
-    }, 250);
-
-    return () => {
-      clearTimeout(timeout);
-    };
+    slidersAnimation.value = withTiming(showSliders ? 1 : 0);
   }, [showSliders, slidersAnimation]);
+
+  const faceControlsStyle = useAnimatedStyle(() => ({
+    height: withTiming(faceControlsHeight.value, {
+      duration: ANIMATION_DURATION_MS,
+    }),
+  }));
+
+  useEffect(() => {
+    faceControlsHeight.value = withTiming(showSliders ? 250 : 150, {
+      duration: ANIMATION_DURATION_MS,
+    });
+    slidersAnimation.value = withTiming(showSliders ? 1 : 0, {
+      duration: ANIMATION_DURATION_MS,
+    });
+    setShowSlidersView(showSliders);
+  }, [showSliders]);
 
   const slidersContainerStyle = useAnimatedStyle(() => ({
     transform: [
@@ -81,41 +81,40 @@ export const FaceControlsComponent = ({
           interpolate(
             slidersAnimation.value,
             [0, 1],
-            [10, 0],
+            [20, 0],
             Extrapolation.CLAMP
           ),
-          { duration: 250 }
+          { duration: ANIMATION_DURATION_MS }
         ),
       },
     ],
     opacity: withTiming(
       interpolate(slidersAnimation.value, [0, 1], [0, 1], Extrapolation.CLAMP),
-      { duration: 250 }
+      { duration: ANIMATION_DURATION_MS }
     ),
   }));
 
   const instructionsContainerStyle = useAnimatedStyle(() => ({
     transform: [
       {
-        translateY: withTiming(
-          interpolate(
-            slidersAnimation.value,
-            [0, 1],
-            [0, -10],
-            Extrapolation.CLAMP
-          ),
-          { duration: 250 }
+        translateY: interpolate(
+          slidersAnimation.value,
+          [0, 1],
+          [0, -10],
+          Extrapolation.CLAMP
         ),
       },
     ],
-    opacity: withTiming(
-      interpolate(slidersAnimation.value, [0, 1], [1, 0], Extrapolation.CLAMP),
-      { duration: 250 }
+    opacity: interpolate(
+      slidersAnimation.value,
+      [0, 1],
+      [1, 0],
+      Extrapolation.CLAMP
     ),
   }));
 
   return (
-    <View style={styles.faceControls}>
+    <Animated.View style={[styles.faceControls, faceControlsStyle]}>
       {selectedControl && (
         <>
           {showSlidersView && (
@@ -128,19 +127,14 @@ export const FaceControlsComponent = ({
                   <CarouselSlider
                     min={value.min}
                     max={value.max}
-                    value={debouncedFaceValues[value.key]}
-                    onValueChange={(val) => {
-                      if (isUserInteracting) {
-                        handleValueChange(value.key, val);
-                      }
-                    }}
-                    onScrollStart={() => setIsUserInteracting(true)}
-                    onScrollEnd={() => setIsUserInteracting(false)}
+                    value={faceValues[value.key]}
+                    onValueChange={(val) => handleValueChange(value.key, val)}
                   />
                 </View>
               ))}
             </Animated.View>
           )}
+
           {!showSlidersView && (
             <Animated.View
               style={[styles.instructionsContainer, instructionsContainerStyle]}
@@ -150,7 +144,6 @@ export const FaceControlsComponent = ({
               </Text>
             </Animated.View>
           )}
-          <Text style={styles.selectedLabel}>{selectedControl.label}</Text>
         </>
       )}
       <View style={styles.carouselContainer}>
@@ -163,12 +156,10 @@ export const FaceControlsComponent = ({
           defaultIndex={0}
           loop={false}
           onProgressChange={(_ofset, index) => {
-            if (isUserInteracting) {
-              const roundedIndex = Math.round(index);
-              const nextControl = controls[roundedIndex];
-              if (selectedControl && nextControl.key !== selectedControl.key) {
-                setSelectedControl(nextControl);
-              }
+            const roundedIndex = Math.round(index);
+            const nextControl = controls[roundedIndex];
+            if (selectedControl && nextControl.key !== selectedControl.key) {
+              setSelectedControl(nextControl);
             }
           }}
           renderItem={({ item, animationValue, index }) => (
@@ -181,12 +172,12 @@ export const FaceControlsComponent = ({
                   setShowSliders(!showSliders);
                 }
               }}
-              isSelected={selectedControlKey === item.key && showSliders}
+              isSelected={selectedControlKey === item.key}
             />
           )}
         />
       </View>
-    </View>
+    </Animated.View>
   );
 };
 
@@ -243,18 +234,14 @@ const FaceControlIcon = ({
 
 const styles = StyleSheet.create({
   slidersContainer: {
-    gap: 12,
+    gap: 10,
     flexDirection: "column",
-    marginHorizontal: 20,
-    height: 150,
+    marginVertical: 12,
   },
   instructionsContainer: {
     alignItems: "center",
     justifyContent: "center",
-    gap: 12,
-    flexDirection: "column",
-    marginHorizontal: 20,
-    height: 50,
+    marginVertical: 25,
   },
   instructionsText: {
     color: "#8E8D93",
@@ -263,7 +250,6 @@ const styles = StyleSheet.create({
   sliderContainer: {
     height: 40,
     flex: 0,
-    gap: 5,
     flexDirection: "column",
     justifyContent: "center",
     alignItems: "center",
@@ -299,11 +285,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "thin",
     textAlign: "center",
-    margin: 10,
   },
   faceControls: {
-    gap: 10,
-    justifyContent: "flex-start",
-    marginVertical: 10,
+    gap: 5,
+    justifyContent: "flex-end",
+    marginBottom: 40,
   },
 });

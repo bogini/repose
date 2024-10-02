@@ -215,7 +215,6 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: "#000",
     flex: 1,
-    paddingBottom: 60,
   },
   imageContainer: {
     flex: 1,
@@ -251,24 +250,5 @@ const styles = StyleSheet.create({
     width: "100%",
     zIndex: 1,
     paddingHorizontal: 40,
-  },
-  sliderLabel: {
-    color: "#8E8D93",
-    fontWeight: "500",
-    fontSize: 12,
-  },
-  sliderValue: {
-    color: "#8E8D93",
-  },
-  selectedLabel: {
-    color: "#fff",
-    fontSize: 16,
-    textAlign: "center",
-    margin: 10,
-  },
-  faceControls: {
-    gap: 10,
-    justifyContent: "flex-start",
-    marginVertical: 20,
   },
 });

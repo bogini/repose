@@ -1,3 +1,4 @@
+import { StyleSheet, Text, View } from "react-native";
 import { FaceControl, FaceValues, GestureDirection } from "../lib/faceControl";
 import GestureControl, { GestureControlValue } from "./GestureControl";
 import { ImageContainer } from "./ImageContainer";
@@ -56,7 +57,9 @@ export const FaceGestureControl = ({
           ? max - (normalizedValue - min)
           : normalizedValue;
 
-      updatedFaceValues[key] = finalValue;
+      const roundedValue = Math.round(finalValue);
+
+      updatedFaceValues[key] = roundedValue;
     });
 
     onFaceValuesChange(updatedFaceValues);
@@ -87,7 +90,34 @@ export const FaceGestureControl = ({
       value={gestureControlValue}
       onChange={handleGestureValueChange}
     >
-      {imageUrl && <ImageContainer loading={loading} imageUrl={imageUrl} />}
+      {imageUrl && (
+        <View style={styles.faceGestureControlContainer}>
+          <ImageContainer loading={loading} imageUrl={imageUrl} />
+          <Text style={styles.selectedControlLabel}>
+            {selectedControl.label}
+          </Text>
+        </View>
+      )}
     </GestureControl>
   );
 };
+
+const styles = StyleSheet.create({
+  faceGestureControlContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  selectedControlLabel: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "thin",
+    textAlign: "center",
+    position: "absolute",
+    bottom: 10,
+    backgroundColor: "black",
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+});

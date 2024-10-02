@@ -78,8 +78,8 @@ export const GestureControl: React.FC<GestureControlProps> = ({
 
     if (!isNaN(x) && !isNaN(y)) {
       const logValue = {
-        x,
-        y,
+        x: Number(x.toFixed(2)),
+        y: Number(y.toFixed(2)),
         rotation: Number(rotation.value.toFixed(2)),
         scale: Number(scale.value.toFixed(2)),
       };
