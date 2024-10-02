@@ -1,6 +1,5 @@
 import Carousel, { ICarouselInstance } from "react-native-reanimated-carousel";
 import { useEffect, useRef, useState, useCallback } from "react";
-import debounce from "lodash/debounce";
 import Animated, {
   Extrapolation,
   interpolate,
@@ -12,6 +11,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { CarouselSlider } from "./CarouselSlider";
 import { SymbolView } from "expo-symbols";
 import { FaceControl, FaceValues } from "../lib/faceControl";
+import { FaceHorizontal } from "./FaceIcons";
 
 const ANIMATION_DURATION_MS = 100;
 
@@ -220,12 +220,16 @@ const FaceControlIcon = ({
         <Animated.View
           style={[styles.faceceControlIconContainer, borderColorStyle]}
         >
-          <SymbolView
-            name={icon as any}
-            weight="regular"
-            style={styles.faceceControlIcon}
-            resizeMode="scaleAspectFit"
-          />
+          {icon === "face.smiling" ? (
+            <FaceHorizontal />
+          ) : (
+            <SymbolView
+              name={icon as any}
+              weight="regular"
+              style={styles.faceceControlIcon}
+              resizeMode="scaleAspectFit"
+            />
+          )}
         </Animated.View>
       </Animated.View>
     </Pressable>
@@ -289,6 +293,6 @@ const styles = StyleSheet.create({
   faceControls: {
     gap: 5,
     justifyContent: "flex-end",
-    marginBottom: 40,
+    marginBottom: 20,
   },
 });

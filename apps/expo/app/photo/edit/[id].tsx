@@ -12,6 +12,7 @@ import {
   FACE_CONTROLS,
   FaceValues,
 } from "../../../lib/faceControl";
+import { EditModesComponent } from "../../../components/EditMode";
 
 export default function EditScreen() {
   const router = useRouter();
@@ -139,6 +140,8 @@ export default function EditScreen() {
         selectedControlKey={selectedControl.key}
         onControlChange={setSelectedControl}
       />
+
+      <EditModesComponent />
     </View>
   );
 }
