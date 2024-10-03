@@ -97,21 +97,17 @@ export const GestureControl: React.FC<GestureControlProps> = ({
   }, DEBOUNCE_TIME_MS);
 
   const handlePanUpdate = (event: any) => {
+    const minTranslateX = 0;
+    const minTranslateY = 0;
     const maxTranslateX = size.width - FOCAL_POINT_SIZE / 2;
     const maxTranslateY = size.height - FOCAL_POINT_SIZE / 2;
 
     translateX.value = Math.min(
-      Math.max(
-        prevTranslateX.value + event.translationX,
-        -FOCAL_POINT_SIZE / 2
-      ),
+      Math.max(prevTranslateX.value + event.translationX, minTranslateX),
       maxTranslateX
     );
     translateY.value = Math.min(
-      Math.max(
-        prevTranslateY.value + event.translationY,
-        -FOCAL_POINT_SIZE / 2
-      ),
+      Math.max(prevTranslateY.value + event.translationY, minTranslateY),
       maxTranslateY
     );
 
@@ -124,6 +120,11 @@ export const GestureControl: React.FC<GestureControlProps> = ({
   };
 
   const handlePanEnd = () => {
+    const minTranslateX = MARGIN_SIZE;
+    const minTranslateY = MARGIN_SIZE;
+    const maxTranslateX = size.width - FOCAL_POINT_SIZE - MARGIN_SIZE;
+    const maxTranslateY = size.height - FOCAL_POINT_SIZE - MARGIN_SIZE;
+
     if (!isNaN(translateX.value)) {
       value.x += translateX.value;
     }
