@@ -9,7 +9,7 @@ const MODEL_IDENTIFIER =
   "fofr/expression-editor:bf913bc90e1c44ba288ba3942a538693b72e8cc7df576f3beebe56adc0a92b86";
 const REPLICATE_ENDPOINT = BASE_URL + "/api/replicate";
 
-const NUM_BUCKETS = 5;
+export const NUM_BUCKETS = 8;
 
 const getBucketValue = (
   value: number | undefined,
@@ -144,12 +144,12 @@ class ReplicateService {
       );
 
       if (!skipCache) {
-        const cacheStartTime = performance.now();
+        //const cacheStartTime = performance.now();
         const cachedResponse = await this.getFromCache(cacheKey);
-        const cacheEndTime = performance.now();
+        //const cacheEndTime = performance.now();
         if (cachedResponse) {
-          const cacheHitTime = cacheEndTime - cacheStartTime;
-          console.log(`Cache hit in ${cacheHitTime.toFixed(0)}ms`, cacheKey);
+          // const cacheHitTime = cacheEndTime - cacheStartTime;
+          // console.log(`Cache hit in ${cacheHitTime.toFixed(0)}ms`, cacheKey);
           return cachedResponse;
         }
       }
@@ -183,13 +183,13 @@ class ReplicateService {
       } else {
         console.error("Request error:", error);
       }
-      throw error;
     }
   }
 
   async runExpressionEditorWithAllRotations(
     image: ExpressionEditorInput["image"],
-    parallelism: number = 15
+    parallelism: number = 15,
+    onProgress?: (progress: number) => void
   ): Promise<string[]> {
     const startTime = performance.now();
 
@@ -200,6 +200,8 @@ class ReplicateService {
 
     const results: string[] = [];
     const promises: Promise<void>[] = [];
+    let completedCount = 0;
+    const totalCount = Math.pow(NUM_BUCKETS + 1, 3);
 
     for (let i = 0; i <= NUM_BUCKETS; i++) {
       const rotatePitch = getBucketValue(
@@ -240,8 +242,17 @@ class ReplicateService {
           const promise = this.runExpressionEditor(updatedInput, false)
             .then((result) => {
               results.push(result);
+              completedCount++;
+              if (onProgress) {
+                onProgress(completedCount / totalCount);
+              }
             })
-            .catch(() => {});
+            .catch(() => {
+              completedCount++;
+              if (onProgress) {
+                onProgress(completedCount / totalCount);
+              }
+            });
 
           promises.push(promise);
 
@@ -258,7 +269,7 @@ class ReplicateService {
     const endTime = performance.now();
     const elapsedTime = endTime - startTime;
 
-    await Image.prefetch(results, {
+    Image.prefetch(results, {
       cachePolicy: "memory-disk",
     });
 

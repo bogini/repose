@@ -1,5 +1,5 @@
 import { Text, View, Pressable, StyleSheet, Image } from "react-native";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import PhotosService, { Photo } from "../../api/photos";
@@ -12,6 +12,17 @@ export default function PhotoScreen() {
   const [photo, setPhoto] = useState<Photo | undefined>(undefined);
   const [isExpressionEditorComplete, setIsExpressionEditorComplete] =
     useState(false);
+  const [progress, setProgress] = useState<number>(0);
+
+  const onProgressTap = useCallback(async () => {
+    if (photo) {
+      await ReplicateService.runExpressionEditorWithAllRotations(
+        photo.url,
+        30,
+        setProgress
+      );
+    }
+  }, [photo]);
 
   useEffect(() => {
     const fetchPhoto = async () => {
@@ -19,10 +30,6 @@ export default function PhotoScreen() {
         const fetchedPhoto = await PhotosService.getPhotoById(id);
         if (fetchedPhoto) {
           setPhoto(fetchedPhoto);
-          await ReplicateService.runExpressionEditorWithAllRotations(
-            fetchedPhoto.url
-          );
-          setIsExpressionEditorComplete(true);
         }
       } catch (error) {
         console.error("Error fetching photo:", error);
@@ -40,8 +47,8 @@ export default function PhotoScreen() {
     <View style={styles.container}>
       <TopBar
         router={router}
-        photo={photo}
-        isExpressionEditorComplete={isExpressionEditorComplete}
+        progress={progress}
+        onProgressTap={onProgressTap}
       />
       <View style={styles.imageContainer}>
         <ImageContainer imageUrl={photo.url} />
@@ -53,18 +60,21 @@ export default function PhotoScreen() {
 
 const TopBar = ({
   router,
-  isExpressionEditorComplete,
+  progress,
+  onProgressTap,
 }: {
   router: ReturnType<typeof useRouter>;
-  photo: Photo;
-  isExpressionEditorComplete: boolean;
+  progress: number;
+  onProgressTap: () => void;
 }) => (
   <View style={styles.topBar}>
     <View style={styles.photoInfo}>
       <Text style={styles.titleText}>Yesterday</Text>
-      <Text style={styles.subheadingText}>
-        {isExpressionEditorComplete ? "9:41 AM" : "9:40 AM"}
-      </Text>
+      <Pressable onPress={onProgressTap}>
+        <Text style={styles.subheadingText}>
+          9:{40 + Math.round(progress * 10)} AM
+        </Text>
+      </Pressable>
     </View>
     <View style={styles.topButtons}>
       <Pressable style={styles.topButton}>

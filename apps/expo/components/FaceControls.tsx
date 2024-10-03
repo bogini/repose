@@ -65,7 +65,7 @@ export const FaceControlsComponent = ({
   }));
 
   useEffect(() => {
-    faceControlsHeight.value = withTiming(showSliders ? 250 : 150, {
+    faceControlsHeight.value = withTiming(showSliders ? 228 : 150, {
       duration: ANIMATION_DURATION_MS,
     });
     slidersAnimation.value = withTiming(showSliders ? 1 : 0, {

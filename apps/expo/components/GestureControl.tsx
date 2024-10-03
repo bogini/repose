@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, TouchableWithoutFeedback, Text } from "react-native";
+import { View, StyleSheet, TouchableWithoutFeedback } from "react-native";
 import {
   Gesture,
   GestureDetector,
@@ -8,15 +8,15 @@ import {
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
 } from "react-native-reanimated";
 import { ViewStyle } from "react-native";
 import { debounce } from "lodash";
+import { NUM_BUCKETS } from "../api/replicate";
 
 const FOCAL_POINT_SIZE = 34;
 const FLING_MULTIPLIER = 0.5;
-const DEBOUNCE_TIME_MS = 15;
-const MARGIN_SIZE = 40;
+const DEBOUNCE_TIME_MS = 5;
+const MARGIN_SIZE = 430 / NUM_BUCKETS / 3;
 
 export interface GestureControlValue {
   x: number;
@@ -97,8 +97,8 @@ export const GestureControl: React.FC<GestureControlProps> = ({
   }, DEBOUNCE_TIME_MS);
 
   const handlePanUpdate = (event: any) => {
-    const minTranslateX = 0;
-    const minTranslateY = 0;
+    const minTranslateX = -FOCAL_POINT_SIZE / 2;
+    const minTranslateY = -FOCAL_POINT_SIZE / 2;
     const maxTranslateX = size.width - FOCAL_POINT_SIZE / 2;
     const maxTranslateY = size.height - FOCAL_POINT_SIZE / 2;
 
@@ -125,12 +125,26 @@ export const GestureControl: React.FC<GestureControlProps> = ({
     const maxTranslateX = size.width - FOCAL_POINT_SIZE - MARGIN_SIZE;
     const maxTranslateY = size.height - FOCAL_POINT_SIZE - MARGIN_SIZE;
 
+    if (translateX.value < minTranslateX) {
+      translateX.value = minTranslateX;
+    } else if (translateX.value > maxTranslateX) {
+      translateX.value = maxTranslateX;
+    }
+
+    if (translateY.value < minTranslateY) {
+      translateY.value = minTranslateY;
+    } else if (translateY.value > maxTranslateY) {
+      translateY.value = maxTranslateY;
+    }
+
     if (!isNaN(translateX.value)) {
       value.x += translateX.value;
     }
     if (!isNaN(translateY.value)) {
       value.y += translateY.value;
     }
+
+    handleValueChange("handlePanEnd");
   };
 
   const handleRotationUpdate = (event: any) => {
