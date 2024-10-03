@@ -120,22 +120,22 @@ export const GestureControl: React.FC<GestureControlProps> = ({
   };
 
   const handlePanEnd = () => {
-    const minTranslateX = MARGIN_SIZE;
-    const minTranslateY = MARGIN_SIZE;
-    const maxTranslateX = size.width - FOCAL_POINT_SIZE - MARGIN_SIZE;
-    const maxTranslateY = size.height - FOCAL_POINT_SIZE - MARGIN_SIZE;
+    // const minTranslateX = MARGIN_SIZE;
+    // const minTranslateY = MARGIN_SIZE;
+    // const maxTranslateX = size.width - FOCAL_POINT_SIZE - MARGIN_SIZE;
+    // const maxTranslateY = size.height - FOCAL_POINT_SIZE - MARGIN_SIZE;
 
-    if (translateX.value < minTranslateX) {
-      translateX.value = minTranslateX;
-    } else if (translateX.value > maxTranslateX) {
-      translateX.value = maxTranslateX;
-    }
+    // if (translateX.value < minTranslateX) {
+    //   translateX.value = minTranslateX;
+    // } else if (translateX.value > maxTranslateX) {
+    //   translateX.value = maxTranslateX;
+    // }
 
-    if (translateY.value < minTranslateY) {
-      translateY.value = minTranslateY;
-    } else if (translateY.value > maxTranslateY) {
-      translateY.value = maxTranslateY;
-    }
+    // if (translateY.value < minTranslateY) {
+    //   translateY.value = minTranslateY;
+    // } else if (translateY.value > maxTranslateY) {
+    //   translateY.value = maxTranslateY;
+    // }
 
     if (!isNaN(translateX.value)) {
       value.x += translateX.value;
