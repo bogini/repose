@@ -10,12 +10,14 @@ import { useEffect, useState } from "react";
 
 interface ImageContainerProps {
   loading?: boolean;
-  imageUrl: string;
+  imageUrl?: string;
+  originalImageUrl?: string;
 }
 
 export const ImageContainer = ({
   loading = false,
   imageUrl,
+  originalImageUrl,
 }: ImageContainerProps) => {
   const [downloading, setDownloading] = useState(false);
   const pulseAnimation = useSharedValue(1);
@@ -36,12 +38,14 @@ export const ImageContainer = ({
 
   const startTime = useSharedValue(0);
 
+  console.log("imageUrl", imageUrl);
+
   return (
     <Animated.View style={[styles.fullSize, animatedStyle]}>
       <Image
         source={{ uri: imageUrl }}
         cachePolicy={"memory-disk"}
-        placeholder={{ uri: lastLoadedImage || imageUrl }}
+        placeholder={{ uri: lastLoadedImage || originalImageUrl }}
         placeholderContentFit="cover"
         blurRadius={loading ? 8 : 0}
         allowDownscaling={false}

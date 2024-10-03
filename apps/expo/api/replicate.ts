@@ -92,7 +92,7 @@ class ReplicateService {
     input: ExpressionEditorInput,
     shouldCancel: boolean = true,
     skipCache: boolean = false
-  ): Promise<string> {
+  ): Promise<string | undefined> {
     const startTime = performance.now();
 
     const {
@@ -241,7 +241,9 @@ class ReplicateService {
 
           const promise = this.runExpressionEditor(updatedInput, false)
             .then((result) => {
-              results.push(result);
+              if (result) {
+                results.push(result);
+              }
               completedCount++;
               if (onProgress) {
                 onProgress(completedCount / totalCount);

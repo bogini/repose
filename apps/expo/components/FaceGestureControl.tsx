@@ -9,6 +9,8 @@ interface FaceControlsComponentProps {
   onFaceValuesChange: (values: FaceValues) => void;
   selectedControl: FaceControl;
   imageUrl?: string;
+  originalImageUrl?: string;
+  placeholderImageUrl?: string;
   loading?: boolean;
   debug?: boolean;
 }
@@ -17,6 +19,7 @@ export const FaceGestureControl = ({
   imageUrl,
   faceValues,
   onFaceValuesChange,
+  originalImageUrl,
   selectedControl,
   loading = false,
   debug = false,
@@ -92,7 +95,11 @@ export const FaceGestureControl = ({
     >
       {imageUrl && (
         <View style={styles.faceGestureControlContainer}>
-          <ImageContainer loading={loading} imageUrl={imageUrl} />
+          <ImageContainer
+            loading={loading}
+            imageUrl={imageUrl}
+            originalImageUrl={originalImageUrl}
+          />
           <Text style={styles.selectedControlLabel}>
             {selectedControl.label}
           </Text>

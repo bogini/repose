@@ -70,17 +70,19 @@ export default function EditScreen() {
             true
           );
 
-          // Only update the state if the request timestamp is greater than the last state update timestamp
-          if (loadingTimeout) {
-            clearTimeout(loadingTimeout);
-            if (requestTimestamp > lastStateUpdateTimestampRef.current) {
-              setEditedImageUrl(updatedImageUrl);
-              lastStateUpdateTimestampRef.current = requestTimestamp;
-            }
-          } else {
-            if (requestTimestamp > lastStateUpdateTimestampRef.current) {
-              setEditedImageUrl(updatedImageUrl);
-              lastStateUpdateTimestampRef.current = requestTimestamp;
+          if (updatedImageUrl) {
+            // Only update the state if the request timestamp is greater than the last state update timestamp
+            if (loadingTimeout) {
+              clearTimeout(loadingTimeout);
+              if (requestTimestamp > lastStateUpdateTimestampRef.current) {
+                setEditedImageUrl(updatedImageUrl);
+                lastStateUpdateTimestampRef.current = requestTimestamp;
+              }
+            } else {
+              if (requestTimestamp > lastStateUpdateTimestampRef.current) {
+                setEditedImageUrl(updatedImageUrl);
+                lastStateUpdateTimestampRef.current = requestTimestamp;
+              }
             }
           }
         } finally {
@@ -124,6 +126,7 @@ export default function EditScreen() {
 
       <View style={styles.imageContainer}>
         <FaceGestureControl
+          originalImageUrl={originalImageUrl}
           debug={false}
           imageUrl={editedImageUrl}
           faceValues={faceValues}
