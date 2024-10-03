@@ -269,7 +269,7 @@ class ReplicateService {
     const endTime = performance.now();
     const elapsedTime = endTime - startTime;
 
-    Image.prefetch(results, {
+    await Image.prefetch(results, {
       cachePolicy: "memory-disk",
     });
 

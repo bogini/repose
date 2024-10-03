@@ -19,6 +19,9 @@ export const ImageContainer = ({
 }: ImageContainerProps) => {
   const [downloading, setDownloading] = useState(false);
   const pulseAnimation = useSharedValue(1);
+  const [lastLoadedImage, setLastLoadedImage] = useState<string | undefined>(
+    undefined
+  );
 
   useEffect(() => {
     pulseAnimation.value =
@@ -35,26 +38,10 @@ export const ImageContainer = ({
 
   return (
     <Animated.View style={[styles.fullSize, animatedStyle]}>
-      {/* <FastImage
-        key={imageUrl}
-        source={{ uri: imageUrl, priority: FastImage.priority.high }}
-        style={styles.fullSize}
-        resizeMode={FastImage.resizeMode.cover}
-        onLoadStart={() => {
-          setDownloading(true);
-          startTime.value = performance.now();
-        }}
-        onLoadEnd={() => {
-          setDownloading(false);
-          const endTime = performance.now();
-          const duration = endTime - startTime.value;
-          console.log(`FastImage loaded in ${duration.toFixed(0)}ms`);
-        }}
-      /> */}
       <Image
         source={{ uri: imageUrl }}
         cachePolicy={"memory-disk"}
-        placeholder={{ uri: imageUrl }}
+        placeholder={{ uri: lastLoadedImage || imageUrl }}
         placeholderContentFit="cover"
         blurRadius={loading ? 8 : 0}
         allowDownscaling={false}
@@ -73,6 +60,7 @@ export const ImageContainer = ({
           setDownloading(false);
           const endTime = performance.now();
           const duration = endTime - startTime.value;
+          setLastLoadedImage(imageUrl);
           console.log(`Image loaded in ${duration.toFixed(0)}ms`);
         }}
       />
