@@ -52,7 +52,7 @@ export const ImageContainer = ({
         priority={"high"}
         style={styles.fullSize}
         transition={{
-          duration: 150,
+          duration: 300,
           effect: "cross-dissolve",
         }}
         contentFit="cover"
