@@ -8,6 +8,7 @@ import {
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  withDecay,
 } from "react-native-reanimated";
 import { ViewStyle } from "react-native";
 import { debounce } from "lodash";
@@ -16,7 +17,9 @@ import { NUM_BUCKETS } from "../api/replicate";
 const FOCAL_POINT_SIZE = 34;
 const FLING_MULTIPLIER = 0.5;
 const DEBOUNCE_TIME_MS = 5;
-const MARGIN_SIZE = 430 / NUM_BUCKETS / 3;
+const MARGIN_SIZE = 40;
+const RUBBER_BAND_EFFECT = false;
+const RUBBER_BAND_FACTOR = 0.9;
 
 export interface GestureControlValue {
   x: number;
@@ -96,30 +99,35 @@ export const GestureControl: React.FC<GestureControlProps> = ({
     }
   }, DEBOUNCE_TIME_MS);
 
+  const handlePanStart = () => {
+    prevTranslateX.value = translateX.value;
+    prevTranslateY.value = translateY.value;
+  };
+
   const handlePanUpdate = (event: any) => {
     const minTranslateX = -FOCAL_POINT_SIZE / 2;
     const minTranslateY = -FOCAL_POINT_SIZE / 2;
     const maxTranslateX = size.width - FOCAL_POINT_SIZE / 2;
     const maxTranslateY = size.height - FOCAL_POINT_SIZE / 2;
 
-    translateX.value = Math.min(
-      Math.max(prevTranslateX.value + event.translationX, minTranslateX),
-      maxTranslateX
+    translateX.value = Math.max(
+      minTranslateX,
+      Math.min(maxTranslateX, event.translationX + prevTranslateX.value)
     );
-    translateY.value = Math.min(
-      Math.max(prevTranslateY.value + event.translationY, minTranslateY),
-      maxTranslateY
+    translateY.value = Math.max(
+      minTranslateY,
+      Math.min(maxTranslateY, event.translationY + prevTranslateY.value)
     );
 
     handleValueChange("handlePanUpdate");
   };
 
-  const handlePanStart = () => {
-    prevTranslateX.value = translateX.value;
-    prevTranslateY.value = translateY.value;
-  };
+  const handlePanEnd = (event) => {
+    const minTranslateX = -FOCAL_POINT_SIZE / 2 + MARGIN_SIZE;
+    const minTranslateY = -FOCAL_POINT_SIZE / 2 + MARGIN_SIZE;
+    const maxTranslateX = size.width - FOCAL_POINT_SIZE / 2 - MARGIN_SIZE;
+    const maxTranslateY = size.height - FOCAL_POINT_SIZE / 2 - MARGIN_SIZE;
 
-  const handlePanEnd = () => {
     // const minTranslateX = MARGIN_SIZE;
     // const minTranslateY = MARGIN_SIZE;
     // const maxTranslateX = size.width - FOCAL_POINT_SIZE - MARGIN_SIZE;
@@ -137,12 +145,18 @@ export const GestureControl: React.FC<GestureControlProps> = ({
     //   translateY.value = maxTranslateY;
     // }
 
-    if (!isNaN(translateX.value)) {
-      value.x += translateX.value;
-    }
-    if (!isNaN(translateY.value)) {
-      value.y += translateY.value;
-    }
+    translateX.value = withDecay({
+      velocity: event.velocityX,
+      rubberBandEffect: RUBBER_BAND_EFFECT,
+      rubberBandFactor: RUBBER_BAND_FACTOR,
+      clamp: [minTranslateX, maxTranslateX],
+    });
+    translateY.value = withDecay({
+      velocity: event.velocityY,
+      rubberBandEffect: RUBBER_BAND_EFFECT,
+      rubberBandFactor: RUBBER_BAND_FACTOR,
+      clamp: [minTranslateY, maxTranslateY],
+    });
 
     handleValueChange("handlePanEnd");
   };
@@ -178,26 +192,6 @@ export const GestureControl: React.FC<GestureControlProps> = ({
     handleValueChange("handleTap");
   };
 
-  const handleFlingEnd = (event: any) => {
-    const { velocityX, velocityY } = event;
-    const flingDistanceX = velocityX * FLING_MULTIPLIER;
-    const flingDistanceY = velocityY * FLING_MULTIPLIER;
-
-    const maxTranslateX = size.width - FOCAL_POINT_SIZE / 2;
-    const maxTranslateY = size.height - FOCAL_POINT_SIZE / 2;
-
-    translateX.value = Math.min(
-      Math.max(translateX.value + flingDistanceX, -FOCAL_POINT_SIZE / 2),
-      maxTranslateX
-    );
-    translateY.value = Math.min(
-      Math.max(translateY.value + flingDistanceY, -FOCAL_POINT_SIZE / 2),
-      maxTranslateY
-    );
-
-    handleValueChange("handleFlingEnd");
-  };
-
   const handleDoubleTap = () => {
     translateX.value = size.width / 2 - FOCAL_POINT_SIZE / 2;
     translateY.value = size.height / 2 - FOCAL_POINT_SIZE / 2;
@@ -220,18 +214,12 @@ export const GestureControl: React.FC<GestureControlProps> = ({
     .onUpdate(handlePinchUpdate)
     .onEnd(handlePinchEnd);
 
-  const flingGesture = Gesture.Fling()
-    .direction(
-      Directions.RIGHT | Directions.LEFT | Directions.UP | Directions.DOWN
-    )
-    .onEnd(handleFlingEnd);
-
   const doubleTapGesture = Gesture.Tap()
     .numberOfTaps(2)
     .onStart(handleDoubleTap);
 
   const composedGestures = Gesture.Simultaneous(
-    Gesture.Simultaneous(panGesture, pinchGesture, flingGesture),
+    Gesture.Simultaneous(panGesture, pinchGesture),
     rotationGesture,
     doubleTapGesture
   );
