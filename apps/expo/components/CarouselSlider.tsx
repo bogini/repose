@@ -15,7 +15,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { debounce } from "lodash";
 
-const DEBOUNCE_TIME_MS = 1;
+const DEBOUNCE_TIME_MS = 16;
 const SCROLL_DURATION_MS = 350;
 const NUM_TICKS = 40;
 
@@ -51,7 +51,7 @@ export const CarouselSlider: React.FC<SliderProps> = ({
 
   const debouncedScrollToIndex = useMemo(
     () =>
-      debounce(scrollToIndex, DEBOUNCE_TIME_MS * 3, {
+      debounce(scrollToIndex, DEBOUNCE_TIME_MS, {
         leading: false,
         trailing: true,
       }),
@@ -65,7 +65,7 @@ export const CarouselSlider: React.FC<SliderProps> = ({
 
   const handleValueChange = useCallback(
     (index: number) => {
-      console.log("handleValueChange", index);
+      // console.log("handleValueChange", index);
 
       const normalizedValue = (index / (NUM_TICKS - 1)) * (max - min) + min;
       const roundedValue = Math.round(normalizedValue);

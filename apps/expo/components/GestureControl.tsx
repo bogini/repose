@@ -1,22 +1,17 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { View, StyleSheet, TouchableWithoutFeedback } from "react-native";
-import {
-  Gesture,
-  GestureDetector,
-  Directions,
-} from "react-native-gesture-handler";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withDecay,
+  runOnJS,
 } from "react-native-reanimated";
 import { ViewStyle } from "react-native";
 import { debounce } from "lodash";
-import { NUM_BUCKETS } from "../api/replicate";
 
 const FOCAL_POINT_SIZE = 34;
-const FLING_MULTIPLIER = 0.5;
-const DEBOUNCE_TIME_MS = 5;
+const DEBOUNCE_TIME_MS = 16;
 const MARGIN_SIZE = 40;
 const RUBBER_BAND_EFFECT = false;
 const RUBBER_BAND_FACTOR = 0.9;
@@ -67,37 +62,39 @@ export const GestureControl: React.FC<GestureControlProps> = ({
     }
   }, [value, size]);
 
-  const handleValueChange = debounce((source: string) => {
-    const x = Number(
-      (
-        (translateX.value + FOCAL_POINT_SIZE / 2 - size.width / 2) /
-        (size.width / 2)
-      ).toFixed(2)
-    );
-    const y = Number(
-      (
-        -(translateY.value + FOCAL_POINT_SIZE / 2 - size.height / 2) /
-        (size.height / 2)
-      ).toFixed(2)
-    );
+  const handleValueChange = useCallback(
+    debounce((source: string) => {
+      const x = Number(
+        (
+          (translateX.value + FOCAL_POINT_SIZE / 2 - size.width / 2) /
+          (size.width / 2)
+        ).toFixed(2)
+      );
+      const y = Number(
+        (
+          -(translateY.value + FOCAL_POINT_SIZE / 2 - size.height / 2) /
+          (size.height / 2)
+        ).toFixed(2)
+      );
 
-    if (
-      !isNaN(x) &&
-      !isNaN(y) &&
-      !isNaN(rotation.value) &&
-      !isNaN(scale.value)
-    ) {
-      const logValue = {
-        x: Number(x.toFixed(2)),
-        y: Number(y.toFixed(2)),
-        rotation: Number(rotation.value.toFixed(2)),
-        scale: Number(scale.value.toFixed(2)),
-      };
+      if (
+        !isNaN(x) &&
+        !isNaN(y) &&
+        !isNaN(rotation.value) &&
+        !isNaN(scale.value)
+      ) {
+        const logValue = {
+          x: Number(x.toFixed(2)),
+          y: Number(y.toFixed(2)),
+          rotation: Number(rotation.value.toFixed(2)),
+          scale: Number(scale.value.toFixed(2)),
+        };
 
-      // console.log(`onChange called from ${source}`, logValue);
-      onChange?.(logValue);
-    }
-  }, DEBOUNCE_TIME_MS);
+        runOnJS(onChange)?.(logValue);
+      }
+    }, DEBOUNCE_TIME_MS),
+    [size, onChange]
+  );
 
   const handlePanStart = () => {
     prevTranslateX.value = translateX.value;
@@ -127,23 +124,6 @@ export const GestureControl: React.FC<GestureControlProps> = ({
     const minTranslateY = -FOCAL_POINT_SIZE / 2 + MARGIN_SIZE;
     const maxTranslateX = size.width - FOCAL_POINT_SIZE / 2 - MARGIN_SIZE;
     const maxTranslateY = size.height - FOCAL_POINT_SIZE / 2 - MARGIN_SIZE;
-
-    // const minTranslateX = MARGIN_SIZE;
-    // const minTranslateY = MARGIN_SIZE;
-    // const maxTranslateX = size.width - FOCAL_POINT_SIZE - MARGIN_SIZE;
-    // const maxTranslateY = size.height - FOCAL_POINT_SIZE - MARGIN_SIZE;
-
-    // if (translateX.value < minTranslateX) {
-    //   translateX.value = minTranslateX;
-    // } else if (translateX.value > maxTranslateX) {
-    //   translateX.value = maxTranslateX;
-    // }
-
-    // if (translateY.value < minTranslateY) {
-    //   translateY.value = minTranslateY;
-    // } else if (translateY.value > maxTranslateY) {
-    //   translateY.value = maxTranslateY;
-    // }
 
     translateX.value = withDecay({
       velocity: event.velocityX,
