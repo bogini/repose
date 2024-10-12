@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { View, StyleSheet, TouchableWithoutFeedback } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import {
+  Gesture,
+  GestureDetector,
+  Directions,
+} from "react-native-gesture-handler";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -8,8 +12,10 @@ import Animated, {
 } from "react-native-reanimated";
 import { ViewStyle } from "react-native";
 import { debounce } from "lodash";
+import { NUM_BUCKETS } from "../api/replicate";
 
 const FOCAL_POINT_SIZE = 34;
+const FLING_MULTIPLIER = 0.5;
 const DEBOUNCE_TIME_MS = 5;
 const MARGIN_SIZE = 40;
 const RUBBER_BAND_EFFECT = false;

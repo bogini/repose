@@ -1,5 +1,19 @@
-import { StyleSheet, Text, View } from "react-native";
+import Carousel, { ICarouselInstance } from "react-native-reanimated-carousel";
+import { useEffect, useRef, useState, useCallback } from "react";
+import debounce from "lodash/debounce";
+import Animated, {
+  Extrapolation,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { CarouselSlider } from "./CarouselSlider";
 import { SymbolView } from "expo-symbols";
+import { FaceControl, FaceValues } from "../lib/faceControl";
+
+const ANIMATION_DURATION_MS = 100;
 
 interface EditModeComponentProps {}
 
