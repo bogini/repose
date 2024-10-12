@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import Replicate from "replicate";
 import { list, put, ListBlobResult } from "@vercel/blob";
 
+const MODEL_IDENTIFIER = "bogini/expression-editor";
+
 interface ExpressionEditorInput {
   image: string;
   rotatePitch?: number;
@@ -32,20 +34,17 @@ const replicate = new Replicate({
 
 const CACHE_VERSION = "v1";
 
-const getCacheKey = async (
-  modelIdentifier: string,
-  input: ExpressionEditorInput
-) => {
+const getCacheKey = async (input: ExpressionEditorInput) => {
   const data = new TextEncoder().encode(
-    JSON.stringify({ modelIdentifier, input })
+    JSON.stringify({ modelIdentifier: MODEL_IDENTIFIER, input })
   );
   const hash = await crypto.subtle.digest("SHA-256", data);
   const hashArray = Array.from(new Uint8Array(hash));
   return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 };
 
-const getCachePath = (modelIdentifier: string, cacheKey: string) => {
-  const sanitizedModelIdentifier = decodeURIComponent(modelIdentifier).replace(
+const getCachePath = (cacheKey: string) => {
+  const sanitizedModelIdentifier = decodeURIComponent(MODEL_IDENTIFIER).replace(
     /[^a-zA-Z0-9]/g,
     "_"
   );
@@ -85,12 +84,18 @@ const cachePrediction = async (
 };
 
 const runModel = async (
-  modelIdentifier: RequestBody["modelIdentifier"],
   input: ExpressionEditorInput
 ): Promise<ReplicateResponse> => {
   try {
-    const output = await replicate.run(modelIdentifier, { input });
-    return Array.isArray(output) ? output : [output];
+    let prediction = await replicate.deployments.predictions.create(
+      "bogini",
+      "expression-editor",
+      { input }
+    );
+    prediction = await replicate.wait(prediction);
+    return Array.isArray(prediction.output)
+      ? prediction.output
+      : [prediction.output];
   } catch (error) {
     console.error(`Error running model: ${error}`);
     throw error;
@@ -112,25 +117,11 @@ const handler = async (req: NextRequest) => {
     });
   }
 
-  const {
-    modelIdentifier,
-    outputFormat = "webp",
-    ...input
-  } = (await req.json()) as RequestBody;
-
-  if (!modelIdentifier) {
-    return new NextResponse(
-      JSON.stringify({ error: "modelIdentifier is not set" }),
-      {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
-  }
+  const { outputFormat = "webp", ...input } = (await req.json()) as RequestBody;
 
   try {
-    const cacheKey = await getCacheKey(modelIdentifier, input);
-    const cachePath = getCachePath(modelIdentifier, cacheKey);
+    const cacheKey = await getCacheKey(input);
+    const cachePath = getCachePath(cacheKey);
 
     const cachedPrediction = await getCachedPrediction(cachePath);
 
@@ -147,9 +138,9 @@ const handler = async (req: NextRequest) => {
       });
     }
 
-    const prediction = await runModel(modelIdentifier, input);
+    const prediction = await runModel(input);
 
-    console.log({ modelIdentifier, prediction, input });
+    console.log({ prediction, input });
 
     const url = prediction[0];
 

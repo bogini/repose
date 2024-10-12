@@ -5,8 +5,6 @@ import * as Crypto from "expo-crypto";
 import { DEFAULT_FACE_VALUES } from "../lib/faceControl";
 import { Image } from "expo-image";
 
-const MODEL_IDENTIFIER =
-  "fofr/expression-editor:bf913bc90e1c44ba288ba3942a538693b72e8cc7df576f3beebe56adc0a92b86";
 const REPLICATE_ENDPOINT = BASE_URL + "/api/replicate";
 
 export const NUM_BUCKETS = 8;
@@ -125,7 +123,6 @@ class ReplicateService {
         crop_factor: cropFactor,
         eyebrow: getBucketValue(rest.eyebrow, -10, 15),
         image: rest.image,
-        modelIdentifier: MODEL_IDENTIFIER,
         output_format: outputFormat,
         output_quality: outputQuality,
         pupil_x: getBucketValue(rest.pupilX, -15, 15),
@@ -144,17 +141,17 @@ class ReplicateService {
       );
 
       if (!skipCache) {
-        //const cacheStartTime = performance.now();
+        const cacheStartTime = performance.now();
         const cachedResponse = await this.getFromCache(cacheKey);
-        //const cacheEndTime = performance.now();
+        const cacheEndTime = performance.now();
         if (cachedResponse) {
-          // const cacheHitTime = cacheEndTime - cacheStartTime;
-          // console.log(`Cache hit in ${cacheHitTime.toFixed(0)}ms`, cacheKey);
+          const cacheHitTime = cacheEndTime - cacheStartTime;
+          console.log(`Cache hit in ${cacheHitTime.toFixed(0)}ms`, cacheKey);
           return cachedResponse;
         }
       }
 
-      // console.log("Request", cacheKey);
+      console.log("Request", cacheKey);
 
       const { data } = await axios.post<ReplicateResponse>(
         REPLICATE_ENDPOINT!,
@@ -168,7 +165,7 @@ class ReplicateService {
 
       const endTime = performance.now();
       const totalTime = endTime - startTime;
-      // console.log(`Response ${totalTime.toFixed(0)}ms`, cacheKey);
+      console.log(`Response ${totalTime.toFixed(0)}ms`, cacheKey);
 
       return imageUrl;
     } catch (error) {
