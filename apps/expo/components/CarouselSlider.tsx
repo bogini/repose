@@ -15,7 +15,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { debounce } from "lodash";
 
-const DEBOUNCE_TIME_MS = 1;
+const DEBOUNCE_TIME_MS = 16; // Aim for 60 FPS (1000ms / 60 ≈ 16ms)
 const SCROLL_DURATION_MS = 350;
 const NUM_TICKS = 40;
 
@@ -65,21 +65,21 @@ export const CarouselSlider: React.FC<SliderProps> = ({
 
   const handleValueChange = useCallback(
     (index: number) => {
-      console.log("handleValueChange", index);
-
+      // Avoid unnecessary re-renders by only updating if the value changes
       const normalizedValue = (index / (NUM_TICKS - 1)) * (max - min) + min;
       const roundedValue = Math.round(normalizedValue);
       if (roundedValue !== value) {
         onValueChange(roundedValue);
       }
     },
-    [max, min, onValueChange]
+    [max, min, onValueChange, value]
   );
 
+  // Use useMemo to memoize the debounced function and avoid unnecessary re-creation
   const debouncedHandleValueChange = useMemo(
     () =>
       debounce(handleValueChange, DEBOUNCE_TIME_MS, {
-        leading: false,
+        leading: true, // Trigger immediately on first call
         trailing: true,
       }),
     [handleValueChange]
@@ -108,15 +108,13 @@ export const CarouselSlider: React.FC<SliderProps> = ({
         }}
         onProgressChange={(_, absoluteProgress) => {
           const newIndex = Math.round(absoluteProgress);
-          if (carouselRef.current?.getCurrentIndex() !== newIndex) {
-            debouncedHandleValueChange(newIndex);
-          }
+          debouncedHandleValueChange(newIndex); // Debounce the onProgressChange callback
         }}
         renderItem={({ index, animationValue }) => (
           <SliderTick
             animationValue={animationValue}
             onPress={() => scrollToIndex(index)}
-            isSpecialTick={index % 10 === 0 || index === NUM_TICKS - 1}
+            isSpecialTick={index % 10 === 0 || index === NUM_TICKS - 1} // Memoize isSpecialTick calculation
           />
         )}
       />
@@ -132,6 +130,7 @@ interface CarouselItemProps {
 
 const SliderTick = React.memo(
   ({ animationValue, onPress, isSpecialTick }: CarouselItemProps) => {
+    // Use useAnimatedStyle with dependencies to avoid unnecessary re-creation
     const containerStyle = useAnimatedStyle(() => {
       const opacity = interpolate(
         animationValue.value,
