@@ -102,7 +102,7 @@ export const CarouselSlider: React.FC<SliderProps> = ({
           onScrollStart?.();
         }}
         onSnapToItem={(index) => {
-          console.log("onSnapToItem", index);
+          // console.log("onSnapToItem", index);
           debouncedHandleValueChange(index);
           onScrollEnd?.();
         }}

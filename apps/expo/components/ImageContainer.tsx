@@ -38,8 +38,6 @@ export const ImageContainer = ({
 
   const startTime = useSharedValue(0);
 
-  console.log("imageUrl", imageUrl);
-
   return (
     <Animated.View style={[styles.fullSize, animatedStyle]}>
       <Image
@@ -65,7 +63,6 @@ export const ImageContainer = ({
           const endTime = performance.now();
           const duration = endTime - startTime.value;
           setLastLoadedImage(imageUrl);
-          console.log(`Image loaded in ${duration.toFixed(0)}ms`);
         }}
       />
     </Animated.View>

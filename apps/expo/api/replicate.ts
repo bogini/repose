@@ -154,7 +154,7 @@ class ReplicateService {
         }
       }
 
-      console.log("Request", cacheKey);
+      // console.log("Request", cacheKey);
 
       const { data } = await axios.post<ReplicateResponse>(
         REPLICATE_ENDPOINT!,
@@ -168,7 +168,7 @@ class ReplicateService {
 
       const endTime = performance.now();
       const totalTime = endTime - startTime;
-      console.log(`Response ${totalTime.toFixed(0)}ms`, cacheKey);
+      // console.log(`Response ${totalTime.toFixed(0)}ms`, cacheKey);
 
       return imageUrl;
     } catch (error) {
