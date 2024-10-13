@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Replicate from "replicate";
 import { list, put, ListBlobResult } from "@vercel/blob";
+import { kv } from "@vercel/kv";
 
 const MODEL_IDENTIFIER = "bogini/expression-editor";
 
@@ -20,10 +21,6 @@ interface ExpressionEditorInput {
   sampleRatio?: number;
   outputFormat?: "webp" | "png" | "jpg";
   outputQuality?: number;
-}
-
-interface RequestBody extends ExpressionEditorInput {
-  modelIdentifier: `${string}/${string}` | `${string}/${string}:${string}`;
 }
 
 type ReplicateResponse = string[];
@@ -55,9 +52,20 @@ const getCachedPrediction = async (
   cachePath: string
 ): Promise<string | null> => {
   try {
+    // First, check Redis cache using Vercel KV
+    const cachedUrl = await kv.get(cachePath);
+    if (cachedUrl) {
+      return cachedUrl as string;
+    }
+
+    // If not in Redis, check blob storage
     const response: ListBlobResult = await list({ prefix: cachePath });
     if (response.blobs.length > 0) {
       const blob = response.blobs[0];
+
+      // Set in Redis for faster lookup next time
+      kv.set(cachePath, blob.url).catch(console.error);
+
       return blob.url;
     }
     return null;
@@ -73,11 +81,17 @@ const cachePrediction = async (
   fileExtension: string
 ) => {
   try {
+    // Also cache in blob storage as before
     const response = await fetch(predictionUrl);
     const blob = await response.blob();
-    await put(`${cachePath}.${fileExtension}`, blob, {
+    const cachedBlob = await put(`${cachePath}.${fileExtension}`, blob, {
       access: "public",
     });
+
+    // Set in Redis for faster lookup next time
+    kv.set(cachePath, cachedBlob.url).catch(console.error);
+
+    return cachedBlob;
   } catch (error) {
     console.error(`Error updating cache for path ${cachePath}: ${error}`);
   }
@@ -117,7 +131,8 @@ const handler = async (req: NextRequest) => {
     });
   }
 
-  const { outputFormat = "webp", ...input } = (await req.json()) as RequestBody;
+  const { outputFormat = "webp", ...input } =
+    (await req.json()) as ExpressionEditorInput;
 
   try {
     const cacheKey = await getCacheKey(input);
