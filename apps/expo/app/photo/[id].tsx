@@ -11,6 +11,7 @@ export default function PhotoScreen() {
   const router = useRouter();
   const [photo, setPhoto] = useState<Photo | undefined>(undefined);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   const onProgressTap = useCallback(async () => {
     if (photo) {
@@ -19,6 +20,21 @@ export default function PhotoScreen() {
       setIsLoading(false);
     }
   }, [photo]);
+
+  const handleDeletePhoto = useCallback(async () => {
+    if (photo) {
+      setIsDeleting(true);
+      try {
+        await PhotosService.deletePhoto(photo);
+        router.back();
+      } catch (error) {
+        console.error("Error deleting photo:", error);
+        alert("Failed to delete photo. Please try again.");
+      } finally {
+        setIsDeleting(false);
+      }
+    }
+  }, [photo, router]);
 
   useEffect(() => {
     const fetchPhoto = async () => {
@@ -49,7 +65,11 @@ export default function PhotoScreen() {
       <View style={styles.imageContainer}>
         <ImageContainer imageUrl={photo.url} />
       </View>
-      <BottomBar id={photo.id} />
+      <BottomBar
+        id={photo.id}
+        isDeleting={isDeleting}
+        onDeletePhoto={handleDeletePhoto}
+      />
     </View>
   );
 }
@@ -91,7 +111,15 @@ const TopBar = ({
   </View>
 );
 
-const BottomBar = ({ id }: { id: string }) => (
+const BottomBar = ({
+  id,
+  isDeleting,
+  onDeletePhoto,
+}: {
+  id: string;
+  isDeleting: boolean;
+  onDeletePhoto: () => void;
+}) => (
   <View style={styles.bottomBar}>
     <Pressable style={styles.roundButton}>
       <SymbolView
@@ -129,7 +157,11 @@ const BottomBar = ({ id }: { id: string }) => (
         </Pressable>
       </Link>
     </View>
-    <Pressable style={styles.roundButton}>
+    <Pressable
+      style={styles.roundButton}
+      onPress={onDeletePhoto}
+      disabled={isDeleting}
+    >
       <SymbolView
         name="trash"
         weight="light"
