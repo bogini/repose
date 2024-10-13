@@ -27,19 +27,29 @@ export default function EditScreen() {
   const [editedImageUrl, setEditedImageUrl] = useState<string | undefined>();
   const lastStateUpdateTimestampRef = useRef(0);
 
+  const debouncedCache = useRef<NodeJS.Timeout | null>(null);
+
   const handleControlChange = useCallback(
     (control: FaceControl) => {
-      setSelectedControl(control);
+      if (control.key !== selectedControl.key) {
+        setSelectedControl(control);
 
-      if (originalImageUrl) {
-        ReplicateService.cacheExpressionEditorResultsWithFaceControls(
-          originalImageUrl,
-          faceValues,
-          selectedControl
-        );
+        if (debouncedCache.current) {
+          clearTimeout(debouncedCache.current);
+        }
+
+        if (!originalImageUrl) return;
+
+        debouncedCache.current = setTimeout(() => {
+          ReplicateService.cacheExpressionEditorResultsWithFaceControls(
+            originalImageUrl,
+            faceValues,
+            control
+          );
+        }, 300);
       }
     },
-    [originalImageUrl, faceValues, selectedControl]
+    [originalImageUrl, faceValues, selectedControl.key]
   );
 
   useEffect(() => {

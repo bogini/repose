@@ -20,9 +20,7 @@ const getBucketValue = (
   min: number,
   max: number
 ) => {
-  if (value === undefined) {
-    return undefined;
-  }
+  if (value === undefined) return undefined;
   const range = max - min;
   const bucketSize = range / NUM_BUCKETS;
   const bucketIndex = Math.round((value - min) / bucketSize);
@@ -51,11 +49,13 @@ interface ExpressionEditorInput {
   outputQuality?: number;
 }
 
-const DEFAULT_OUTPUT_FORMAT = "webp";
-const DEFAULT_OUTPUT_QUALITY = 100;
-const DEFAULT_SAMPLE_RATIO = 1;
-const DEFAULT_CROP_FACTOR = 2.5;
-const DEFAULT_SRC_RATIO = 1;
+const DEFAULTS = {
+  outputFormat: "webp" as const,
+  outputQuality: 100,
+  sampleRatio: 1,
+  cropFactor: 2.5,
+  srcRatio: 1,
+};
 
 interface ReplicateResponse {
   url: string;
@@ -66,16 +66,11 @@ class ReplicateService {
   private inMemoryCache: Record<string, string> = {};
 
   private async getFromCache(key: string): Promise<string | undefined> {
-    // Check in-memory cache first
     const inMemoryValue = this.inMemoryCache[key];
-    if (inMemoryValue) {
-      return inMemoryValue;
-    }
+    if (inMemoryValue) return inMemoryValue;
 
-    // Check AsyncStorage cache
     const asyncStorageValue = await AsyncStorage.getItem(key);
     if (asyncStorageValue) {
-      // Store in in-memory cache for faster access next time
       this.inMemoryCache[key] = asyncStorageValue;
       return asyncStorageValue;
     }
@@ -100,17 +95,16 @@ class ReplicateService {
     const startTime = performance.now();
 
     const {
-      outputFormat = DEFAULT_OUTPUT_FORMAT,
-      outputQuality = DEFAULT_OUTPUT_QUALITY,
-      sampleRatio = DEFAULT_SAMPLE_RATIO,
-      cropFactor = DEFAULT_CROP_FACTOR,
-      srcRatio = DEFAULT_SRC_RATIO,
+      outputFormat = DEFAULTS.outputFormat,
+      outputQuality = DEFAULTS.outputQuality,
+      sampleRatio = DEFAULTS.sampleRatio,
+      cropFactor = DEFAULTS.cropFactor,
+      srcRatio = DEFAULTS.srcRatio,
       ...rest
     } = input;
 
     if (shouldCancel) {
       try {
-        // Cancel previous request if it exists
         this.cancelTokenSource.cancel("Request canceled due to new request");
       } catch (error) {
         if (!axios.isCancel(error)) {
@@ -118,8 +112,6 @@ class ReplicateService {
           throw error;
         }
       }
-
-      // Create a new cancel token for the current request
       this.cancelTokenSource = axios.CancelToken.source();
     }
 
@@ -147,17 +139,11 @@ class ReplicateService {
       );
 
       if (!skipCache) {
-        // const cacheStartTime = performance.now();
         const cachedResponse = await this.getFromCache(cacheKey);
-        // const cacheEndTime = performance.now();
-        if (cachedResponse) {
-          // const cacheHitTime = cacheEndTime - cacheStartTime;
-          // console.log(`Cache hit in ${cacheHitTime.toFixed(0)}ms`, cacheKey);
-          return cachedResponse;
-        }
+        if (cachedResponse) return cachedResponse;
       }
 
-      console.log("Request", cacheKey);
+      // console.log("Request", cacheKey);
 
       const { data } = await axios.post<ReplicateResponse>(
         REPLICATE_ENDPOINT!,
@@ -166,12 +152,12 @@ class ReplicateService {
       );
 
       const imageUrl = data.url;
+      await this.setInCache(cacheKey, imageUrl);
 
-      this.setInCache(cacheKey, imageUrl);
-
-      const endTime = performance.now();
-      const totalTime = endTime - startTime;
-      console.log(`Response ${totalTime.toFixed(0)}ms`, cacheKey);
+      // console.log(
+      //   `Response ${Math.round(performance.now() - startTime)}ms`,
+      //   cacheKey
+      // );
 
       return imageUrl;
     } catch (error) {
@@ -180,8 +166,6 @@ class ReplicateService {
           console.error("Axios error response:", error.response.data);
         } else if (error.request) {
           console.error("Axios error request:", error.request);
-        } else {
-          // console.error("Other error message:", error.message);
         }
       } else {
         console.error("Request error:", error);
@@ -195,7 +179,6 @@ class ReplicateService {
     const startTime = performance.now();
     const results: string[] = [];
     const totalCount = Math.pow(NUM_BUCKETS + 1, 3) + FACE_CONTROLS.length;
-
     const concurrently = pLimit(MAX_CONCURRENT_REQUESTS);
 
     const processRotation = async (
@@ -206,16 +189,12 @@ class ReplicateService {
     ) => {
       const updatedInput: ExpressionEditorInput = {
         ...DEFAULT_FACE_VALUES,
+        ...additionalValues,
+        ...DEFAULTS,
         image,
         rotatePitch,
         rotateYaw,
         rotateRoll,
-        ...additionalValues,
-        cropFactor: DEFAULT_CROP_FACTOR,
-        outputFormat: DEFAULT_OUTPUT_FORMAT,
-        outputQuality: DEFAULT_OUTPUT_QUALITY,
-        sampleRatio: DEFAULT_SAMPLE_RATIO,
-        srcRatio: DEFAULT_SRC_RATIO,
       };
 
       try {
@@ -257,10 +236,7 @@ class ReplicateService {
     };
 
     const processAllRotations = async () => {
-      // Process all rotatePitch and rotateYaw with rotateRoll = 0
       await Promise.all(generateRotations(0));
-
-      // Process remaining combinations with non-zero rotateRoll
       for (let k = 1; k <= NUM_BUCKETS; k++) {
         const rotateRoll = getBucketValue(
           -20 + (40 / NUM_BUCKETS) * k,
@@ -297,12 +273,8 @@ class ReplicateService {
     await processAllRotations();
     await processFaceControls();
 
-    const endTime = performance.now();
-
     console.log(
-      `runExpressionEditorWithAllRotations took ${(endTime - startTime).toFixed(
-        0
-      )}ms with ${totalCount} requests`
+      `runExpressionEditorWithAllRotations took ${performance.now() - startTime}ms with ${totalCount} requests`
     );
 
     return results;
@@ -313,8 +285,11 @@ class ReplicateService {
     currentFaceValues: FaceValues,
     selectedControl: FaceControl
   ): Promise<void> {
+    console.log(
+      "cacheExpressionEditorResultsWithFaceControls",
+      selectedControl.key
+    );
     const startTime = performance.now();
-
     const concurrently = pLimit(MAX_CONCURRENT_REQUESTS);
 
     const processInput = async (input: ExpressionEditorInput) => {
@@ -342,10 +317,12 @@ class ReplicateService {
           )!;
 
           const updatedInput: ExpressionEditorInput = {
+            ...DEFAULTS,
             ...currentFaceValues,
             image,
             [value.key]: bucketValue,
           };
+
           promises.push(concurrently(() => processInput(updatedInput)));
         }
       }
@@ -355,12 +332,8 @@ class ReplicateService {
 
     await Promise.all(generateInputs());
 
-    const endTime = performance.now();
-
     console.log(
-      `cacheExpressionEditorResultsWithFaceControls took ${(
-        endTime - startTime
-      ).toFixed(0)}ms for ${selectedControl.label}`
+      `cacheExpressionEditorResultsWithFaceControls took ${performance.now() - startTime}ms for ${selectedControl.label}`
     );
   }
 }
