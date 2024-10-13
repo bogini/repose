@@ -28,7 +28,7 @@ export const FaceControlsComponent = ({
   faceValues,
   onFaceValuesChange,
   selectedControlKey,
-  onControlChange: setSelectedControl,
+  onControlChange,
 }: FaceControlsComponentProps) => {
   const carouselRef = useRef<ICarouselInstance>(null);
   const [showSliders, setShowSliders] = useState(false);
@@ -42,7 +42,7 @@ export const FaceControlsComponent = ({
 
   const scrollToIndex = (index: number) => {
     carouselRef.current?.scrollTo({ index, animated: true });
-    setSelectedControl(controls[index]);
+    onControlChange(controls[index]);
   };
 
   const handleValueChange = useCallback(
@@ -159,7 +159,7 @@ export const FaceControlsComponent = ({
             const roundedIndex = Math.round(index);
             const nextControl = controls[roundedIndex];
             if (selectedControl && nextControl.key !== selectedControl.key) {
-              setSelectedControl(nextControl);
+              onControlChange(nextControl);
             }
           }}
           renderItem={({ item, animationValue, index }) => (

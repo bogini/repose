@@ -10,14 +10,13 @@ export default function PhotoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [photo, setPhoto] = useState<Photo | undefined>(undefined);
-  const [progress, setProgress] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const onProgressTap = useCallback(async () => {
     if (photo) {
-      await ReplicateService.runExpressionEditorWithAllRotations(
-        photo.url,
-        setProgress
-      );
+      setIsLoading(true);
+      await ReplicateService.cacheExpressionEditorResults(photo.url);
+      setIsLoading(false);
     }
   }, [photo]);
 
@@ -44,7 +43,7 @@ export default function PhotoScreen() {
     <View style={styles.container}>
       <TopBar
         router={router}
-        progress={progress}
+        isLoading={isLoading}
         onProgressTap={onProgressTap}
       />
       <View style={styles.imageContainer}>
@@ -57,20 +56,18 @@ export default function PhotoScreen() {
 
 const TopBar = ({
   router,
-  progress,
+  isLoading,
   onProgressTap,
 }: {
   router: ReturnType<typeof useRouter>;
-  progress: number;
+  isLoading: boolean;
   onProgressTap: () => void;
 }) => (
   <View style={styles.topBar}>
     <View style={styles.photoInfo}>
       <Text style={styles.titleText}>Yesterday</Text>
       <Pressable onPress={onProgressTap}>
-        <Text style={styles.subheadingText}>
-          9:{40 + Math.round(progress * 10)} AM
-        </Text>
+        <Text style={styles.subheadingText}>9:4{isLoading ? "0" : "1"} AM</Text>
       </Pressable>
     </View>
     <View style={styles.topButtons}>

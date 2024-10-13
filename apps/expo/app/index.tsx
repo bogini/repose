@@ -164,6 +164,11 @@ export default function App() {
                       <UploadImageTile
                         onUploadSuccess={(response: Photo) => {
                           setPhotos((prevPhotos) => [...prevPhotos, response]);
+                          setIsLoading(true);
+                          ReplicateService.cacheExpressionEditorResults(
+                            response.url
+                          );
+                          setIsLoading(false);
                         }}
                       />
                     </View>

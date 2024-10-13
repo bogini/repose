@@ -10,6 +10,7 @@ import { FaceGestureControl } from "../../../components/FaceGestureControl";
 import {
   DEFAULT_FACE_VALUES,
   FACE_CONTROLS,
+  FaceControl,
   FaceValues,
 } from "../../../lib/faceControl";
 import { EditModesComponent } from "../../../components/EditMode";
@@ -25,6 +26,21 @@ export default function EditScreen() {
   >();
   const [editedImageUrl, setEditedImageUrl] = useState<string | undefined>();
   const lastStateUpdateTimestampRef = useRef(0);
+
+  const handleControlChange = useCallback(
+    (control: FaceControl) => {
+      setSelectedControl(control);
+
+      if (originalImageUrl) {
+        ReplicateService.cacheExpressionEditorResultsWithFaceControls(
+          originalImageUrl,
+          faceValues,
+          selectedControl
+        );
+      }
+    },
+    [originalImageUrl, faceValues, selectedControl]
+  );
 
   useEffect(() => {
     const fetchPhoto = async () => {
@@ -141,7 +157,7 @@ export default function EditScreen() {
         faceValues={faceValues}
         onFaceValuesChange={handleFaceValuesChange}
         selectedControlKey={selectedControl.key}
-        onControlChange={setSelectedControl}
+        onControlChange={handleControlChange}
       />
 
       <EditModesComponent />
