@@ -10,15 +10,12 @@ export default function PhotoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [photo, setPhoto] = useState<Photo | undefined>(undefined);
-  const [isExpressionEditorComplete, setIsExpressionEditorComplete] =
-    useState(false);
   const [progress, setProgress] = useState<number>(0);
 
   const onProgressTap = useCallback(async () => {
     if (photo) {
       await ReplicateService.runExpressionEditorWithAllRotations(
         photo.url,
-        30,
         setProgress
       );
     }

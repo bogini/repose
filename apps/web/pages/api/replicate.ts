@@ -153,11 +153,6 @@ const runModel = async (
   }
 };
 
-export const runtime = "edge";
-export const preferredRegion = ["sfo1"];
-export const dynamic = "force-dynamic";
-export const maxDuration = 60 * 3; // 3 minutes
-
 const handler = async (req: NextRequest) => {
   const start = Date.now();
 

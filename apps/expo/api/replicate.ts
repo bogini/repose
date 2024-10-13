@@ -6,6 +6,7 @@ import { DEFAULT_FACE_VALUES } from "../lib/faceControl";
 import { Image } from "expo-image";
 
 const REPLICATE_ENDPOINT = BASE_URL + "/api/replicate";
+const MAX_CONCURRENT_REQUESTS = 100;
 
 export const NUM_BUCKETS = 8;
 
@@ -141,12 +142,12 @@ class ReplicateService {
       );
 
       if (!skipCache) {
-        const cacheStartTime = performance.now();
+        // const cacheStartTime = performance.now();
         const cachedResponse = await this.getFromCache(cacheKey);
-        const cacheEndTime = performance.now();
+        // const cacheEndTime = performance.now();
         if (cachedResponse) {
-          const cacheHitTime = cacheEndTime - cacheStartTime;
-          console.log(`Cache hit in ${cacheHitTime.toFixed(0)}ms`, cacheKey);
+          // const cacheHitTime = cacheEndTime - cacheStartTime;
+          // console.log(`Cache hit in ${cacheHitTime.toFixed(0)}ms`, cacheKey);
           return cachedResponse;
         }
       }
@@ -185,7 +186,6 @@ class ReplicateService {
 
   async runExpressionEditorWithAllRotations(
     image: ExpressionEditorInput["image"],
-    parallelism: number = 15,
     onProgress?: (progress: number) => void
   ): Promise<string[]> {
     const startTime = performance.now();
@@ -240,22 +240,20 @@ class ReplicateService {
             .then((result) => {
               if (result) {
                 results.push(result);
+                Image.prefetch(result, {
+                  cachePolicy: "memory-disk",
+                });
               }
               completedCount++;
               if (onProgress) {
                 onProgress(completedCount / totalCount);
               }
             })
-            .catch(() => {
-              completedCount++;
-              if (onProgress) {
-                onProgress(completedCount / totalCount);
-              }
-            });
+            .catch(console.error);
 
           promises.push(promise);
 
-          if (promises.length >= parallelism) {
+          if (promises.length >= MAX_CONCURRENT_REQUESTS) {
             await Promise.all(promises);
             promises.length = 0;
           }
@@ -267,10 +265,6 @@ class ReplicateService {
 
     const endTime = performance.now();
     const elapsedTime = endTime - startTime;
-
-    await Image.prefetch(results, {
-      cachePolicy: "memory-disk",
-    });
 
     console.log(
       `runExpressionEditorWithAllRotations took ${elapsedTime.toFixed(0)}ms`
