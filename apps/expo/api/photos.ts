@@ -3,6 +3,7 @@ import * as FileSystem from "expo-file-system";
 import * as ImageManipulator from "expo-image-manipulator";
 import { BASE_URL } from "./constants";
 
+const TARGET_SIZE = 1024;
 const PHOTOS_ENDPOINT = BASE_URL + "/api/photos";
 
 export interface Photo {
@@ -21,7 +22,7 @@ class PhotosService {
     try {
       const { data } = await axios.get<Photo[]>(PHOTOS_ENDPOINT);
       console.log("Successfully fetched photos:", data.length);
-      this.photoCache = data; // Update the cache with the fetched photos
+      this.photoCache = data;
       return data;
     } catch (error) {
       console.error("Error listing photos:", error);
@@ -30,13 +31,11 @@ class PhotosService {
   }
 
   async getPhotoById(id: string): Promise<Photo | undefined> {
-    // Check if the photo is in the cache
     const cachedPhoto = this.photoCache.find((photo) => photo.id === id);
     if (cachedPhoto) {
       return cachedPhoto;
     }
 
-    // If the photo is not in the cache, fetch the list of photos and update the cache
     try {
       const photos = await this.listPhotos();
       return photos.find((photo) => photo.id === id);
@@ -46,13 +45,17 @@ class PhotosService {
     }
   }
 
-  async uploadPhoto(fileUri: string): Promise<Photo> {
+  async uploadPhoto(
+    fileUri: string,
+    width: number,
+    height: number
+  ): Promise<Photo> {
     const fileInfo = await FileSystem.getInfoAsync(fileUri);
     if (!fileInfo.exists) {
       throw new Error("File does not exist");
     }
 
-    const optimizedImage = await this.optimizeImage(fileUri);
+    const optimizedImage = await this.optimizeImage(fileUri, width, height);
 
     const base64String = await FileSystem.readAsStringAsync(
       optimizedImage.uri,
@@ -71,6 +74,8 @@ class PhotosService {
       });
 
       console.log(`Upload response: ${JSON.stringify(data)}`);
+
+      this.photoCache.push(data);
 
       return data;
     } catch (error) {
@@ -91,24 +96,53 @@ class PhotosService {
     }
   }
 
-  async deletePhoto(fileName: string): Promise<void> {
+  async deletePhoto(photo: Photo): Promise<void> {
     try {
-      await axios.delete(`${PHOTOS_ENDPOINT}`, {
-        data: { fileName },
+      await axios.delete(PHOTOS_ENDPOINT, {
+        data: { url: photo.url },
       });
-      console.log(`Photo ${fileName} deleted successfully`);
+
+      this.photoCache = this.photoCache.filter((p) => p.id !== photo.id);
     } catch (error) {
       console.error("Error deleting photo:", error);
       throw error;
     }
   }
 
-  private async optimizeImage(fileUri: string): Promise<{ uri: string }> {
+  private async optimizeImage(
+    fileUri: string,
+    width: number,
+    height: number
+  ): Promise<{ uri: string }> {
+    const aspectRatio = width / height;
+
+    let targetWidth, targetHeight;
+
+    if (width > height) {
+      targetWidth = TARGET_SIZE;
+      targetHeight = TARGET_SIZE / aspectRatio;
+    } else {
+      targetHeight = TARGET_SIZE;
+      targetWidth = TARGET_SIZE * aspectRatio;
+    }
+
+    // Ensure the dimensions do not exceed the original dimensions
+    targetWidth = Math.min(targetWidth, width);
+    targetHeight = Math.min(targetHeight, height);
+
     const manipResult = await ImageManipulator.manipulateAsync(
       fileUri,
-      [{ resize: { width: 1024, height: 1024 } }],
-      { format: ImageManipulator.SaveFormat.WEBP, base64: true }
+      [
+        {
+          resize: {
+            width: targetWidth,
+            height: targetHeight,
+          },
+        },
+      ],
+      { format: ImageManipulator.SaveFormat.WEBP, base64: false }
     );
+
     return manipResult;
   }
 }

@@ -7,7 +7,7 @@ import {
   View,
 } from "react-native";
 import Carousel from "../Carousel";
-import { Link } from "expo-router";
+import { Link, useFocusEffect } from "expo-router";
 import Animated, {
   scrollTo,
   useAnimatedReaction,
@@ -19,7 +19,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { ActivityIndicator } from "react-native";
 import PhotosService, { Photo } from "../api/photos";
 import UploadImageTile from "../components/UploadImageTile";
@@ -103,46 +103,39 @@ export default function App() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchPhotos = async () => {
-      try {
-        const fetchedPhotos = await PhotosService.listPhotos();
-        setPhotos(fetchedPhotos);
+  useFocusEffect(
+    useCallback(() => {
+      const fetchPhotos = async () => {
+        console.log("Fetching photos");
 
-        // Warm up the model
-        if (fetchedPhotos.length > 0) {
-          await ReplicateService.runExpressionEditor(
-            {
-              image: fetchedPhotos[0].url,
-              ...DEFAULT_FACE_VALUES,
-            },
-            true,
-            true
-          );
+        try {
+          const fetchedPhotos = await PhotosService.listPhotos();
+          setPhotos(fetchedPhotos);
+        } catch (error) {
+          console.error("Error fetching photos:", error);
+        } finally {
+          setIsLoading(false);
         }
-      } catch (error) {
-        console.error("Error fetching photos:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+      };
 
-    fetchPhotos();
-    ReplicateService.clearInMemoryCache();
-  }, []);
+      fetchPhotos();
+    }, [])
+  );
 
   return (
-    <GestureDetector gesture={composedGesture}>
-      <Animated.ScrollView
-        ref={pageScrollViewRef}
-        scrollEnabled={pageScrollEnabled}
-        style={[styles.container]}
-        onScroll={onPageScroll}
-      >
-        {photos.length === 0 ? (
-          <ActivityIndicator size="large" style={styles.loadingIndicator} />
-        ) : (
-          <>
+    <>
+      {photos.length === 0 ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" />
+        </View>
+      ) : (
+        <GestureDetector gesture={composedGesture}>
+          <Animated.ScrollView
+            ref={pageScrollViewRef}
+            scrollEnabled={pageScrollEnabled}
+            style={[styles.container]}
+            onScroll={onPageScroll}
+          >
             <Animated.View style={headerStyle}>
               <Animated.FlatList
                 ref={flatListRef}
@@ -200,12 +193,11 @@ export default function App() {
                 />
               </>
             )}
-          </>
-        )}
-
-        <StatusBar style="auto" />
-      </Animated.ScrollView>
-    </GestureDetector>
+          </Animated.ScrollView>
+        </GestureDetector>
+      )}
+      <StatusBar style="auto" />
+    </>
   );
 }
 
@@ -214,7 +206,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
   },
-  loadingIndicator: {
-    marginTop: 20,
+  loadingContainer: {
+    flex: 1,
+    height: "100%",
+    borderStartColor: "red",
+    justifyContent: "center",
+    alignItems: "center",
   },
 });

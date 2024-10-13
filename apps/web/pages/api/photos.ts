@@ -69,13 +69,12 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
         return res.status(200).json(resultWithId);
 
       case "DELETE": {
-        const { fileName } = req.body;
-        if (!fileName) {
-          console.error("DELETE Error: File name is not provided");
-          return res.status(400).json({ error: "File name is not provided" });
+        const { url } = req.body as { url: string };
+        if (!url) {
+          return res.status(400).json({ error: "URL is not provided" });
         }
 
-        await del(`${PHOTOS_FOLDER}${fileName}`, { token });
+        await del(url, { token });
 
         return res.status(200).json({ message: "File deleted successfully" });
       }
