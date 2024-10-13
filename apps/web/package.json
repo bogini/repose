@@ -11,6 +11,7 @@
   "dependencies": {
     "@vercel/blob": "^0.24.0",
     "@vercel/kv": "^3.0.0",
+    "@vercel/node": "^3.2.23",
     "next": "14.2.13",
     "react": "^18",
     "react-dom": "^18",

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { VercelRequest, VercelResponse } from "@vercel/node";
 import Replicate from "replicate";
 import { list, put, ListBlobResult } from "@vercel/blob";
 import { kv } from "@vercel/kv";
@@ -153,18 +153,15 @@ const runModel = async (
   }
 };
 
-const handler = async (req: NextRequest) => {
+const handler = async (req: VercelRequest, res: VercelResponse) => {
   const start = Date.now();
 
   if (req.method !== "POST") {
-    return new NextResponse(null, {
-      status: 405,
-      headers: { Allow: "POST" },
-    });
+    res.setHeader("Allow", "POST");
+    return res.status(405).send(null);
   }
 
-  const { outputFormat = "webp", ...input } =
-    (await req.json()) as ExpressionEditorInput;
+  const { outputFormat = "webp", ...input } = req.body as ExpressionEditorInput;
 
   try {
     const cacheKey = await getCacheKey(input);
@@ -179,10 +176,7 @@ const handler = async (req: NextRequest) => {
         duration,
         cacheHit: true,
       });
-      return new NextResponse(JSON.stringify({ url: cachedPrediction }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
+      return res.status(200).json({ url: cachedPrediction });
     }
 
     const prediction = await runModel(input);
@@ -201,10 +195,7 @@ const handler = async (req: NextRequest) => {
       cacheHit: false,
     });
 
-    return new NextResponse(JSON.stringify({ url }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    return res.status(200).json({ url });
   } catch (error) {
     const duration = Date.now() - start;
 
@@ -213,15 +204,9 @@ const handler = async (req: NextRequest) => {
       duration,
     });
 
-    return new NextResponse(
-      JSON.stringify({
-        error: `Error processing request: ${error instanceof Error ? error.message : error}`,
-      }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
+    return res.status(500).json({
+      error: `Error processing request: ${error instanceof Error ? error.message : error}`,
+    });
   }
 };
 
