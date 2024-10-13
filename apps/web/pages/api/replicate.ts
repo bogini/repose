@@ -48,31 +48,59 @@ const getCachePath = (cacheKey: string) => {
   return `cache/${CACHE_VERSION}/${sanitizedModelIdentifier}/${cacheKey}`;
 };
 
-const getCachedPrediction = async (
+const getCachedPredictionFromRedis = async (
   cachePath: string
 ): Promise<string | null> => {
   try {
-    // First, check Redis cache using Vercel KV
     const cachedUrl = await kv.get(cachePath);
     if (cachedUrl) {
       return cachedUrl as string;
     }
+    return null;
+  } catch (error) {
+    console.error(`Error getting cached prediction from Redis: ${error}`);
+    throw error;
+  }
+};
 
-    // If not in Redis, check blob storage
+const setCache = async (cachePath: string, url: string) => {
+  try {
+    await kv.set(cachePath, url);
+  } catch (error) {
+    console.error(`Error setting cache in Redis: ${error}`);
+  }
+};
+
+const getCachedPredictionFromBlob = async (
+  cachePath: string
+): Promise<string | null> => {
+  try {
     const response: ListBlobResult = await list({ prefix: cachePath });
     if (response.blobs.length > 0) {
       const blob = response.blobs[0];
 
-      // Set in Redis for faster lookup next time
-      kv.set(cachePath, blob.url).catch(console.error);
+      setCache(cachePath, blob.url);
 
       return blob.url;
     }
     return null;
   } catch (error) {
-    console.error(`Error getting cached prediction: ${error}`);
-    return null;
+    console.error(
+      `Error getting cached prediction from Blob Storage: ${error}`
+    );
+    throw error;
   }
+};
+
+const getCachedPrediction = async (
+  cachePath: string
+): Promise<string | null> => {
+  return Promise.race([
+    getCachedPredictionFromRedis(cachePath),
+    getCachedPredictionFromBlob(cachePath),
+  ]).catch(() => {
+    return null;
+  });
 };
 
 const cachePrediction = async (
@@ -81,15 +109,13 @@ const cachePrediction = async (
   fileExtension: string
 ) => {
   try {
-    // Also cache in blob storage as before
     const response = await fetch(predictionUrl);
     const blob = await response.blob();
     const cachedBlob = await put(`${cachePath}.${fileExtension}`, blob, {
       access: "public",
     });
 
-    // Set in Redis for faster lookup next time
-    kv.set(cachePath, cachedBlob.url).catch(console.error);
+    setCache(cachePath, cachedBlob.url);
 
     return cachedBlob;
   } catch (error) {
@@ -106,7 +132,10 @@ const runModel = async (
       "expression-editor",
       { input }
     );
-    prediction = await replicate.wait(prediction);
+    prediction = await replicate.wait(prediction, {
+      mode: "poll",
+      interval: 10,
+    });
     return Array.isArray(prediction.output)
       ? prediction.output
       : [prediction.output];
