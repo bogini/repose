@@ -85,7 +85,7 @@ export const FACE_CONTROLS: FaceControl[] = [
         min: -15,
         max: 15,
         gesture: "y",
-        direction: GestureDirection.Inverted,
+        //direction: GestureDirection.Inverted,
       },
     ],
   },
