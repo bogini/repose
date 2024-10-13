@@ -48,21 +48,6 @@ const getCachePath = (cacheKey: string) => {
   return `cache/${CACHE_VERSION}/${sanitizedModelIdentifier}/${cacheKey}`;
 };
 
-const getCachedPredictionFromRedis = async (
-  cachePath: string
-): Promise<string | null> => {
-  try {
-    const cachedUrl = await kv.get(cachePath);
-    if (cachedUrl) {
-      return cachedUrl as string;
-    }
-    return null;
-  } catch (error) {
-    console.error(`Error getting cached prediction from Redis: ${error}`);
-    throw error;
-  }
-};
-
 const setCache = async (cachePath: string, url: string) => {
   try {
     await kv.set(cachePath, url);
@@ -71,36 +56,59 @@ const setCache = async (cachePath: string, url: string) => {
   }
 };
 
+const getCachedPredictionFromRedis = async (
+  cachePath: string
+): Promise<string | null> => {
+  const cachedUrl = await kv.get(cachePath);
+  if (cachedUrl) {
+    return cachedUrl as string;
+  }
+  return null;
+};
+
 const getCachedPredictionFromBlob = async (
   cachePath: string
 ): Promise<string | null> => {
-  try {
-    const response: ListBlobResult = await list({ prefix: cachePath });
-    if (response.blobs.length > 0) {
-      const blob = response.blobs[0];
+  const response: ListBlobResult = await list({ prefix: cachePath });
+  if (response.blobs.length > 0) {
+    const blob = response.blobs[0];
 
-      setCache(cachePath, blob.url);
+    setCache(cachePath, blob.url);
 
-      return blob.url;
-    }
-    return null;
-  } catch (error) {
-    console.error(
-      `Error getting cached prediction from Blob Storage: ${error}`
-    );
-    throw error;
+    return blob.url;
   }
+  return null;
 };
 
 const getCachedPrediction = async (
   cachePath: string
 ): Promise<string | null> => {
-  return Promise.race([
+  const [redisResult, blobResult] = await Promise.allSettled([
     getCachedPredictionFromRedis(cachePath),
     getCachedPredictionFromBlob(cachePath),
-  ]).catch(() => {
-    return null;
-  });
+  ]);
+
+  if (redisResult.status === "fulfilled" && redisResult.value) {
+    return redisResult.value;
+  }
+
+  if (blobResult.status === "fulfilled" && blobResult.value) {
+    return blobResult.value;
+  }
+
+  if (redisResult.status === "rejected") {
+    console.error(
+      `Error getting cached prediction from Redis: ${redisResult.reason}`
+    );
+  }
+
+  if (blobResult.status === "rejected") {
+    console.error(
+      `Error getting cached prediction from Blob Storage: ${blobResult.reason}`
+    );
+  }
+
+  return null;
 };
 
 const cachePrediction = async (
