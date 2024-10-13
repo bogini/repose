@@ -135,15 +135,12 @@ const runModel = async (
   input: ExpressionEditorInput
 ): Promise<ReplicateResponse> => {
   try {
-    let prediction = await replicate.deployments.predictions.create(
+    const prediction = await replicate.deployments.predictions.create(
       "bogini",
       "expression-editor",
-      { input }
+      { input, block: true }
     );
-    prediction = await replicate.wait(prediction, {
-      mode: "poll",
-      interval: 10,
-    });
+
     return Array.isArray(prediction.output)
       ? prediction.output
       : [prediction.output];
