@@ -9,12 +9,12 @@ import Animated, {
 } from "react-native-reanimated";
 import { ViewStyle } from "react-native";
 import { debounce } from "lodash";
+import { NUM_BUCKETS } from "../api/replicate";
 
 const FOCAL_POINT_SIZE = 34;
 const DEBOUNCE_TIME_MS = 16;
 const MARGIN_SIZE = 40;
 const RUBBER_BAND_EFFECT = false;
-const RUBBER_BAND_FACTOR = 0.9;
 
 export interface GestureControlValue {
   x: number;
@@ -50,6 +50,9 @@ export const GestureControl: React.FC<GestureControlProps> = ({
   const prevTranslateY = useSharedValue(translateY.value);
   const scale = useSharedValue(0);
   const rotation = useSharedValue(0);
+
+  const marginSizeX = size.width / NUM_BUCKETS / 1.5;
+  const marginSizeY = size.height / NUM_BUCKETS / 1.5;
 
   useEffect(() => {
     if (size.width > 0 && size.height > 0) {
@@ -90,7 +93,9 @@ export const GestureControl: React.FC<GestureControlProps> = ({
           scale: Number(scale.value.toFixed(2)),
         };
 
-        runOnJS(onChange)?.(logValue);
+        if (onChange) {
+          runOnJS(onChange)(logValue);
+        }
       }
     }, DEBOUNCE_TIME_MS),
     [size, onChange]
@@ -119,22 +124,20 @@ export const GestureControl: React.FC<GestureControlProps> = ({
     handleValueChange("handlePanUpdate");
   };
 
-  const handlePanEnd = (event) => {
-    const minTranslateX = -FOCAL_POINT_SIZE / 2 + MARGIN_SIZE;
-    const minTranslateY = -FOCAL_POINT_SIZE / 2 + MARGIN_SIZE;
-    const maxTranslateX = size.width - FOCAL_POINT_SIZE / 2 - MARGIN_SIZE;
-    const maxTranslateY = size.height - FOCAL_POINT_SIZE / 2 - MARGIN_SIZE;
+  const handlePanEnd = (event: any) => {
+    const minTranslateX = -FOCAL_POINT_SIZE / 2 + marginSizeX;
+    const minTranslateY = -FOCAL_POINT_SIZE / 2 + marginSizeY;
+    const maxTranslateX = size.width - FOCAL_POINT_SIZE / 2 - marginSizeX;
+    const maxTranslateY = size.height - FOCAL_POINT_SIZE / 2 - marginSizeY;
 
     translateX.value = withDecay({
       velocity: event.velocityX,
       rubberBandEffect: RUBBER_BAND_EFFECT,
-      rubberBandFactor: RUBBER_BAND_FACTOR,
       clamp: [minTranslateX, maxTranslateX],
     });
     translateY.value = withDecay({
       velocity: event.velocityY,
       rubberBandEffect: RUBBER_BAND_EFFECT,
-      rubberBandFactor: RUBBER_BAND_FACTOR,
       clamp: [minTranslateY, maxTranslateY],
     });
 
@@ -232,7 +235,12 @@ export const GestureControl: React.FC<GestureControlProps> = ({
             {children}
             {debug && (
               <>
-                <View style={[styles.marginContainer]}></View>
+                <View
+                  style={[
+                    styles.marginContainer,
+                    { borderWidth: marginSizeX }, // Apply dynamic margin size
+                  ]}
+                ></View>
                 <Animated.View style={[styles.pointContainer, animatedStyle]}>
                   <View style={styles.point}>
                     <View style={styles.dot} />
@@ -292,9 +300,16 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    borderWidth: MARGIN_SIZE,
     borderColor: "rgba(1,1,1,0.1)",
     borderStyle: "solid",
+  },
+  marginHorizontal: {
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
+  },
+  marginVertical: {
+    borderTopWidth: 0,
+    borderBottomWidth: 0,
   },
 });
 

@@ -58,15 +58,14 @@ export default function UploadImageTile({
           const result = await ImagePicker.launchCameraAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
-            aspect: [4, 3],
+            aspect: [1, 1],
             quality: 1,
           });
 
           if (!result.canceled) {
-            const uri = result.assets[0].uri;
-
-            onImagePicked?.(uri);
-            await uploadImage(uri);
+            const asset = result.assets[0];
+            onImagePicked?.(asset.uri);
+            await uploadImage(asset.uri, asset.width, asset.height);
           }
         },
       },
@@ -76,14 +75,14 @@ export default function UploadImageTile({
           const libraryResult = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
-            aspect: [4, 3],
+            aspect: [1, 1],
             quality: 1,
           });
 
           if (!libraryResult.canceled) {
-            const uri = libraryResult.assets[0].uri;
-            onImagePicked?.(uri);
-            await uploadImage(uri);
+            const asset = libraryResult.assets[0];
+            onImagePicked?.(asset.uri);
+            await uploadImage(asset.uri, asset.width, asset.height);
           }
         },
       },
@@ -94,9 +93,9 @@ export default function UploadImageTile({
     ]);
   };
 
-  const uploadImage = async (uri: string) => {
+  const uploadImage = async (uri: string, width: number, height: number) => {
     try {
-      const response = await PhotosService.uploadPhoto(uri);
+      const response = await PhotosService.uploadPhoto(uri, width, height);
       console.log("Image uploaded successfully:", response);
       onUploadSuccess?.(response);
     } catch (error) {

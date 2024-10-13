@@ -51,7 +51,7 @@ export const CarouselSlider: React.FC<SliderProps> = ({
 
   const debouncedScrollToIndex = useMemo(
     () =>
-      debounce(scrollToIndex, DEBOUNCE_TIME_MS, {
+      debounce(scrollToIndex, 5, {
         leading: false,
         trailing: true,
       }),
@@ -65,8 +65,6 @@ export const CarouselSlider: React.FC<SliderProps> = ({
 
   const handleValueChange = useCallback(
     (index: number) => {
-      // console.log("handleValueChange", index);
-
       const normalizedValue = (index / (NUM_TICKS - 1)) * (max - min) + min;
       const roundedValue = Math.round(normalizedValue);
       if (roundedValue !== value) {
