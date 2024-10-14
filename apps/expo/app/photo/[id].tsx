@@ -1,4 +1,4 @@
-import { Text, View, Pressable, StyleSheet, Image } from "react-native";
+import { Text, View, Pressable, StyleSheet, Image, Alert } from "react-native";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { SymbolView } from "expo-symbols";
@@ -23,16 +23,36 @@ export default function PhotoScreen() {
 
   const handleDeletePhoto = useCallback(async () => {
     if (photo) {
-      setIsDeleting(true);
-      try {
-        await PhotosService.deletePhoto(photo);
-        router.back();
-      } catch (error) {
-        console.error("Error deleting photo:", error);
-        alert("Failed to delete photo. Please try again.");
-      } finally {
-        setIsDeleting(false);
-      }
+      Alert.alert(
+        "Delete Photo",
+        "Are you sure you want to delete this photo?",
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+          },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: async () => {
+              setIsDeleting(true);
+              try {
+                await PhotosService.deletePhoto(photo);
+                router.back();
+              } catch (error) {
+                console.error("Error deleting photo:", error);
+                Alert.alert(
+                  "Error",
+                  "Failed to delete photo. Please try again."
+                );
+              } finally {
+                setIsDeleting(false);
+              }
+            },
+          },
+        ],
+        { cancelable: false }
+      );
     }
   }, [photo, router]);
 
