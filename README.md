@@ -1,10 +1,10 @@
 # Expression Editor
 
-Expression Editor is a React Native app that allows users to edit facial expressions in photos using AI-powered controls. The app uses the [LivePortrait](https://liveportrait.github.io/) model, which is hosted on [Replicate](https://replicate.com/). Replicate has a deployment of the [cog-expression-editor](https://github.com/fofr/cog-expression-editor) repository that enables easy integration of the model into applications.
+Expression Editor is a React Native app that allows users to edit facial expressions using gestures. The app is powered by a [COG version](https://github.com/fofr/cog-expression-editor) of [LivePortrait](https://liveportrait.github.io/) model, hosted on [Replicate](https://replicate.com/) and accessible via a Next.js API route. 
 
-The app is designed to closely mimic the look and feel of the iOS 18 Photos app.
+The app is designed to closely mimic the look and feel of the iOS 18 Photos app, providing both direct manipulation and precise controls for editing.
 
-![Demo Video](video.mp4)
+https://github.com/user-attachments/assets/4f258f99-3fa5-4506-a563-b2ebd1a554bb
 
 ## Project Structure
 
