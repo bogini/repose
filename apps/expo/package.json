@@ -14,10 +14,10 @@
   "dependencies": {
     "@react-native-community/async-storage": "^1.12.1",
     "axios": "^1.7.7",
-    "expo": "~51.0.36",
+    "expo": "~51.0.37",
     "expo-constants": "~16.0.2",
     "expo-crypto": "~13.0.2",
-    "expo-dev-client": "~4.0.27",
+    "expo-dev-client": "~4.0.28",
     "expo-image": "~1.13.0",
     "expo-image-manipulator": "~12.0.5",
     "expo-image-picker": "~15.0.7",
