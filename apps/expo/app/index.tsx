@@ -156,7 +156,6 @@ export default function App() {
                     <View style={{ width: "25%", aspectRatio: 1 }}>
                       <UploadImageTile
                         onUploadSuccess={(response: Photo) => {
-                          setPhotos((prevPhotos) => [...prevPhotos, response]);
                           setIsLoading(true);
                           ReplicateService.cacheExpressionEditorResults(
                             response.url
