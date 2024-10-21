@@ -84,6 +84,7 @@ export const FaceGestureControl = ({
       },
       {} as { [key: string]: number }
     );
+
     return { x: 0, y: 0, rotation: 0, scale: 0, ...gestureValues };
   }, [faceValues, selectedControl]);
 

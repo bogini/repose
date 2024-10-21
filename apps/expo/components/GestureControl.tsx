@@ -6,14 +6,16 @@ import Animated, {
   useAnimatedStyle,
   withDecay,
   runOnJS,
+  useAnimatedReaction,
+  withTiming,
+  Easing,
 } from "react-native-reanimated";
 import { ViewStyle } from "react-native";
 import { debounce } from "lodash";
 import { NUM_BUCKETS } from "../api/replicate";
 
 const FOCAL_POINT_SIZE = 34;
-const DEBOUNCE_TIME_MS = 16;
-const MARGIN_SIZE = 40;
+const DEBOUNCE_TIME_MS = 10;
 const RUBBER_BAND_EFFECT = false;
 
 export interface GestureControlValue {
@@ -55,6 +57,8 @@ export const GestureControl: React.FC<GestureControlProps> = ({
   const marginSizeY = size.height / NUM_BUCKETS / 1.5;
 
   useEffect(() => {
+    if (isAnimating.value) return;
+
     if (size.width > 0 && size.height > 0) {
       translateX.value =
         value.x * (size.width / 2) + size.width / 2 - FOCAL_POINT_SIZE / 2;
@@ -105,6 +109,31 @@ export const GestureControl: React.FC<GestureControlProps> = ({
     prevTranslateX.value = translateX.value;
     prevTranslateY.value = translateY.value;
   };
+
+  const isAnimating = useSharedValue(false);
+
+  useAnimatedReaction(
+    () => {
+      return {
+        x: translateX.value,
+        y: translateY.value,
+        rotation: rotation.value,
+        scale: scale.value,
+      };
+    },
+    (curr, prev) => {
+      if (
+        isAnimating.value &&
+        (curr.x !== prev?.x ||
+          curr.y !== prev?.y ||
+          curr.rotation !== prev?.rotation ||
+          curr.scale !== prev?.scale)
+      ) {
+        runOnJS(handleValueChange)("useAnimatedReaction");
+      }
+    },
+    [translateX, translateY, rotation, scale, handleValueChange]
+  );
 
   const handlePanUpdate = (event: any) => {
     const minTranslateX = -FOCAL_POINT_SIZE / 2;
@@ -166,11 +195,29 @@ export const GestureControl: React.FC<GestureControlProps> = ({
     const { locationX, locationY } = event.nativeEvent;
     const newX = (locationX - size.width / 2) / (size.width / 2);
     const newY = -(locationY - size.height / 2) / (size.height / 2);
+    const timingConfig = {
+      duration: 300,
+      easing: Easing.inOut(Easing.quad),
+    };
+    const calculateNewPosition = (value: number, size: number) =>
+      value * (size / 2) + size / 2 - FOCAL_POINT_SIZE / 2;
 
-    translateX.value =
-      newX * (size.width / 2) + size.width / 2 - FOCAL_POINT_SIZE / 2;
-    translateY.value =
-      -newY * (size.height / 2) + size.height / 2 - FOCAL_POINT_SIZE / 2;
+    isAnimating.value = true;
+
+    translateX.value = withTiming(
+      calculateNewPosition(newX, size.width),
+      timingConfig,
+      () => {
+        isAnimating.value = false;
+      }
+    );
+    translateY.value = withTiming(
+      calculateNewPosition(-newY, size.height),
+      timingConfig,
+      () => {
+        isAnimating.value = false;
+      }
+    );
 
     handleValueChange("handleTap");
   };
