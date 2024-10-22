@@ -9,7 +9,10 @@ import {
   BlurMask,
 } from "@shopify/react-native-skia";
 import { StyleSheet } from "react-native";
-import { type FaceLandmarkResult } from "../api/faceLandmarks";
+import {
+  type FaceLandmarkResult,
+  type LandmarkLocation,
+} from "../api/faceLandmarks";
 import {
   useSharedValue,
   withRepeat,
@@ -79,12 +82,12 @@ export const FaceLandmarksCanvas = ({
   landmarks,
   imageDimensions,
   originalImageSize,
-  debug = false, // Add default value
+  debug = false,
 }: FaceLandmarksCanvasProps) => {
   if (!landmarks || !Array.isArray(landmarks.faceOval)) return null;
 
   const createPath = (
-    points: [number, number][] | undefined,
+    points: LandmarkLocation[] | undefined,
     shouldClose = true
   ) => {
     const path = Skia.Path.Make();
@@ -112,7 +115,7 @@ export const FaceLandmarksCanvas = ({
   };
 
   const renderFeature = (
-    points: [number, number][] | undefined,
+    points: LandmarkLocation[] | undefined,
     style: StrokeStyle = STROKE_STYLES.feature,
     shouldClose = true,
     featureKey: string
@@ -194,22 +197,31 @@ export const FaceLandmarksCanvas = ({
   };
 
   const renderDebugPoints = (
-    points: [number, number][] | undefined,
+    points: LandmarkLocation[] | undefined,
     color = "#00FF00"
   ) => {
     if (!points?.length || !debug) return null;
 
     return points.map((point, index) => {
-      if (!Array.isArray(point) || point.length !== 2) return null;
-      const [x, y] = point;
-      if (typeof x !== "number" || typeof y !== "number") return null;
+      if (!Array.isArray(point) || point.length !== 3) return null;
+      const [x, y, z] = point;
+      if (
+        typeof x !== "number" ||
+        typeof y !== "number" ||
+        typeof z !== "number"
+      )
+        return null;
+
+      // Scale circle size based on z coordinate for depth effect
+      const depthScale = Math.max(0.5, Math.min(1.5, 1 + z / 100));
+      const baseRadius = 2;
 
       return (
         <Circle
           key={`debug-${index}`}
           cx={(x / originalImageSize.width) * imageDimensions.width}
           cy={(y / originalImageSize.height) * imageDimensions.height}
-          r={2}
+          r={baseRadius * depthScale}
           color={color}
         />
       );

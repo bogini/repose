@@ -6,7 +6,7 @@ const INPUT_SIZE = 192;
 const NUM_LANDMARKS = 468;
 const NUM_DIMS = 3;
 
-type LandmarkLocation = [number, number]; // [x, y] coordinates
+export type LandmarkLocation = [number, number, number]; // [x, y, z] coordinates
 
 export interface FaceLandmarkResult {
   faceOval: LandmarkLocation[];
@@ -81,6 +81,7 @@ export class FaceLandmarkDetector {
 
     try {
       // https://mediapipe.page.link/facemesh-mc
+
       this.model = await loadTensorflowModel(
         require("../assets/face_landmark.tflite")
       );
@@ -216,17 +217,24 @@ export class FaceLandmarkDetector {
       throw new Error("Incompatible model output");
     }
 
-    // The model outputs coordinates in range [0,192] (input image size)
-    // First normalize to [0,1], then scale to target dimensions
+    // Calculate scaling to maintain aspect ratio while fitting in the image bounds
+    const xScale = imageWidth / INPUT_SIZE;
+    const yScale = imageHeight / INPUT_SIZE;
+    const scale = Math.min(xScale, yScale);
+
+    // Calculate offsets to center the face in the image
+    const xOffset = (imageWidth - INPUT_SIZE * scale) / 2;
+    const yOffset = (imageHeight - INPUT_SIZE * scale) / 2;
+
     const allLandmarks: LandmarkLocation[] = [];
     for (let i = 0; i < NUM_LANDMARKS; i++) {
-      const x = (outputData[i * NUM_DIMS] / INPUT_SIZE) * imageWidth;
-      const y = (outputData[i * NUM_DIMS + 1] / INPUT_SIZE) * imageHeight;
-
-      allLandmarks.push([x, y]);
+      // The model outputs coordinates in range [0, INPUT_SIZE]
+      const x = outputData[i * NUM_DIMS] * scale + xOffset;
+      const y = outputData[i * NUM_DIMS + 1] * scale + yOffset;
+      const z = outputData[i * NUM_DIMS + 2] * scale; // Add z coordinate
+      allLandmarks.push([x, y, z]);
     }
 
-    // Then map each region to its actual points
     return {
       faceOval: FaceLandmarkRegionToIndices.FACE_OVAL.map(
         (i) => allLandmarks[i]
