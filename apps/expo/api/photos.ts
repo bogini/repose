@@ -109,7 +109,7 @@ class PhotosService {
     }
   }
 
-  private async optimizeImage(
+  public async optimizeImage(
     fileUri: string,
     width: number,
     height: number
@@ -144,6 +144,39 @@ class PhotosService {
     );
 
     return manipResult;
+  }
+
+  public async convertToJpeg(
+    fileUri: string,
+    width?: number,
+    height?: number
+  ): Promise<string> {
+    try {
+      const actions = [];
+
+      if (width && height) {
+        actions.push({
+          resize: {
+            width,
+            height,
+          },
+        });
+      }
+
+      const manipResult = await ImageManipulator.manipulateAsync(
+        fileUri,
+        actions,
+        { format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
+
+      if (!manipResult.base64) {
+        throw new Error("Failed to convert image to JPEG");
+      }
+      return manipResult.base64;
+    } catch (error) {
+      console.error("Error converting to JPEG:", error);
+      throw error;
+    }
   }
 }
 

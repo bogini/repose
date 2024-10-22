@@ -7,23 +7,40 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useEffect, useState } from "react";
+import { FaceLandmarkDetector } from "../api/faceLandmarks";
 
 interface ImageContainerProps {
   loading?: boolean;
   imageUrl?: string;
   originalImageUrl?: string;
+  detectFace?: boolean;
 }
+
+const detector = FaceLandmarkDetector.getInstance();
 
 export const ImageContainer = ({
   loading = false,
   imageUrl,
   originalImageUrl,
+  detectFace = false,
 }: ImageContainerProps) => {
   const [downloading, setDownloading] = useState(false);
   const pulseAnimation = useSharedValue(1);
   const [lastLoadedImage, setLastLoadedImage] = useState<string | undefined>(
     undefined
   );
+
+  useEffect(() => {
+    if (detectFace && imageUrl) {
+      const initializeFaceLandmarkDetector = async () => {
+        await detector.initialize();
+        const landmarks = await detector.detectLandmarks(imageUrl);
+        //console.log("Face landmarks:", landmarks);
+      };
+
+      initializeFaceLandmarkDetector();
+    }
+  }, [imageUrl, detectFace]);
 
   useEffect(() => {
     pulseAnimation.value =

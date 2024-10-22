@@ -83,7 +83,7 @@ export default function PhotoScreen() {
         onProgressTap={onProgressTap}
       />
       <View style={styles.imageContainer}>
-        <ImageContainer imageUrl={photo.url} />
+        <ImageContainer imageUrl={photo.url} detectFace={true} />
       </View>
       <BottomBar
         id={photo.id}
