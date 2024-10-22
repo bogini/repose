@@ -15,7 +15,7 @@ import { debounce } from "lodash";
 import { NUM_BUCKETS } from "../api/replicate";
 
 const FOCAL_POINT_SIZE = 34;
-const DEBOUNCE_TIME_MS = 10;
+const DEBOUNCE_TIME_MS = 5;
 const RUBBER_BAND_EFFECT = false;
 
 export interface GestureControlValue {
@@ -196,7 +196,7 @@ export const GestureControl: React.FC<GestureControlProps> = ({
     const newX = (locationX - size.width / 2) / (size.width / 2);
     const newY = -(locationY - size.height / 2) / (size.height / 2);
     const timingConfig = {
-      duration: 300,
+      duration: 350,
       easing: Easing.inOut(Easing.quad),
     };
     const calculateNewPosition = (value: number, size: number) =>
