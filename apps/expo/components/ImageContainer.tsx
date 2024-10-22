@@ -133,45 +133,56 @@ export const ImageContainer = ({
   }, [imageUrl]);
 
   const canvasOpacity = useSharedValue(0);
+  const loadingOpacity = useSharedValue(1);
 
   useEffect(() => {
     canvasOpacity.value = withSpring(loading || debug ? 1 : 0);
+
+    if (loading) {
+      loadingOpacity.value = withRepeat(
+        withTiming(0.9, { duration: 1000 }),
+        -1,
+        true
+      );
+    } else {
+      loadingOpacity.value = withTiming(1);
+    }
   }, [loading, debug]);
+
+  const imageAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: loadingOpacity.value,
+  }));
 
   const canvasAnimatedStyle = useAnimatedStyle(() => ({
     opacity: canvasOpacity.value,
   }));
 
   return (
-    <Animated.View style={[styles.fullSize]}>
-      <Image
-        source={{ uri: imageUrl }}
-        cachePolicy={"memory-disk"}
-        placeholder={{ uri: lastLoadedImage || originalImageUrl }}
-        placeholderContentFit="cover"
-        blurRadius={loading ? 1 : 0}
-        allowDownscaling={false}
-        priority={"high"}
-        style={styles.fullSize}
-        transition={{
-          duration: 150,
-          effect: "cross-dissolve",
-        }}
-        contentFit="cover"
-        onLoadStart={() => {}}
-        onLoadEnd={() => {
-          setLastLoadedImage(imageUrl);
-        }}
-        onLayout={handleImageLayout}
-      />
+    <View style={[styles.fullSize]}>
+      <Animated.View style={[styles.fullSize, imageAnimatedStyle]}>
+        <Image
+          source={{ uri: imageUrl }}
+          cachePolicy={"memory-disk"}
+          placeholder={{ uri: lastLoadedImage || originalImageUrl }}
+          placeholderContentFit="cover"
+          blurRadius={loading ? loadingOpacity.value : 0}
+          allowDownscaling={false}
+          priority={"high"}
+          style={styles.fullSize}
+          transition={{
+            duration: 150,
+            effect: "cross-dissolve",
+          }}
+          contentFit="cover"
+          onLoadStart={() => {}}
+          onLoadEnd={() => {
+            setLastLoadedImage(imageUrl);
+          }}
+          onLayout={handleImageLayout}
+        />
+      </Animated.View>
       {detectFace && landmarks && imageLayout && imageDimensions && (
-        <Animated.View
-          style={[
-            styles.canvasContainer,
-            canvasAnimatedStyle,
-            { width: imageLayout.width },
-          ]}
-        >
+        <Animated.View style={[styles.canvasContainer, canvasAnimatedStyle]}>
           <FaceLandmarksCanvas
             debug={debug}
             landmarks={landmarks}
@@ -180,7 +191,7 @@ export const ImageContainer = ({
           />
         </Animated.View>
       )}
-    </Animated.View>
+    </View>
   );
 };
 
@@ -188,6 +199,7 @@ const styles = StyleSheet.create({
   fullSize: {
     width: "100%",
     height: "100%",
+    backgroundColor: "white",
   },
   canvasContainer: {
     position: "absolute",

@@ -84,6 +84,7 @@ export class FaceLandmarkDetector {
       this.model = await loadTensorflowModel(
         require("../assets/face_landmark.tflite")
       );
+      console.log("Face landmark model initialized");
     } catch (error) {
       console.error("Error initializing face landmark model:", error);
     }
