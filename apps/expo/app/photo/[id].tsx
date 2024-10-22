@@ -198,8 +198,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
   },
   imageContainer: {
-    flex: 1,
     marginVertical: 100,
+    flex: 1,
   },
   symbol: {
     height: 28,

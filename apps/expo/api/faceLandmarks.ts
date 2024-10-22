@@ -8,7 +8,7 @@ const NUM_DIMS = 3;
 
 type LandmarkLocation = [number, number]; // [x, y] coordinates
 
-interface FaceLandmarkResult {
+export interface FaceLandmarkResult {
   faceOval: LandmarkLocation[];
   leftEyebrow: LandmarkLocation[];
   rightEyebrow: LandmarkLocation[];
@@ -18,6 +18,8 @@ interface FaceLandmarkResult {
   rightIris: LandmarkLocation[];
   lips: LandmarkLocation[];
   tesselation: LandmarkLocation[];
+  upperLips: LandmarkLocation[];
+  lowerLips: LandmarkLocation[];
 }
 
 const FaceLandmarkRegionToIndices = {
@@ -26,8 +28,8 @@ const FaceLandmarkRegionToIndices = {
     378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127,
     162, 21, 54, 103, 67, 109,
   ],
-  LEFT_EYEBROW: [276, 283, 282, 295, 285, 300, 293, 334, 296, 336],
-  RIGHT_EYEBROW: [46, 53, 52, 65, 55, 70, 63, 105, 66, 107],
+  LEFT_EYEBROW: [336, 296, 334, 293, 300, 276, 283, 282, 295, 285],
+  RIGHT_EYEBROW: [70, 63, 105, 66, 107, 55, 65, 52, 53, 46],
   LEFT_EYE: [
     362, 382, 381, 380, 374, 373, 390, 249, 263, 466, 388, 387, 386, 385, 384,
     398,
@@ -38,8 +40,17 @@ const FaceLandmarkRegionToIndices = {
   LEFT_IRIS: [468],
   RIGHT_IRIS: [473],
   LIPS: [
-    0, 267, 269, 270, 409, 291, 375, 321, 405, 314, 17, 84, 181, 91, 146, 61,
-    185, 40, 39, 37, 0, 13, 82, 81, 42, 183, 78,
+    61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 308, 324, 318, 402, 317,
+    14, 87, 178, 88, 95, 185, 40, 39, 37, 0, 267, 269, 270, 409, 415, 310, 311,
+    312, 13, 82, 81, 42, 183, 78,
+  ],
+  UPPER_LIPS: [
+    185, 40, 39, 37, 0, 267, 269, 270, 409, 415, 310, 311, 312, 13, 82, 81, 42,
+    183, 78,
+  ],
+  LOWER_LIPS: [
+    61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 308, 324, 318, 402, 317,
+    14, 87, 178, 88, 95,
   ],
   TESSELATION: [
     127, 34, 139, 127, 162, 21, 54, 103, 67, 109, 10, 338, 297, 332, 284, 251,
@@ -89,10 +100,21 @@ export class FaceLandmarkDetector {
       const { width: originalWidth, height: originalHeight } =
         await PhotosService.getImageDimensions(imageUri);
 
+      // Resize the image while maintaining aspect ratio
+      const aspectRatio = originalWidth / originalHeight;
+      let targetWidth, targetHeight;
+      if (aspectRatio > 1) {
+        targetWidth = INPUT_SIZE;
+        targetHeight = Math.round(INPUT_SIZE / aspectRatio);
+      } else {
+        targetHeight = INPUT_SIZE;
+        targetWidth = Math.round(INPUT_SIZE * aspectRatio);
+      }
+
       const jpegImageData = await PhotosService.convertToJpeg(
         imageUri,
-        INPUT_SIZE,
-        INPUT_SIZE
+        targetWidth,
+        targetHeight
       );
       const base64Data = jpegImageData.replace(/^data:image\/jpeg;base64,/, "");
 
@@ -106,15 +128,20 @@ export class FaceLandmarkDetector {
       // Decode JPEG data
       const rawImageData = jpeg.decode(bytes, { useTArray: true });
 
-      // Prepare the input data - normalize to [0, 1]
-      const inputData = new Float32Array(
-        rawImageData.width * rawImageData.height * 3
+      // Resize the decoded image data to match the model's input size
+      const resizedImageData = this.resizeImageData(
+        rawImageData,
+        INPUT_SIZE,
+        INPUT_SIZE
       );
-      for (let i = 0; i < rawImageData.data.length; i += 4) {
+
+      // Prepare the input data - normalize to [0, 1]
+      const inputData = new Float32Array(INPUT_SIZE * INPUT_SIZE * 3);
+      for (let i = 0; i < resizedImageData.length; i += 4) {
         const offset = (i / 4) * 3;
-        inputData[offset] = rawImageData.data[i] / 255.0; // R
-        inputData[offset + 1] = rawImageData.data[i + 1] / 255.0; // G
-        inputData[offset + 2] = rawImageData.data[i + 2] / 255.0; // B
+        inputData[offset] = resizedImageData[i] / 255.0; // R
+        inputData[offset + 1] = resizedImageData[i + 1] / 255.0; // G
+        inputData[offset + 2] = resizedImageData[i + 2] / 255.0; // B
       }
 
       // Run the model with raw data array
@@ -132,6 +159,51 @@ export class FaceLandmarkDetector {
       console.error("Error detecting face landmarks:", error);
       throw error;
     }
+  }
+
+  private resizeImageData(
+    imageData: any,
+    targetWidth: number,
+    targetHeight: number
+  ): Uint8Array {
+    const resizedData = new Uint8Array(targetWidth * targetHeight * 4);
+    const aspectRatio = imageData.width / imageData.height;
+    let scaledWidth, scaledHeight;
+
+    // Align this logic with the one in detectLandmarks
+    if (aspectRatio > 1) {
+      scaledWidth = targetWidth;
+      scaledHeight = Math.round(targetWidth / aspectRatio);
+    } else {
+      scaledHeight = targetHeight;
+      scaledWidth = Math.round(targetHeight * aspectRatio);
+    }
+
+    const offsetX = Math.floor((targetWidth - scaledWidth) / 2);
+    const offsetY = Math.floor((targetHeight - scaledHeight) / 2);
+
+    for (let y = 0; y < scaledHeight; y++) {
+      for (let x = 0; x < scaledWidth; x++) {
+        const sourceX = Math.floor((x * imageData.width) / scaledWidth);
+        const sourceY = Math.floor((y * imageData.height) / scaledHeight);
+        const sourceIndex = (sourceY * imageData.width + sourceX) * 4;
+        const targetIndex = ((y + offsetY) * targetWidth + (x + offsetX)) * 4;
+
+        if (
+          sourceIndex >= 0 &&
+          sourceIndex < imageData.data.length - 3 &&
+          targetIndex >= 0 &&
+          targetIndex < resizedData.length - 3
+        ) {
+          resizedData[targetIndex] = imageData.data[sourceIndex];
+          resizedData[targetIndex + 1] = imageData.data[sourceIndex + 1];
+          resizedData[targetIndex + 2] = imageData.data[sourceIndex + 2];
+          resizedData[targetIndex + 3] = imageData.data[sourceIndex + 3];
+        }
+      }
+    }
+
+    return resizedData;
   }
 
   private interpretOutput(
@@ -176,6 +248,12 @@ export class FaceLandmarkDetector {
       ),
       lips: FaceLandmarkRegionToIndices.LIPS.map((i) => allLandmarks[i]),
       tesselation: FaceLandmarkRegionToIndices.TESSELATION.map(
+        (i) => allLandmarks[i]
+      ),
+      upperLips: FaceLandmarkRegionToIndices.UPPER_LIPS.map(
+        (i) => allLandmarks[i]
+      ),
+      lowerLips: FaceLandmarkRegionToIndices.LOWER_LIPS.map(
         (i) => allLandmarks[i]
       ),
     };

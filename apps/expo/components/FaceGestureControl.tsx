@@ -98,6 +98,7 @@ export const FaceGestureControl = ({
         <View style={styles.faceGestureControlContainer}>
           <ImageContainer
             loading={loading}
+            detectFace={true}
             imageUrl={imageUrl}
             originalImageUrl={originalImageUrl}
           />
