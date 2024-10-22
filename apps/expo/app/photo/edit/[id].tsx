@@ -14,9 +14,14 @@ import {
   FaceValues,
 } from "../../../lib/faceControl";
 import { EditModesComponent } from "../../../components/EditMode";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { runOnJS } from "react-native-reanimated";
+
+const LOADING_DELAY_MS = 10;
 
 export default function EditScreen() {
   const router = useRouter();
+  const [debug, setDebug] = useState<boolean>(false);
   const [faceValues, setFaceValues] = useState<FaceValues>(DEFAULT_FACE_VALUES);
   const [loading, setLoading] = useState(false);
   const [selectedControl, setSelectedControl] = useState(FACE_CONTROLS[0]);
@@ -76,8 +81,11 @@ export default function EditScreen() {
       if (originalImageUrl) {
         const requestTimestamp = Date.now();
 
-        // Only show loading after 50ms if waiting
-        const loadingTimeout = setTimeout(() => setLoading(true), 50);
+        // Only show loading after a bit of waiting
+        const loadingTimeout = setTimeout(
+          () => setLoading(true),
+          LOADING_DELAY_MS
+        );
 
         try {
           const updatedImageUrl = await ReplicateService.runExpressionEditor(
@@ -148,12 +156,12 @@ export default function EditScreen() {
       <StatusBar hidden={true} />
 
       <TopBar onBack={() => router.back()} />
-      <AdjustBar />
+      <AdjustBar onDebugToggle={() => setDebug(!debug)} />
 
       <View style={styles.imageContainer}>
         <FaceGestureControl
           originalImageUrl={originalImageUrl}
-          debug={false}
+          debug={debug}
           imageUrl={editedImageUrl}
           faceValues={faceValues}
           onFaceValuesChange={handleFaceValuesChange}
@@ -186,39 +194,50 @@ const TopBar = ({ onBack }: { onBack: () => void }) => (
   </View>
 );
 
-const AdjustBar = ({}: {}) => (
-  <View style={styles.adjustBar}>
-    <View style={styles.rowWithGap}>
-      <SymbolView
-        name="arrow.uturn.backward.circle"
-        weight="regular"
-        style={styles.adjustSymbol}
-        resizeMode="scaleAspectFit"
-      />
-      <SymbolView
-        name="arrow.uturn.forward.circle"
-        weight="regular"
-        style={styles.adjustSymbol}
-        resizeMode="scaleAspectFit"
-      />
+const AdjustBar = ({ onDebugToggle }: { onDebugToggle: () => void }) => {
+  const doubleTap = Gesture.Tap()
+    .numberOfTaps(2)
+    .maxDuration(250)
+    .onStart(() => {
+      runOnJS(onDebugToggle)();
+    });
+
+  return (
+    <View style={styles.adjustBar}>
+      <View style={styles.rowWithGap}>
+        <SymbolView
+          name="arrow.uturn.backward.circle"
+          weight="regular"
+          style={styles.adjustSymbol}
+          resizeMode="scaleAspectFit"
+        />
+        <SymbolView
+          name="arrow.uturn.forward.circle"
+          weight="regular"
+          style={styles.adjustSymbol}
+          resizeMode="scaleAspectFit"
+        />
+      </View>
+      <Text style={styles.adjustText}>ADJUST</Text>
+      <View style={styles.rowWithGap}>
+        <SymbolView
+          name="pencil.tip.crop.circle"
+          weight="medium"
+          style={styles.adjustSymbolActive}
+          resizeMode="scaleAspectFit"
+        />
+        <GestureDetector gesture={doubleTap}>
+          <SymbolView
+            name="ellipsis.circle"
+            weight="medium"
+            style={styles.adjustSymbolActive}
+            resizeMode="scaleAspectFit"
+          />
+        </GestureDetector>
+      </View>
     </View>
-    <Text style={styles.adjustText}>ADJUST</Text>
-    <View style={styles.rowWithGap}>
-      <SymbolView
-        name="pencil.tip.crop.circle"
-        weight="medium"
-        style={styles.adjustSymbolActive}
-        resizeMode="scaleAspectFit"
-      />
-      <SymbolView
-        name="ellipsis.circle"
-        weight="medium"
-        style={styles.adjustSymbolActive}
-        resizeMode="scaleAspectFit"
-      />
-    </View>
-  </View>
-);
+  );
+};
 
 const styles = StyleSheet.create({
   adjustBar: {

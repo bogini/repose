@@ -5,6 +5,7 @@ import Animated, {
   useSharedValue,
   withRepeat,
   withTiming,
+  withSpring,
 } from "react-native-reanimated";
 import { useEffect, useState } from "react";
 import {
@@ -19,6 +20,7 @@ interface ImageContainerProps {
   imageUrl?: string;
   originalImageUrl?: string;
   detectFace?: boolean;
+  debug?: boolean;
 }
 
 const detector = FaceLandmarkDetector.getInstance();
@@ -69,9 +71,8 @@ export const ImageContainer = ({
   imageUrl,
   originalImageUrl,
   detectFace = false,
+  debug = false,
 }: ImageContainerProps) => {
-  const [downloading, setDownloading] = useState(false);
-  const pulseAnimation = useSharedValue(1);
   const [lastLoadedImage, setLastLoadedImage] = useState<string | undefined>(
     undefined
   );
@@ -96,7 +97,6 @@ export const ImageContainer = ({
       .initialize()
       .then(() => detector.detectLandmarks(imageUrl))
       .then((landmarks) => {
-        console.log("landmarks", landmarks);
         setLandmarks(landmarks);
       })
       .catch((error) => {
@@ -104,19 +104,6 @@ export const ImageContainer = ({
         setLandmarks(null);
       });
   }, [imageUrl, detectFace]);
-
-  useEffect(() => {
-    pulseAnimation.value =
-      loading || downloading
-        ? withRepeat(withTiming(0.8, { duration: 500 }), -1, true)
-        : withTiming(1, { duration: 250 });
-  }, [loading, downloading, pulseAnimation]);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: pulseAnimation.value,
-  }));
-
-  const startTime = useSharedValue(0);
 
   const handleImageLayout = (event: LayoutChangeEvent) => {
     const { width, height, x, y } = event.nativeEvent.layout;
@@ -145,40 +132,53 @@ export const ImageContainer = ({
     }
   }, [imageUrl]);
 
+  const canvasOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    canvasOpacity.value = withSpring(loading || debug ? 1 : 0);
+  }, [loading, debug]);
+
+  const canvasAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: canvasOpacity.value,
+  }));
+
   return (
-    <Animated.View style={[styles.fullSize, animatedStyle]}>
+    <Animated.View style={[styles.fullSize]}>
       <Image
         source={{ uri: imageUrl }}
         cachePolicy={"memory-disk"}
         placeholder={{ uri: lastLoadedImage || originalImageUrl }}
         placeholderContentFit="cover"
-        blurRadius={loading ? 8 : 0}
+        blurRadius={loading ? 1 : 0}
         allowDownscaling={false}
         priority={"high"}
         style={styles.fullSize}
         transition={{
-          duration: 200,
+          duration: 150,
           effect: "cross-dissolve",
         }}
         contentFit="cover"
-        onLoadStart={() => {
-          setDownloading(true);
-          startTime.value = performance.now();
-        }}
+        onLoadStart={() => {}}
         onLoadEnd={() => {
-          setDownloading(false);
           setLastLoadedImage(imageUrl);
         }}
         onLayout={handleImageLayout}
       />
       {detectFace && landmarks && imageLayout && imageDimensions && (
-        <View style={[styles.canvasContainer, { width: imageLayout.width }]}>
+        <Animated.View
+          style={[
+            styles.canvasContainer,
+            canvasAnimatedStyle,
+            { width: imageLayout.width },
+          ]}
+        >
           <FaceLandmarksCanvas
+            debug={debug}
             landmarks={landmarks}
             imageDimensions={imageDimensions}
             originalImageSize={originalImageSize}
           />
-        </View>
+        </Animated.View>
       )}
     </Animated.View>
   );

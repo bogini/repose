@@ -100,6 +100,7 @@ export const FaceGestureControl = ({
             loading={loading}
             detectFace={true}
             imageUrl={imageUrl}
+            debug={debug}
             originalImageUrl={originalImageUrl}
           />
           <Text style={styles.selectedControlLabel}>
