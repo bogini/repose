@@ -109,6 +109,27 @@ class PhotosService {
     }
   }
 
+  public async getImageDimensions(
+    fileUri: string
+  ): Promise<{ width: number; height: number }> {
+    try {
+      // Use ImageManipulator to get dimensions without modifying the image
+      const result = await ImageManipulator.manipulateAsync(
+        fileUri,
+        [], // No transformations
+        { compress: 1 } // Preserve quality
+      );
+
+      return {
+        width: result.width,
+        height: result.height,
+      };
+    } catch (error) {
+      console.error("Error getting image dimensions:", error);
+      throw error;
+    }
+  }
+
   public async optimizeImage(
     fileUri: string,
     width: number,
