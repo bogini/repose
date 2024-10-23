@@ -169,6 +169,7 @@ export const ImageContainer = ({
           ],
         };
 
+        console.log(landmarks);
         setLandmarks(landmarks);
 
         // Clean up downloaded file

@@ -193,12 +193,15 @@ export const GestureControl: React.FC<GestureControlProps> = ({
 
   const handleTap = (event: any) => {
     const { locationX, locationY } = event.nativeEvent;
+
     const newX = (locationX - size.width / 2) / (size.width / 2);
     const newY = -(locationY - size.height / 2) / (size.height / 2);
+
     const timingConfig = {
-      duration: 350,
-      easing: Easing.inOut(Easing.quad),
+      duration: 200,
+      easing: Easing.linear,
     };
+
     const calculateNewPosition = (value: number, size: number) =>
       value * (size / 2) + size / 2 - FOCAL_POINT_SIZE / 2;
 
@@ -288,7 +291,10 @@ export const GestureControl: React.FC<GestureControlProps> = ({
                     { borderWidth: marginSizeX }, // Apply dynamic margin size
                   ]}
                 ></View>
-                <Animated.View style={[styles.pointContainer, animatedStyle]}>
+                <Animated.View
+                  style={[styles.pointContainer, animatedStyle]}
+                  pointerEvents="none"
+                >
                   <View style={styles.point}>
                     <View style={styles.dot} />
                     <View style={styles.line} />

@@ -64,15 +64,23 @@ interface ReplicateResponse {
 class ReplicateService {
   private cancelTokenSource = axios.CancelToken.source();
   private inMemoryCache: Record<string, string> = {};
+  private prefetchQueue: Set<string> = new Set();
+  private isCachingInProgress = false;
 
   private async getFromCache(key: string): Promise<string | undefined> {
+    // Try memory cache first
     const inMemoryValue = this.inMemoryCache[key];
     if (inMemoryValue) return inMemoryValue;
 
-    const asyncStorageValue = await AsyncStorage.getItem(key);
-    if (asyncStorageValue) {
-      this.inMemoryCache[key] = asyncStorageValue;
-      return asyncStorageValue;
+    try {
+      // Then check AsyncStorage
+      const asyncStorageValue = await AsyncStorage.getItem(key);
+      if (asyncStorageValue) {
+        this.inMemoryCache[key] = asyncStorageValue;
+        return asyncStorageValue;
+      }
+    } catch (error) {
+      console.warn("Cache read error:", error);
     }
 
     return undefined;
@@ -80,7 +88,24 @@ class ReplicateService {
 
   private async setInCache(key: string, value: string): Promise<void> {
     this.inMemoryCache[key] = value;
-    await AsyncStorage.setItem(key, value);
+    try {
+      await AsyncStorage.setItem(key, value);
+    } catch (error) {
+      console.warn("Cache write error:", error);
+    }
+  }
+
+  private async prefetchImage(url: string): Promise<void> {
+    if (this.prefetchQueue.has(url)) return;
+
+    this.prefetchQueue.add(url);
+    try {
+      await Image.prefetch(url, { cachePolicy: "memory-disk" });
+    } catch (error) {
+      console.warn("Image prefetch error:", error);
+    } finally {
+      this.prefetchQueue.delete(url);
+    }
   }
 
   clearInMemoryCache(): void {
@@ -285,56 +310,86 @@ class ReplicateService {
     currentFaceValues: FaceValues,
     selectedControl: FaceControl
   ): Promise<void> {
-    console.log(
-      "cacheExpressionEditorResultsWithFaceControls",
-      selectedControl.key
-    );
+    if (this.isCachingInProgress) {
+      console.log("Caching already in progress, skipping...");
+      return;
+    }
+
+    this.isCachingInProgress = true;
     const startTime = performance.now();
     const concurrently = pLimit(MAX_CONCURRENT_REQUESTS);
+    const results = new Set<string>();
 
-    const processInput = async (input: ExpressionEditorInput) => {
-      try {
-        const result = await this.runExpressionEditor(input, false);
-        if (result) {
-          Image.prefetch(result, { cachePolicy: "memory-disk" });
+    try {
+      const processInput = async (input: ExpressionEditorInput) => {
+        const cacheKey = JSON.stringify(input);
+        const cachedResult = await this.getFromCache(cacheKey);
+
+        if (cachedResult) {
+          results.add(cachedResult);
+          return;
         }
-      } catch (error) {
-        console.error(error);
-      }
-    };
 
-    const generateInputs = () => {
-      const promises: Promise<void>[] = [];
-
-      for (const value of selectedControl.values) {
-        const bucketSize = (value.max - value.min) / NUM_BUCKETS;
-
-        for (let i = 0; i <= NUM_BUCKETS; i++) {
-          const bucketValue = getBucketValue(
-            value.min + bucketSize * i,
-            value.min,
-            value.max
-          )!;
-
-          const updatedInput: ExpressionEditorInput = {
-            ...DEFAULTS,
-            ...currentFaceValues,
-            image,
-            [value.key]: bucketValue,
-          };
-
-          promises.push(concurrently(() => processInput(updatedInput)));
+        try {
+          const result = await this.runExpressionEditor(input, false);
+          if (result) {
+            results.add(result);
+            await Promise.all([
+              this.setInCache(cacheKey, result),
+              this.prefetchImage(result),
+            ]);
+          }
+        } catch (error) {
+          console.warn("Failed to process input:", error);
         }
-      }
+      };
 
-      return promises;
-    };
+      const generateInputsForControl = async () => {
+        const promises: Promise<void>[] = [];
 
-    await Promise.all(generateInputs());
+        for (const value of selectedControl.values) {
+          const bucketSize = (value.max - value.min) / NUM_BUCKETS;
+          const bucketPromises = Array.from(
+            { length: NUM_BUCKETS + 1 },
+            (_, i) => {
+              const bucketValue = getBucketValue(
+                value.min + bucketSize * i,
+                value.min,
+                value.max
+              );
 
-    console.log(
-      `cacheExpressionEditorResultsWithFaceControls took ${performance.now() - startTime}ms for ${selectedControl.label}`
-    );
+              if (bucketValue === undefined) return;
+
+              const input: ExpressionEditorInput = {
+                ...DEFAULTS,
+                ...currentFaceValues,
+                image,
+                [value.key]: bucketValue,
+              };
+
+              return concurrently(() => processInput(input));
+            }
+          ).filter((p): p is Promise<void> => p !== undefined);
+
+          promises.push(...bucketPromises);
+        }
+
+        await Promise.all(promises);
+      };
+
+      await generateInputsForControl();
+
+      console.log(
+        `Cached ${results.size} unique images for ${selectedControl.label} in ${Math.round(
+          performance.now() - startTime
+        )}ms`
+      );
+    } catch (error) {
+      console.error("Failed to cache expression editor results:", error);
+      throw error; // Re-throw to allow caller to handle
+    } finally {
+      this.isCachingInProgress = false;
+    }
   }
 }
 

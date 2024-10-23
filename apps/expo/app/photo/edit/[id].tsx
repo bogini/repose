@@ -17,7 +17,7 @@ import { EditModesComponent } from "../../../components/EditMode";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
 
-const LOADING_DELAY_MS = 50;
+const LOADING_DELAY_MS = 120;
 
 export default function EditScreen() {
   const router = useRouter();
@@ -36,6 +36,19 @@ export default function EditScreen() {
     (control: FaceControl) => {
       if (control.key !== selectedControl.key) {
         setSelectedControl(control);
+
+        const now = Date.now();
+        if (
+          originalImageUrl &&
+          now - lastStateUpdateTimestampRef.current > 1000
+        ) {
+          lastStateUpdateTimestampRef.current = now;
+          void ReplicateService.cacheExpressionEditorResultsWithFaceControls(
+            originalImageUrl,
+            faceValues,
+            control
+          );
+        }
       }
     },
     [originalImageUrl, faceValues, selectedControl.key]
