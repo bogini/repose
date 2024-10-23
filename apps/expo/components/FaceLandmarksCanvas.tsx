@@ -7,6 +7,7 @@ import {
   LinearGradient,
   Circle,
   BlurMask,
+  RadialGradient,
 } from "@shopify/react-native-skia";
 import { StyleSheet } from "react-native";
 import {
@@ -36,20 +37,23 @@ interface StrokeStyle {
   width: number;
   pulseRange: number;
   speed: number;
+  pulseSpeed?: number;
 }
 
 const STROKE_STYLES = {
   faceOval: {
     color: "rgba(255, 255, 255, 0.7)",
-    width: 3,
+    width: 2,
     pulseRange: 0.8,
-    speed: 1.5, // Base speed multiplier
+    speed: 1.5,
+    pulseSpeed: 2000,
   },
   feature: {
     color: "rgba(255, 255, 255, 0.6)",
-    width: 2,
-    pulseRange: 0.5,
-    speed: 0.8, // Slightly faster
+    width: 1.5,
+    pulseRange: 0.6,
+    speed: 0.5,
+    pulseSpeed: 1500,
   },
 } as const;
 
@@ -116,24 +120,33 @@ export const FaceLandmarksCanvas = ({
     const bounds = path.getBounds();
     const strokeWidth = useSharedValue(style.width);
     const localGradientPosition = useSharedValue(0);
+    const pulsePhase = useSharedValue(0);
 
     useEffect(() => {
-      // Stroke pulse annimation
-      strokeWidth.value = style.width;
+      // Enhanced stroke pulse animation with phase offset
       strokeWidth.value = withRepeat(
         withTiming(style.width * (1 + style.pulseRange), {
-          duration: 1500,
-          easing: Easing.bezier(0.4, 0, 0.6, 1),
+          duration: style.pulseSpeed || 1500,
+          easing: Easing.inOut(Easing.quad),
         }),
         -1,
         true
       );
 
-      // Gradient rotation animation with variable speed
-      localGradientPosition.value = 0;
+      // Gradient rotation with dynamic speed
       localGradientPosition.value = withRepeat(
         withTiming(1, {
           duration: 3000 / (style.speed || 1),
+          easing: Easing.linear,
+        }),
+        -1,
+        false
+      );
+
+      // Additional phase animation for more organic movement
+      pulsePhase.value = withRepeat(
+        withTiming(2 * Math.PI, {
+          duration: 4000,
           easing: Easing.linear,
         }),
         -1,
@@ -144,15 +157,9 @@ export const FaceLandmarksCanvas = ({
     const start = useDerivedValue(() => {
       const normalizedPos = localGradientPosition.value % 1;
       const angle = normalizedPos * 2 * Math.PI;
-      // Add subtle wobble effect
-      const wobble = Math.sin(normalizedPos * 4 * Math.PI) * 0.1;
       return vec(
-        bounds.x +
-          bounds.width * 0.5 +
-          Math.cos(angle + wobble) * bounds.width * 0.5,
-        bounds.y +
-          bounds.height * 0.5 +
-          Math.sin(angle + wobble) * bounds.height * 0.5
+        bounds.x + bounds.width * 0.5 + Math.cos(angle) * bounds.width * 0.5,
+        bounds.y + bounds.height * 0.5 + Math.sin(angle) * bounds.height * 0.5
       );
     });
 
@@ -173,6 +180,18 @@ export const FaceLandmarksCanvas = ({
           strokeWidth={strokeWidth}
           strokeJoin="round"
           strokeCap="round"
+          opacity={0.9}
+          color="white"
+        >
+          <BlurMask blur={5} style="normal" />
+        </Path>
+
+        <Path
+          path={path}
+          style="stroke"
+          strokeWidth={strokeWidth}
+          strokeJoin="round"
+          strokeCap="round"
         >
           <LinearGradient
             start={start}
@@ -180,7 +199,7 @@ export const FaceLandmarksCanvas = ({
             colors={GRADIENT_COLORS}
             positions={GRADIENT_STOPS}
           />
-          <BlurMask blur={4} style="solid" />
+          <BlurMask blur={8} style="solid" />
         </Path>
       </Group>
     );
@@ -202,8 +221,9 @@ export const FaceLandmarksCanvas = ({
           key={`debug-${index}`}
           cx={(x / originalImageSize.width) * imageDimensions.width}
           cy={(y / originalImageSize.height) * imageDimensions.height}
-          r={2}
+          r={1.5}
           color={color}
+          opacity={0.8}
         />
       );
     });
@@ -237,25 +257,25 @@ export const FaceLandmarksCanvas = ({
       {renderFeature(
         landmarks.leftEyebrow,
         STROKE_STYLES.feature,
-        false,
+        true,
         "leftEyebrow"
       )}
       {renderFeature(
         landmarks.rightEyebrow,
         STROKE_STYLES.feature,
-        false,
+        true,
         "rightEyebrow"
       )}
       {renderFeature(
         landmarks.upperLips,
         STROKE_STYLES.feature,
-        true,
+        false,
         "upperLips"
       )}
       {renderFeature(
         landmarks.lowerLips,
         STROKE_STYLES.feature,
-        true,
+        false,
         "lowerLips"
       )}
 

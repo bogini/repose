@@ -15,6 +15,7 @@ import {
   RNMLKitFaceDetectorOptions,
   useFaceDetector,
 } from "@infinitered/react-native-mlkit-face-detection";
+import * as FileSystem from "expo-file-system";
 
 export type LandmarkLocation = [number, number]; // [x, y] coordinates
 
@@ -35,7 +36,6 @@ interface ImageContainerProps {
   originalImageUrl?: string;
   detectFace?: boolean;
   debug?: boolean;
-  detectorOptions?: RNMLKitFaceDetectorOptions;
 }
 
 const calculateImageDimensions = (
@@ -85,7 +85,6 @@ export const ImageContainer = ({
   originalImageUrl,
   detectFace = false,
   debug = false,
-  detectorOptions,
 }: ImageContainerProps) => {
   const [lastLoadedImage, setLastLoadedImage] = useState<string | undefined>(
     undefined
@@ -108,55 +107,80 @@ export const ImageContainer = ({
 
     setLandmarks(null);
 
-    detector
-      .initialize(detectorOptions)
-      .then(() => detector.detectFaces(imageUrl))
-      .then((result) => {
-        if (!result || result.error || !result.faces.length) return;
+    const downloadAndDetectFace = async () => {
+      try {
+        // Generate local URI from imageUrl
+        const localUri = `${FileSystem.cacheDirectory}${imageUrl.split("/").pop()}`;
+
+        // Only download if file doesn't exist
+        const fileInfo = await FileSystem.getInfoAsync(localUri);
+
+        if (!fileInfo.exists) {
+          await FileSystem.downloadAsync(imageUrl, localUri);
+        }
+
+        const detectorOptions: RNMLKitFaceDetectorOptions = {
+          performanceMode: "fast",
+          landmarkMode: false,
+          contourMode: true,
+        };
+
+        // Initialize detector and detect faces
+        await detector.initialize(detectorOptions);
+        const result = await detector.detectFaces(localUri);
+
+        if (!result || result.error || !result.faces.length) {
+          return;
+        }
 
         const face = result.faces[0];
 
         // Helper function to extract points from contours
-        const getContourPoints = (
-          type: FaceContourType
-        ): LandmarkLocation[] => {
-          const contour = face.contours.find((c) => c.type === type);
+        const getContourPoints = (type: string): LandmarkLocation[] => {
+          const contour = face.contours?.find((c) => c.type === type);
           return contour?.points?.map((p) => [p.x, p.y]) ?? [];
         };
 
-        setLandmarks({
-          faceOval: getContourPoints("faceOval"),
+        const landmarks = {
+          faceOval: getContourPoints("Face"),
           leftEyebrow: [
-            ...getContourPoints("leftEyebrowTop"),
-            ...getContourPoints("leftEyebrowBottom"),
+            ...getContourPoints("LeftEyebrowTop"),
+            ...getContourPoints("LeftEyebrowBottom").reverse(),
           ],
           rightEyebrow: [
-            ...getContourPoints("rightEyebrowTop"),
-            ...getContourPoints("rightEyebrowBottom"),
+            ...getContourPoints("RightEyebrowTop"),
+            ...getContourPoints("RightEyebrowBottom").reverse(),
           ],
-          leftEye: getContourPoints("leftEye"),
-          rightEye: getContourPoints("rightEye"),
+          leftEye: getContourPoints("LeftEye"),
+          rightEye: getContourPoints("RightEye"),
           lips: [
-            ...getContourPoints("upperLipTop"),
-            ...getContourPoints("upperLipBottom"),
-            ...getContourPoints("lowerLipTop"),
-            ...getContourPoints("lowerLipBottom"),
+            ...getContourPoints("UpperLipTop"),
+            ...getContourPoints("UpperLipBottom"),
+            ...getContourPoints("LowerLipTop"),
+            ...getContourPoints("LowerLipBottom"),
           ],
           upperLips: [
-            ...getContourPoints("upperLipTop"),
-            ...getContourPoints("upperLipBottom"),
+            ...getContourPoints("UpperLipTop"),
+            ...getContourPoints("UpperLipBottom").reverse(),
           ],
           lowerLips: [
-            ...getContourPoints("lowerLipTop"),
-            ...getContourPoints("lowerLipBottom"),
+            ...getContourPoints("LowerLipTop"),
+            ...getContourPoints("LowerLipBottom").reverse(),
           ],
-        });
-      })
-      .catch((error) => {
+        };
+
+        setLandmarks(landmarks);
+
+        // Clean up downloaded file
+        await FileSystem.deleteAsync(localUri);
+      } catch (error) {
         console.error("Error detecting face landmarks:", error);
         setLandmarks(null);
-      });
-  }, [imageUrl, detectFace, detector, detectorOptions]);
+      }
+    };
+
+    downloadAndDetectFace();
+  }, [imageUrl, detectFace]);
 
   const handleImageLayout = (event: LayoutChangeEvent) => {
     const { width, height, x, y } = event.nativeEvent.layout;
