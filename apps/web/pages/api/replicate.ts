@@ -27,6 +27,20 @@ type ReplicateResponse = string[];
 
 const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN,
+  // fetch: (url, options) => {
+  //   console.log({
+  //     message: "Replicate call",
+  //     url,
+  //     options,
+  //   });
+  //   return fetch(url, {
+  //     ...options,
+  //     headers: {
+  //       ...options?.headers,
+  //       Prefer: "wait=120", // Increase wait time to 120 seconds
+  //     },
+  //   });
+  // },
 });
 
 const CACHE_VERSION = "v1";
@@ -132,22 +146,71 @@ const cachePrediction = async (
 };
 
 const runModel = async (
-  input: ExpressionEditorInput
+  input: ExpressionEditorInput,
+  maxRetries = 3,
+  initialDelay = 100
 ): Promise<ReplicateResponse> => {
-  try {
-    const prediction = await replicate.deployments.predictions.create(
-      "bogini",
-      "expression-editor",
-      { input, block: true }
-    );
+  let lastError: Error | unknown;
+  const POLL_INTERVAL = 1000; // 1 second
+  const MAX_POLL_ATTEMPTS = 30; // 30 seconds max wait
 
-    return Array.isArray(prediction.output)
-      ? prediction.output
-      : [prediction.output];
-  } catch (error) {
-    console.error(`Error running model: ${error}`);
-    throw error;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      // Create prediction without blocking
+      const prediction = await replicate.deployments.predictions.create(
+        "bogini",
+        "expression-editor",
+        { input, block: false }
+      );
+
+      // Poll for prediction completion with timeout
+      let pollAttempt = 0;
+
+      while (pollAttempt < MAX_POLL_ATTEMPTS) {
+        const updatedPrediction = await replicate.wait(prediction);
+
+        switch (updatedPrediction.status) {
+          case "succeeded":
+            return Array.isArray(updatedPrediction.output)
+              ? updatedPrediction.output
+              : [updatedPrediction.output];
+          case "failed":
+            throw new Error(
+              `Prediction failed: ${updatedPrediction.error || "Unknown error"}`
+            );
+          case "processing":
+            await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
+            pollAttempt++;
+            break;
+          default:
+            throw new Error(
+              `Unexpected prediction status: ${updatedPrediction.status}`
+            );
+        }
+      }
+
+      throw new Error(
+        `Prediction timed out after ${(MAX_POLL_ATTEMPTS * POLL_INTERVAL) / 1000} seconds`
+      );
+    } catch (error) {
+      lastError = error;
+      console.error(
+        `Attempt ${attempt + 1} failed:`,
+        error instanceof Error ? error.message : error
+      );
+
+      if (attempt < maxRetries - 1) {
+        const delay = initialDelay * Math.pow(2, attempt); // Exponential backoff
+        console.log(
+          `Retrying in ${delay}ms (attempt ${attempt + 2}/${maxRetries})`
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
   }
+
+  console.error(`All ${maxRetries} attempts failed`);
+  throw lastError;
 };
 
 const handler = async (req: VercelRequest, res: VercelResponse) => {
