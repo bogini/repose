@@ -8,12 +8,26 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import { useEffect, useState } from "react";
-import {
-  FaceLandmarkDetector,
-  type FaceLandmarkResult,
-} from "../api/faceLandmarks";
 import { FaceLandmarksCanvas } from "./FaceLandmarksCanvas";
 import PhotosService from "../api/photos";
+import {
+  FaceContourType,
+  RNMLKitFaceDetectorOptions,
+  useFaceDetector,
+} from "@infinitered/react-native-mlkit-face-detection";
+
+export type LandmarkLocation = [number, number]; // [x, y] coordinates
+
+export interface FaceLandmarkResult {
+  faceOval: LandmarkLocation[];
+  leftEyebrow: LandmarkLocation[];
+  rightEyebrow: LandmarkLocation[];
+  leftEye: LandmarkLocation[];
+  rightEye: LandmarkLocation[];
+  lips: LandmarkLocation[];
+  upperLips: LandmarkLocation[];
+  lowerLips: LandmarkLocation[];
+}
 
 interface ImageContainerProps {
   loading?: boolean;
@@ -21,9 +35,8 @@ interface ImageContainerProps {
   originalImageUrl?: string;
   detectFace?: boolean;
   debug?: boolean;
+  detectorOptions?: RNMLKitFaceDetectorOptions;
 }
-
-const detector = FaceLandmarkDetector.getInstance();
 
 const calculateImageDimensions = (
   containerWidth: number,
@@ -72,6 +85,7 @@ export const ImageContainer = ({
   originalImageUrl,
   detectFace = false,
   debug = false,
+  detectorOptions,
 }: ImageContainerProps) => {
   const [lastLoadedImage, setLastLoadedImage] = useState<string | undefined>(
     undefined
@@ -87,6 +101,7 @@ export const ImageContainer = ({
     width: 1024,
     height: 1024,
   });
+  const detector = useFaceDetector();
 
   useEffect(() => {
     if (!detectFace || !imageUrl) return;
@@ -94,16 +109,54 @@ export const ImageContainer = ({
     setLandmarks(null);
 
     detector
-      .initialize()
-      .then(() => detector.detectLandmarks(imageUrl))
-      .then((landmarks) => {
-        setLandmarks(landmarks);
+      .initialize(detectorOptions)
+      .then(() => detector.detectFaces(imageUrl))
+      .then((result) => {
+        if (!result || result.error || !result.faces.length) return;
+
+        const face = result.faces[0];
+
+        // Helper function to extract points from contours
+        const getContourPoints = (
+          type: FaceContourType
+        ): LandmarkLocation[] => {
+          const contour = face.contours.find((c) => c.type === type);
+          return contour?.points?.map((p) => [p.x, p.y]) ?? [];
+        };
+
+        setLandmarks({
+          faceOval: getContourPoints("faceOval"),
+          leftEyebrow: [
+            ...getContourPoints("leftEyebrowTop"),
+            ...getContourPoints("leftEyebrowBottom"),
+          ],
+          rightEyebrow: [
+            ...getContourPoints("rightEyebrowTop"),
+            ...getContourPoints("rightEyebrowBottom"),
+          ],
+          leftEye: getContourPoints("leftEye"),
+          rightEye: getContourPoints("rightEye"),
+          lips: [
+            ...getContourPoints("upperLipTop"),
+            ...getContourPoints("upperLipBottom"),
+            ...getContourPoints("lowerLipTop"),
+            ...getContourPoints("lowerLipBottom"),
+          ],
+          upperLips: [
+            ...getContourPoints("upperLipTop"),
+            ...getContourPoints("upperLipBottom"),
+          ],
+          lowerLips: [
+            ...getContourPoints("lowerLipTop"),
+            ...getContourPoints("lowerLipBottom"),
+          ],
+        });
       })
       .catch((error) => {
         console.error("Error detecting face landmarks:", error);
         setLandmarks(null);
       });
-  }, [imageUrl, detectFace]);
+  }, [imageUrl, detectFace, detector, detectorOptions]);
 
   const handleImageLayout = (event: LayoutChangeEvent) => {
     const { width, height, x, y } = event.nativeEvent.layout;

@@ -22,9 +22,6 @@ config.resolver.unstable_conditionNames = [
   "react-native",
 ];
 
-// https://github.com/mrousavy/react-native-fast-tflite
-config.resolver.assetExts = ["tflite", ...config.resolver.assetExts];
-
 module.exports = config;
 
 /**

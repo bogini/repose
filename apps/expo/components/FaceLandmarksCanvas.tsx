@@ -10,17 +10,14 @@ import {
 } from "@shopify/react-native-skia";
 import { StyleSheet } from "react-native";
 import {
-  type FaceLandmarkResult,
-  type LandmarkLocation,
-} from "../api/faceLandmarks";
-import {
   useSharedValue,
   withRepeat,
   withTiming,
   useDerivedValue,
   Easing,
 } from "react-native-reanimated";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
+import { FaceLandmarkResult, LandmarkLocation } from "./ImageContainer";
 
 interface FaceLandmarksCanvasProps {
   landmarks: FaceLandmarkResult | null;
@@ -54,16 +51,9 @@ const STROKE_STYLES = {
     pulseRange: 0.5,
     speed: 0.8, // Slightly faster
   },
-  iris: {
-    color: "rgba(255, 255, 255, 0.8)",
-    width: 2,
-    pulseRange: 0.4,
-    speed: 1.5, // Fastest animation
-  },
 } as const;
 
 const GRADIENT_WIDTH = 0.4;
-const BASE_SPEED = 0.03; // Slower base speed
 
 // Enhanced gradient for better visual effect
 const GRADIENT_COLORS = [
@@ -203,25 +193,16 @@ export const FaceLandmarksCanvas = ({
     if (!points?.length || !debug) return null;
 
     return points.map((point, index) => {
-      if (!Array.isArray(point) || point.length !== 3) return null;
-      const [x, y, z] = point;
-      if (
-        typeof x !== "number" ||
-        typeof y !== "number" ||
-        typeof z !== "number"
-      )
-        return null;
-
-      // Scale circle size based on z coordinate for depth effect
-      const depthScale = Math.max(0.5, Math.min(1.5, 1 + z / 100));
-      const baseRadius = 2;
+      if (!Array.isArray(point) || point.length !== 2) return null;
+      const [x, y] = point;
+      if (typeof x !== "number" || typeof y !== "number") return null;
 
       return (
         <Circle
           key={`debug-${index}`}
           cx={(x / originalImageSize.width) * imageDimensions.width}
           cy={(y / originalImageSize.height) * imageDimensions.height}
-          r={baseRadius * depthScale}
+          r={2}
           color={color}
         />
       );
@@ -253,13 +234,6 @@ export const FaceLandmarksCanvas = ({
         true,
         "rightEye"
       )}
-      {renderFeature(landmarks.leftIris, STROKE_STYLES.iris, true, "leftIris")}
-      {renderFeature(
-        landmarks.rightIris,
-        STROKE_STYLES.iris,
-        true,
-        "rightIris"
-      )}
       {renderFeature(
         landmarks.leftEyebrow,
         STROKE_STYLES.feature,
@@ -288,8 +262,6 @@ export const FaceLandmarksCanvas = ({
       {renderDebugPoints(landmarks.faceOval, "#FF0000")}
       {renderDebugPoints(landmarks.leftEye, "#00FF00")}
       {renderDebugPoints(landmarks.rightEye, "#00FF00")}
-      {renderDebugPoints(landmarks.leftIris, "#0000FF")}
-      {renderDebugPoints(landmarks.rightIris, "#0000FF")}
       {renderDebugPoints(landmarks.leftEyebrow, "#FFFF00")}
       {renderDebugPoints(landmarks.rightEyebrow, "#FFFF00")}
       {renderDebugPoints(landmarks.upperLips, "#FF00FF")}
