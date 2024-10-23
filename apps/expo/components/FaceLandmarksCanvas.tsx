@@ -80,6 +80,46 @@ export const FaceLandmarksCanvas = ({
 }: FaceLandmarksCanvasProps) => {
   if (!landmarks || !Array.isArray(landmarks.faceOval)) return null;
 
+  // Use a general number type for strokeWidth
+  const strokeWidth = useSharedValue<number>(STROKE_STYLES.feature.width);
+  const localGradientPosition = useSharedValue<number>(0);
+  const pulsePhase = useSharedValue<number>(0);
+
+  useEffect(() => {
+    // Enhanced stroke pulse animation with phase offset
+    strokeWidth.value = withRepeat(
+      withTiming(
+        STROKE_STYLES.feature.width * (1 + STROKE_STYLES.feature.pulseRange),
+        {
+          duration: STROKE_STYLES.feature.pulseSpeed || 1500,
+          easing: Easing.inOut(Easing.quad),
+        }
+      ),
+      -1,
+      true
+    );
+
+    // Gradient rotation with dynamic speed
+    localGradientPosition.value = withRepeat(
+      withTiming(1, {
+        duration: 3000 / (STROKE_STYLES.feature.speed || 1),
+        easing: Easing.linear,
+      }),
+      -1,
+      false
+    );
+
+    // Additional phase animation for more organic movement
+    pulsePhase.value = withRepeat(
+      withTiming(2 * Math.PI, {
+        duration: 4000,
+        easing: Easing.linear,
+      }),
+      -1,
+      false
+    );
+  }, []);
+
   const createPath = (
     points: LandmarkLocation[] | undefined,
     shouldClose = true
@@ -118,41 +158,6 @@ export const FaceLandmarksCanvas = ({
 
     const path = createPath(points, shouldClose);
     const bounds = path.getBounds();
-    const strokeWidth = useSharedValue(style.width);
-    const localGradientPosition = useSharedValue(0);
-    const pulsePhase = useSharedValue(0);
-
-    useEffect(() => {
-      // Enhanced stroke pulse animation with phase offset
-      strokeWidth.value = withRepeat(
-        withTiming(style.width * (1 + style.pulseRange), {
-          duration: style.pulseSpeed || 1500,
-          easing: Easing.inOut(Easing.quad),
-        }),
-        -1,
-        true
-      );
-
-      // Gradient rotation with dynamic speed
-      localGradientPosition.value = withRepeat(
-        withTiming(1, {
-          duration: 3000 / (style.speed || 1),
-          easing: Easing.linear,
-        }),
-        -1,
-        false
-      );
-
-      // Additional phase animation for more organic movement
-      pulsePhase.value = withRepeat(
-        withTiming(2 * Math.PI, {
-          duration: 4000,
-          easing: Easing.linear,
-        }),
-        -1,
-        false
-      );
-    }, [points]);
 
     const start = useDerivedValue(() => {
       const normalizedPos = localGradientPosition.value % 1;

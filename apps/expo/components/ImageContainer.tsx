@@ -6,16 +6,38 @@ import Animated, {
   withRepeat,
   withTiming,
   withSpring,
+  Easing,
 } from "react-native-reanimated";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FaceLandmarksCanvas } from "./FaceLandmarksCanvas";
 import PhotosService from "../api/photos";
-import {
-  FaceContourType,
-  RNMLKitFaceDetectorOptions,
-  useFaceDetector,
-} from "@infinitered/react-native-mlkit-face-detection";
+import { useFaceDetector } from "@infinitered/react-native-mlkit-face-detection";
 import * as FileSystem from "expo-file-system";
+
+// Animation constants
+const LOADING_ANIMATION = {
+  IMAGE_OPACITY_DURATION_MS: 150,
+  CANVAS_OPACITY_DURATION_MS: 50,
+  PULSE_DURATION_MS: 1500,
+  PULSE_OPACITY: 0.7,
+  PULSE_IMAGE_BLUR: 7,
+};
+
+const IMAGE_TRANSITION = {
+  duration: 150,
+  effect: "cross-dissolve",
+} as const;
+
+const DEFAULT_IMAGE_SIZE = {
+  width: 1024,
+  height: 1024,
+};
+
+const DETECTOR_OPTIONS = {
+  performanceMode: "fast",
+  landmarkMode: false,
+  contourMode: true,
+} as const;
 
 export type LandmarkLocation = [number, number]; // [x, y] coordinates
 
@@ -96,107 +118,94 @@ export const ImageContainer = ({
     x: number;
     y: number;
   } | null>(null);
-  const [originalImageSize, setOriginalImageSize] = useState({
-    width: 1024,
-    height: 1024,
-  });
+  const [originalImageSize, setOriginalImageSize] =
+    useState(DEFAULT_IMAGE_SIZE);
   const detector = useFaceDetector();
 
-  useEffect(() => {
+  const detectorOptions = useMemo(() => DETECTOR_OPTIONS, []);
+
+  const downloadAndDetectFace = useCallback(async () => {
     if (!detectFace || !imageUrl) return;
 
     setLandmarks(null);
 
-    const downloadAndDetectFace = async () => {
-      try {
-        // Generate local URI from imageUrl
-        const localUri = `${FileSystem.cacheDirectory}${imageUrl.split("/").pop()}`;
+    try {
+      const localUri = `${FileSystem.cacheDirectory}${imageUrl.split("/").pop()}`;
+      const fileInfo = await FileSystem.getInfoAsync(localUri);
 
-        // Only download if file doesn't exist
-        const fileInfo = await FileSystem.getInfoAsync(localUri);
-
-        if (!fileInfo.exists) {
-          await FileSystem.downloadAsync(imageUrl, localUri);
-        }
-
-        const detectorOptions: RNMLKitFaceDetectorOptions = {
-          performanceMode: "fast",
-          landmarkMode: false,
-          contourMode: true,
-        };
-
-        // Initialize detector and detect faces
-        await detector.initialize(detectorOptions);
-        const result = await detector.detectFaces(localUri);
-
-        if (!result || result.error || !result.faces.length) {
-          return;
-        }
-
-        const face = result.faces[0];
-
-        // Helper function to extract points from contours
-        const getContourPoints = (type: string): LandmarkLocation[] => {
-          const contour = face.contours?.find((c) => c.type === type);
-          return contour?.points?.map((p) => [p.x, p.y]) ?? [];
-        };
-
-        const landmarks = {
-          faceOval: getContourPoints("Face"),
-          leftEyebrow: [
-            ...getContourPoints("LeftEyebrowTop"),
-            ...getContourPoints("LeftEyebrowBottom").reverse(),
-          ],
-          rightEyebrow: [
-            ...getContourPoints("RightEyebrowTop"),
-            ...getContourPoints("RightEyebrowBottom").reverse(),
-          ],
-          leftEye: getContourPoints("LeftEye"),
-          rightEye: getContourPoints("RightEye"),
-          lips: [
-            ...getContourPoints("UpperLipTop"),
-            ...getContourPoints("UpperLipBottom"),
-            ...getContourPoints("LowerLipTop"),
-            ...getContourPoints("LowerLipBottom"),
-          ],
-          upperLips: [
-            ...getContourPoints("UpperLipTop"),
-            ...getContourPoints("UpperLipBottom").reverse(),
-          ],
-          lowerLips: [
-            ...getContourPoints("LowerLipTop"),
-            ...getContourPoints("LowerLipBottom").reverse(),
-          ],
-        };
-
-        console.log(landmarks);
-        setLandmarks(landmarks);
-
-        // Clean up downloaded file
-        await FileSystem.deleteAsync(localUri);
-      } catch (error) {
-        console.error("Error detecting face landmarks:", error);
-        setLandmarks(null);
+      if (!fileInfo.exists) {
+        await FileSystem.downloadAsync(imageUrl, localUri);
       }
-    };
 
+      await detector.initialize(detectorOptions);
+      const result = await detector.detectFaces(localUri);
+
+      if (!result || result.error || !result.faces.length) {
+        return;
+      }
+
+      const face = result.faces[0];
+      const getContourPoints = (type: string): LandmarkLocation[] => {
+        const contour = face.contours?.find((c) => c.type === type);
+        return contour?.points?.map((p) => [p.x, p.y]) ?? [];
+      };
+
+      const landmarks = {
+        faceOval: getContourPoints("Face"),
+        leftEyebrow: [
+          ...getContourPoints("LeftEyebrowTop"),
+          ...getContourPoints("LeftEyebrowBottom").reverse(),
+        ],
+        rightEyebrow: [
+          ...getContourPoints("RightEyebrowTop"),
+          ...getContourPoints("RightEyebrowBottom").reverse(),
+        ],
+        leftEye: getContourPoints("LeftEye"),
+        rightEye: getContourPoints("RightEye"),
+        lips: [
+          ...getContourPoints("UpperLipTop"),
+          ...getContourPoints("UpperLipBottom"),
+          ...getContourPoints("LowerLipTop"),
+          ...getContourPoints("LowerLipBottom"),
+        ],
+        upperLips: [
+          ...getContourPoints("UpperLipTop"),
+          ...getContourPoints("UpperLipBottom").reverse(),
+        ],
+        lowerLips: [
+          ...getContourPoints("LowerLipTop"),
+          ...getContourPoints("LowerLipBottom").reverse(),
+        ],
+      };
+
+      setLandmarks(landmarks);
+      await FileSystem.deleteAsync(localUri);
+    } catch (error) {
+      console.error("Error detecting face landmarks:", error);
+      setLandmarks(null);
+    }
+  }, [imageUrl, detectFace, detector, detectorOptions]);
+
+  useEffect(() => {
     downloadAndDetectFace();
-  }, [imageUrl, detectFace]);
+  }, [downloadAndDetectFace]);
 
-  const handleImageLayout = (event: LayoutChangeEvent) => {
+  const handleImageLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height, x, y } = event.nativeEvent.layout;
     setImageLayout({ width, height, x, y });
-  };
+  }, []);
 
-  const imageDimensions = imageLayout
-    ? calculateImageDimensions(
-        imageLayout.width,
-        imageLayout.height,
-        originalImageSize.width,
-        originalImageSize.height,
-        "cover"
-      )
-    : null;
+  const imageDimensions = useMemo(() => {
+    return imageLayout
+      ? calculateImageDimensions(
+          imageLayout.width,
+          imageLayout.height,
+          originalImageSize.width,
+          originalImageSize.height,
+          "cover"
+        )
+      : null;
+  }, [imageLayout, originalImageSize]);
 
   useEffect(() => {
     if (imageUrl) {
@@ -212,18 +221,38 @@ export const ImageContainer = ({
 
   const canvasOpacity = useSharedValue(0);
   const loadingOpacity = useSharedValue(1);
+  const loadingBlur = useSharedValue(0);
 
   useEffect(() => {
-    canvasOpacity.value = withSpring(loading || debug ? 1 : 0);
+    canvasOpacity.value = withSpring(loading || debug ? 1 : 0, {
+      duration: LOADING_ANIMATION.CANVAS_OPACITY_DURATION_MS,
+    });
 
     if (loading) {
+      // Smoother loading animation with sequential timing
       loadingOpacity.value = withRepeat(
-        withTiming(0.9, { duration: 1000 }),
+        withTiming(LOADING_ANIMATION.PULSE_OPACITY, {
+          duration: LOADING_ANIMATION.PULSE_DURATION_MS,
+          easing: Easing.inOut(Easing.sin),
+        }),
+        -1,
+        true
+      );
+      loadingBlur.value = withRepeat(
+        withTiming(LOADING_ANIMATION.PULSE_IMAGE_BLUR, {
+          duration: LOADING_ANIMATION.PULSE_DURATION_MS,
+          easing: Easing.inOut(Easing.sin),
+        }),
         -1,
         true
       );
     } else {
-      loadingOpacity.value = withTiming(1);
+      loadingOpacity.value = withTiming(1, {
+        duration: LOADING_ANIMATION.IMAGE_OPACITY_DURATION_MS,
+      });
+      loadingBlur.value = withTiming(0, {
+        duration: LOADING_ANIMATION.IMAGE_OPACITY_DURATION_MS,
+      });
     }
   }, [loading, debug]);
 
@@ -243,14 +272,11 @@ export const ImageContainer = ({
           cachePolicy={"memory-disk"}
           placeholder={{ uri: lastLoadedImage || originalImageUrl }}
           placeholderContentFit="cover"
-          blurRadius={loading ? loadingOpacity.value : 0}
+          blurRadius={loading ? loadingBlur.value : 0}
           allowDownscaling={false}
           priority={"high"}
           style={styles.fullSize}
-          transition={{
-            duration: 150,
-            effect: "cross-dissolve",
-          }}
+          transition={IMAGE_TRANSITION}
           contentFit="cover"
           onLoadStart={() => {}}
           onLoadEnd={() => {

@@ -117,8 +117,6 @@ class ReplicateService {
     shouldCancel: boolean = true,
     skipCache: boolean = false
   ): Promise<string | undefined> {
-    const startTime = performance.now();
-
     const {
       outputFormat = DEFAULTS.outputFormat,
       outputQuality = DEFAULTS.outputQuality,
@@ -310,12 +308,6 @@ class ReplicateService {
     currentFaceValues: FaceValues,
     selectedControl: FaceControl
   ): Promise<void> {
-    if (this.isCachingInProgress) {
-      console.log("Caching already in progress, skipping...");
-      return;
-    }
-
-    this.isCachingInProgress = true;
     const startTime = performance.now();
     const concurrently = pLimit(MAX_CONCURRENT_REQUESTS);
     const results = new Set<string>();
@@ -345,34 +337,42 @@ class ReplicateService {
       };
 
       const generateInputsForControl = async () => {
-        const promises: Promise<void>[] = [];
-
-        for (const value of selectedControl.values) {
+        // Generate all possible combinations of values for the selected control
+        const valueRanges = selectedControl.values.map((value) => {
           const bucketSize = (value.max - value.min) / NUM_BUCKETS;
-          const bucketPromises = Array.from(
-            { length: NUM_BUCKETS + 1 },
-            (_, i) => {
-              const bucketValue = getBucketValue(
-                value.min + bucketSize * i,
-                value.min,
-                value.max
-              );
+          return Array.from({ length: NUM_BUCKETS + 1 }, (_, i) => {
+            return getBucketValue(
+              value.min + bucketSize * i,
+              value.min,
+              value.max
+            );
+          }).filter((v): v is number => v !== undefined);
+        });
 
-              if (bucketValue === undefined) return;
+        // Generate cartesian product of all value combinations
+        const combinations = valueRanges.reduce<number[][]>((acc, curr) => {
+          if (acc.length === 0) return curr.map((v) => [v]);
+          return acc.flatMap((combo) => curr.map((v) => [...combo, v]));
+        }, []);
 
-              const input: ExpressionEditorInput = {
-                ...DEFAULTS,
-                ...currentFaceValues,
-                image,
-                [value.key]: bucketValue,
-              };
+        const promises = combinations.map((combination) => {
+          const input: ExpressionEditorInput = {
+            ...DEFAULTS,
+            ...currentFaceValues,
+            image,
+          };
 
-              return concurrently(() => processInput(input));
-            }
-          ).filter((p): p is Promise<void> => p !== undefined);
+          // Apply each value in the combination to its corresponding control
+          selectedControl.values.forEach((value, index) => {
+            input[value.key] = combination[index];
+          });
 
-          promises.push(...bucketPromises);
-        }
+          return concurrently(() => processInput(input));
+        });
+
+        console.log(
+          `Generating ${promises.length} inputs for ${selectedControl.label}`
+        );
 
         await Promise.all(promises);
       };
@@ -386,9 +386,7 @@ class ReplicateService {
       );
     } catch (error) {
       console.error("Failed to cache expression editor results:", error);
-      throw error; // Re-throw to allow caller to handle
-    } finally {
-      this.isCachingInProgress = false;
+      throw error;
     }
   }
 }

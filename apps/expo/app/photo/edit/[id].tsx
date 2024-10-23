@@ -16,6 +16,7 @@ import {
 import { EditModesComponent } from "../../../components/EditMode";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
+import { debounce } from "lodash";
 
 const LOADING_DELAY_MS = 120;
 
@@ -32,26 +33,32 @@ export default function EditScreen() {
   const [editedImageUrl, setEditedImageUrl] = useState<string | undefined>();
   const lastStateUpdateTimestampRef = useRef(0);
 
+  const debouncedCache = useCallback(
+    debounce(
+      (imageUrl: string, values: FaceValues, control: FaceControl) => {
+        void ReplicateService.cacheExpressionEditorResultsWithFaceControls(
+          imageUrl,
+          values,
+          control
+        );
+      },
+      1000,
+      { trailing: true }
+    ),
+    []
+  );
+
   const handleControlChange = useCallback(
     (control: FaceControl) => {
       if (control.key !== selectedControl.key) {
         setSelectedControl(control);
 
-        const now = Date.now();
-        if (
-          originalImageUrl &&
-          now - lastStateUpdateTimestampRef.current > 1000
-        ) {
-          lastStateUpdateTimestampRef.current = now;
-          void ReplicateService.cacheExpressionEditorResultsWithFaceControls(
-            originalImageUrl,
-            faceValues,
-            control
-          );
+        if (originalImageUrl) {
+          debouncedCache(originalImageUrl, faceValues, control);
         }
       }
     },
-    [originalImageUrl, faceValues, selectedControl.key]
+    [originalImageUrl, faceValues, selectedControl.key, debouncedCache]
   );
 
   useEffect(() => {

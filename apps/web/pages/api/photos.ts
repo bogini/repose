@@ -76,7 +76,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 
         await del(url, { token });
 
-        return res.status(200).json({ message: "File deleted successfully" });
+        return res.status(200).json({ message: "File deleted successfully!" });
       }
 
       default:
