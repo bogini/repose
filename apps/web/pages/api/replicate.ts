@@ -207,4 +207,8 @@ const handler = async (req: VercelRequest, res: VercelResponse) => {
   }
 };
 
+export const config = {
+  maxDuration: 300, // 5 minutes in seconds
+};
+
 export default handler;
