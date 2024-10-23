@@ -337,8 +337,16 @@ class ReplicateService {
       };
 
       const generateInputsForControl = async () => {
+        // Filter out blink control for eyes and rotateRoll for face
+        let controlValues = selectedControl.values;
+        if (selectedControl.key === "eyes") {
+          controlValues = controlValues.filter((v) => v.key !== "blink");
+        } else if (selectedControl.key === "face") {
+          controlValues = controlValues.filter((v) => v.key !== "rotateRoll");
+        }
+
         // Generate all possible combinations of values for the selected control
-        const valueRanges = selectedControl.values.map((value) => {
+        const valueRanges = controlValues.map((value) => {
           const bucketSize = (value.max - value.min) / NUM_BUCKETS;
           return Array.from({ length: NUM_BUCKETS + 1 }, (_, i) => {
             return getBucketValue(
@@ -363,7 +371,7 @@ class ReplicateService {
           };
 
           // Apply each value in the combination to its corresponding control
-          selectedControl.values.forEach((value, index) => {
+          controlValues.forEach((value, index) => {
             input[value.key] = combination[index];
           });
 
