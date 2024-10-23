@@ -183,7 +183,7 @@ export const GestureControl: React.FC<GestureControlProps> = ({
   };
 
   const handlePinchUpdate = (event: any) => {
-    scale.value = Math.min(event.scale, 1);
+    scale.value = Math.min(Math.max(event.scale - 1, -1), 1);
     handleValueChange("handlePinchUpdate");
   };
 

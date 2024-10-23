@@ -13,6 +13,7 @@ import { FaceLandmarksCanvas } from "./FaceLandmarksCanvas";
 import PhotosService from "../api/photos";
 import { useFaceDetector } from "@infinitered/react-native-mlkit-face-detection";
 import * as FileSystem from "expo-file-system";
+import { debounce } from "lodash";
 
 // Animation constants
 const LOADING_ANIMATION = {
@@ -186,9 +187,30 @@ export const ImageContainer = ({
     }
   }, [imageUrl, detectFace, detector, detectorOptions]);
 
+  const debouncedDetectFace = useMemo(
+    () =>
+      debounce(
+        async () => {
+          await downloadAndDetectFace();
+        },
+        75,
+        {
+          leading: false,
+          trailing: true,
+        }
+      ),
+    [downloadAndDetectFace]
+  );
+
   useEffect(() => {
-    downloadAndDetectFace();
-  }, [downloadAndDetectFace]);
+    if (imageUrl) {
+      setLandmarks(null);
+      debouncedDetectFace();
+      return () => {
+        debouncedDetectFace.cancel();
+      };
+    }
+  }, [imageUrl]);
 
   const handleImageLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height, x, y } = event.nativeEvent.layout;
