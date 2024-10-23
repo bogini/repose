@@ -8,12 +8,27 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import { useEffect, useState } from "react";
-import {
-  FaceLandmarkDetector,
-  type FaceLandmarkResult,
-} from "../api/faceLandmarks";
 import { FaceLandmarksCanvas } from "./FaceLandmarksCanvas";
 import PhotosService from "../api/photos";
+import {
+  FaceContourType,
+  RNMLKitFaceDetectorOptions,
+  useFaceDetector,
+} from "@infinitered/react-native-mlkit-face-detection";
+import * as FileSystem from "expo-file-system";
+
+export type LandmarkLocation = [number, number]; // [x, y] coordinates
+
+export interface FaceLandmarkResult {
+  faceOval: LandmarkLocation[];
+  leftEyebrow: LandmarkLocation[];
+  rightEyebrow: LandmarkLocation[];
+  leftEye: LandmarkLocation[];
+  rightEye: LandmarkLocation[];
+  lips: LandmarkLocation[];
+  upperLips: LandmarkLocation[];
+  lowerLips: LandmarkLocation[];
+}
 
 interface ImageContainerProps {
   loading?: boolean;
@@ -22,8 +37,6 @@ interface ImageContainerProps {
   detectFace?: boolean;
   debug?: boolean;
 }
-
-const detector = FaceLandmarkDetector.getInstance();
 
 const calculateImageDimensions = (
   containerWidth: number,
@@ -87,22 +100,86 @@ export const ImageContainer = ({
     width: 1024,
     height: 1024,
   });
+  const detector = useFaceDetector();
 
   useEffect(() => {
     if (!detectFace || !imageUrl) return;
 
     setLandmarks(null);
 
-    detector
-      .initialize()
-      .then(() => detector.detectLandmarks(imageUrl))
-      .then((landmarks) => {
+    const downloadAndDetectFace = async () => {
+      try {
+        // Generate local URI from imageUrl
+        const localUri = `${FileSystem.cacheDirectory}${imageUrl.split("/").pop()}`;
+
+        // Only download if file doesn't exist
+        const fileInfo = await FileSystem.getInfoAsync(localUri);
+
+        if (!fileInfo.exists) {
+          await FileSystem.downloadAsync(imageUrl, localUri);
+        }
+
+        const detectorOptions: RNMLKitFaceDetectorOptions = {
+          performanceMode: "fast",
+          landmarkMode: false,
+          contourMode: true,
+        };
+
+        // Initialize detector and detect faces
+        await detector.initialize(detectorOptions);
+        const result = await detector.detectFaces(localUri);
+
+        if (!result || result.error || !result.faces.length) {
+          return;
+        }
+
+        const face = result.faces[0];
+
+        // Helper function to extract points from contours
+        const getContourPoints = (type: string): LandmarkLocation[] => {
+          const contour = face.contours?.find((c) => c.type === type);
+          return contour?.points?.map((p) => [p.x, p.y]) ?? [];
+        };
+
+        const landmarks = {
+          faceOval: getContourPoints("Face"),
+          leftEyebrow: [
+            ...getContourPoints("LeftEyebrowTop"),
+            ...getContourPoints("LeftEyebrowBottom").reverse(),
+          ],
+          rightEyebrow: [
+            ...getContourPoints("RightEyebrowTop"),
+            ...getContourPoints("RightEyebrowBottom").reverse(),
+          ],
+          leftEye: getContourPoints("LeftEye"),
+          rightEye: getContourPoints("RightEye"),
+          lips: [
+            ...getContourPoints("UpperLipTop"),
+            ...getContourPoints("UpperLipBottom"),
+            ...getContourPoints("LowerLipTop"),
+            ...getContourPoints("LowerLipBottom"),
+          ],
+          upperLips: [
+            ...getContourPoints("UpperLipTop"),
+            ...getContourPoints("UpperLipBottom").reverse(),
+          ],
+          lowerLips: [
+            ...getContourPoints("LowerLipTop"),
+            ...getContourPoints("LowerLipBottom").reverse(),
+          ],
+        };
+
         setLandmarks(landmarks);
-      })
-      .catch((error) => {
+
+        // Clean up downloaded file
+        await FileSystem.deleteAsync(localUri);
+      } catch (error) {
         console.error("Error detecting face landmarks:", error);
         setLandmarks(null);
-      });
+      }
+    };
+
+    downloadAndDetectFace();
   }, [imageUrl, detectFace]);
 
   const handleImageLayout = (event: LayoutChangeEvent) => {

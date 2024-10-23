@@ -25,15 +25,7 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": [
-      "expo-router",
-      [
-        "react-native-fast-tflite",
-        {
-          "enableCoreMLDelegate": true
-        }
-      ]
-    ],
+    "plugins": ["expo-router"],
     "extra": {
       "eas": {
         "projectId": "a2a3d13e-0f76-4f54-a194-1846c436c622"
