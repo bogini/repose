@@ -33,16 +33,6 @@ interface FaceLandmarksCanvasProps {
   featureFilter?: FeatureKey[];
 }
 
-const featureToGroupMap = {
-  faceOval: "face",
-  leftEye: "eyes",
-  rightEye: "eyes",
-  leftEyebrow: "eyebrows",
-  rightEyebrow: "eyebrows",
-  upperLips: "mouth",
-  lowerLips: "mouth",
-} as const;
-
 const featureConfig = [
   { key: "faceOval", debugColor: "#FF0000" },
   { key: "leftEye", debugColor: "#00FF00" },
