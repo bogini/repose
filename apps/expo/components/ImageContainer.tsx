@@ -14,13 +14,15 @@ import PhotosService from "../api/photos";
 import { useFaceDetector } from "@infinitered/react-native-mlkit-face-detection";
 import * as FileSystem from "expo-file-system";
 import { debounce } from "lodash";
+import { FeatureKey } from "../lib/faceControl";
 
 // Animation constants
 const LOADING_ANIMATION = {
   IMAGE_OPACITY_DURATION_MS: 200,
   CANVAS_OPACITY_DURATION_MS: 2000,
   PULSE_DURATION_MS: 1000,
-  PULSE_OPACITY: 0.8,
+  PULSE_OPACITY_TO: 0.4,
+  PULSE_OPACITY_FROM: 0.7,
   IMAGE_BLUR: 0,
 };
 
@@ -59,6 +61,7 @@ interface ImageContainerProps {
   originalImageUrl?: string;
   detectFace?: boolean;
   debug?: boolean;
+  selectedControl?: FeatureKey;
 }
 
 const calculateImageDimensions = (
@@ -108,7 +111,9 @@ export const ImageContainer = ({
   originalImageUrl,
   detectFace = false,
   debug = false,
+  selectedControl,
 }: ImageContainerProps) => {
+  loading = true;
   const [lastLoadedImage, setLastLoadedImage] = useState<string | undefined>(
     undefined
   );
@@ -250,8 +255,9 @@ export const ImageContainer = ({
     });
 
     if (loading) {
+      loadingOpacity.value = LOADING_ANIMATION.PULSE_OPACITY_FROM;
       loadingOpacity.value = withRepeat(
-        withTiming(LOADING_ANIMATION.PULSE_OPACITY, {
+        withTiming(LOADING_ANIMATION.PULSE_OPACITY_TO, {
           duration: LOADING_ANIMATION.PULSE_DURATION_MS,
           easing: Easing.inOut(Easing.sin),
         }),
@@ -300,6 +306,7 @@ export const ImageContainer = ({
             debug={debug}
             landmarks={landmarks}
             imageDimensions={imageDimensions}
+            featureFilter={selectedControl ? [selectedControl] : undefined}
             originalImageSize={originalImageSize}
           />
         </Animated.View>

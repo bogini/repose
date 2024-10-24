@@ -102,6 +102,7 @@ export const FaceGestureControl = ({
             imageUrl={imageUrl}
             debug={debug}
             originalImageUrl={originalImageUrl}
+            selectedControl={selectedControl.key}
           />
           <Text style={styles.selectedControlLabel}>
             {selectedControl.label}

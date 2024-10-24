@@ -3,8 +3,10 @@ export enum GestureDirection {
   Inverted = "inverted",
 }
 
+export type FeatureKey = "face" | "mouth" | "eyes" | "eyebrows";
+
 export interface FaceControl {
-  key: string;
+  key: FeatureKey;
   icon: string;
   label: string;
   instructions: string;
