@@ -7,7 +7,7 @@ import {
   LinearGradient,
   Circle,
   BlurMask,
-  RadialGradient,
+  Shader,
 } from "@shopify/react-native-skia";
 import { StyleSheet } from "react-native";
 import {
@@ -16,9 +16,11 @@ import {
   withTiming,
   useDerivedValue,
   Easing,
+  useAnimatedReaction,
 } from "react-native-reanimated";
 import { useEffect } from "react";
 import { FaceLandmarkResult, LandmarkLocation } from "./ImageContainer";
+import waveShader from "./WaveShader";
 
 interface FaceLandmarksCanvasProps {
   landmarks: FaceLandmarkResult | null;
@@ -45,32 +47,17 @@ const STROKE_STYLES = {
     color: "rgba(255, 255, 255, 0.7)",
     width: 2,
     pulseRange: 0.8,
-    speed: 1.5,
+    speed: 2,
     pulseSpeed: 2000,
   },
   feature: {
-    color: "rgba(255, 255, 255, 0.6)",
-    width: 1.5,
+    color: "rgba(255, 255, 255, 0.3)",
+    width: 1,
     pulseRange: 0.6,
-    speed: 0.5,
+    speed: 1,
     pulseSpeed: 1500,
   },
 } as const;
-
-const GRADIENT_WIDTH = 0.4;
-
-// Enhanced gradient for better visual effect
-const GRADIENT_COLORS = [
-  "#FFFFFF00",
-  "#FFFFFF40",
-  "#FFFFFFCC",
-  "#FFFFFF",
-  "#FFFFFFCC",
-  "#FFFFFF40",
-  "#FFFFFF00",
-];
-
-const GRADIENT_STOPS = [0, 0.2, 0.4, 0.5, 0.6, 0.8, 1];
 
 export const FaceLandmarksCanvas = ({
   landmarks,
@@ -80,39 +67,29 @@ export const FaceLandmarksCanvas = ({
 }: FaceLandmarksCanvasProps) => {
   if (!landmarks || !Array.isArray(landmarks.faceOval)) return null;
 
-  // Use a general number type for strokeWidth
-  const strokeWidth = useSharedValue<number>(STROKE_STYLES.feature.width);
   const localGradientPosition = useSharedValue<number>(0);
-  const pulsePhase = useSharedValue<number>(0);
+  const shaderTime = useSharedValue(0);
+
+  const shaderUniforms = useDerivedValue(() => {
+    return {
+      time: shaderTime.value,
+      resolution: [imageDimensions.width, imageDimensions.height],
+    };
+  }, [shaderTime.value]);
 
   useEffect(() => {
-    // Enhanced stroke pulse animation with phase offset
-    strokeWidth.value = withRepeat(
-      withTiming(
-        STROKE_STYLES.feature.width * (1 + STROKE_STYLES.feature.pulseRange),
-        {
-          duration: STROKE_STYLES.feature.pulseSpeed || 1500,
-          easing: Easing.inOut(Easing.quad),
-        }
-      ),
-      -1,
-      true
-    );
-
-    // Gradient rotation with dynamic speed
     localGradientPosition.value = withRepeat(
       withTiming(1, {
-        duration: 3000 / (STROKE_STYLES.feature.speed || 1),
+        duration: 10000 / 3,
         easing: Easing.linear,
       }),
       -1,
       false
     );
 
-    // Additional phase animation for more organic movement
-    pulsePhase.value = withRepeat(
-      withTiming(2 * Math.PI, {
-        duration: 4000,
+    shaderTime.value = withRepeat(
+      withTiming(-10, {
+        duration: 10000 / 2,
         easing: Easing.linear,
       }),
       -1,
@@ -160,7 +137,7 @@ export const FaceLandmarksCanvas = ({
     const bounds = path.getBounds();
 
     const start = useDerivedValue(() => {
-      const normalizedPos = localGradientPosition.value % 1;
+      const normalizedPos = localGradientPosition.value;
       const angle = normalizedPos * 2 * Math.PI;
       return vec(
         bounds.x + bounds.width * 0.5 + Math.cos(angle) * bounds.width * 0.5,
@@ -169,7 +146,7 @@ export const FaceLandmarksCanvas = ({
     });
 
     const end = useDerivedValue(() => {
-      const normalizedPos = (localGradientPosition.value + GRADIENT_WIDTH) % 1;
+      const normalizedPos = localGradientPosition.value - 0.5;
       const angle = normalizedPos * 2 * Math.PI;
       return vec(
         bounds.x + bounds.width * 0.5 + Math.cos(angle) * bounds.width * 0.5,
@@ -178,34 +155,25 @@ export const FaceLandmarksCanvas = ({
     });
 
     return (
-      <Group>
-        <Path
-          path={path}
-          style="stroke"
-          strokeWidth={strokeWidth}
-          strokeJoin="round"
-          strokeCap="round"
-          opacity={0.9}
-          color="white"
-        >
-          <BlurMask blur={5} style="normal" />
-        </Path>
+      <Group key={featureKey}>
+        {featureKey === "faceOval" && (
+          <Path path={path} style="fill" opacity={0.8}>
+            <Shader source={waveShader} uniforms={shaderUniforms} />
+            <BlurMask blur={10} style="normal" />
+          </Path>
+        )}
 
-        <Path
+        {/* <Path
           path={path}
           style="stroke"
-          strokeWidth={strokeWidth}
+          strokeWidth={featureKey === "faceOval" ? 10 : 3}
           strokeJoin="round"
+          color="white"
           strokeCap="round"
+          opacity={featureKey === "faceOval" ? 1 : 0.1}
         >
-          <LinearGradient
-            start={start}
-            end={end}
-            colors={GRADIENT_COLORS}
-            positions={GRADIENT_STOPS}
-          />
-          <BlurMask blur={8} style="solid" />
-        </Path>
+          <BlurMask blur={10} style="normal" />
+        </Path> */}
       </Group>
     );
   };
@@ -226,9 +194,9 @@ export const FaceLandmarksCanvas = ({
           key={`debug-${index}`}
           cx={(x / originalImageSize.width) * imageDimensions.width}
           cy={(y / originalImageSize.height) * imageDimensions.height}
-          r={1.5}
+          r={1}
           color={color}
-          opacity={0.8}
+          opacity={1}
         />
       );
     });
@@ -274,13 +242,13 @@ export const FaceLandmarksCanvas = ({
       {renderFeature(
         landmarks.upperLips,
         STROKE_STYLES.feature,
-        false,
+        true,
         "upperLips"
       )}
       {renderFeature(
         landmarks.lowerLips,
         STROKE_STYLES.feature,
-        false,
+        true,
         "lowerLips"
       )}
 
@@ -299,6 +267,6 @@ const styles = StyleSheet.create({
   canvas: {
     position: "absolute",
     backgroundColor: "transparent",
-    opacity: 0.5,
+    opacity: 1,
   },
 });

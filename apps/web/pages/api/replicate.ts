@@ -27,20 +27,6 @@ type ReplicateResponse = string[];
 
 const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN,
-  // fetch: (url, options) => {
-  //   console.log({
-  //     message: "Replicate call",
-  //     url,
-  //     options,
-  //   });
-  //   return fetch(url, {
-  //     ...options,
-  //     headers: {
-  //       ...options?.headers,
-  //       Prefer: "wait=120", // Increase wait time to 120 seconds
-  //     },
-  //   });
-  // },
 });
 
 const CACHE_VERSION = "v1";

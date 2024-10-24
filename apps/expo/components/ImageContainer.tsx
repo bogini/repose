@@ -17,11 +17,11 @@ import { debounce } from "lodash";
 
 // Animation constants
 const LOADING_ANIMATION = {
-  IMAGE_OPACITY_DURATION_MS: 150,
-  CANVAS_OPACITY_DURATION_MS: 50,
-  PULSE_DURATION_MS: 1500,
-  PULSE_OPACITY: 0.7,
-  PULSE_IMAGE_BLUR: 7,
+  IMAGE_OPACITY_DURATION_MS: 200,
+  CANVAS_OPACITY_DURATION_MS: 2000,
+  PULSE_DURATION_MS: 1000,
+  PULSE_OPACITY: 0.8,
+  IMAGE_BLUR: 0,
 };
 
 const IMAGE_TRANSITION = {
@@ -243,7 +243,6 @@ export const ImageContainer = ({
 
   const canvasOpacity = useSharedValue(0);
   const loadingOpacity = useSharedValue(1);
-  const loadingBlur = useSharedValue(0);
 
   useEffect(() => {
     canvasOpacity.value = withSpring(loading || debug ? 1 : 0, {
@@ -251,7 +250,6 @@ export const ImageContainer = ({
     });
 
     if (loading) {
-      // Smoother loading animation with sequential timing
       loadingOpacity.value = withRepeat(
         withTiming(LOADING_ANIMATION.PULSE_OPACITY, {
           duration: LOADING_ANIMATION.PULSE_DURATION_MS,
@@ -260,19 +258,8 @@ export const ImageContainer = ({
         -1,
         true
       );
-      loadingBlur.value = withRepeat(
-        withTiming(LOADING_ANIMATION.PULSE_IMAGE_BLUR, {
-          duration: LOADING_ANIMATION.PULSE_DURATION_MS,
-          easing: Easing.inOut(Easing.sin),
-        }),
-        -1,
-        true
-      );
     } else {
       loadingOpacity.value = withTiming(1, {
-        duration: LOADING_ANIMATION.IMAGE_OPACITY_DURATION_MS,
-      });
-      loadingBlur.value = withTiming(0, {
         duration: LOADING_ANIMATION.IMAGE_OPACITY_DURATION_MS,
       });
     }
@@ -294,7 +281,7 @@ export const ImageContainer = ({
           cachePolicy={"memory-disk"}
           placeholder={{ uri: lastLoadedImage || originalImageUrl }}
           placeholderContentFit="cover"
-          blurRadius={loading ? loadingBlur.value : 0}
+          blurRadius={loading ? LOADING_ANIMATION.IMAGE_BLUR : 0}
           allowDownscaling={false}
           priority={"high"}
           style={styles.fullSize}
@@ -307,7 +294,7 @@ export const ImageContainer = ({
           onLayout={handleImageLayout}
         />
       </Animated.View>
-      {detectFace && landmarks && imageLayout && imageDimensions && (
+      {detectFace && imageLayout && imageDimensions && (
         <Animated.View style={[styles.canvasContainer, canvasAnimatedStyle]}>
           <FaceLandmarksCanvas
             debug={debug}
@@ -325,7 +312,6 @@ const styles = StyleSheet.create({
   fullSize: {
     width: "100%",
     height: "100%",
-    backgroundColor: "white",
   },
   canvasContainer: {
     position: "absolute",

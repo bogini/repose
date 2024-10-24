@@ -65,7 +65,6 @@ class ReplicateService {
   private cancelTokenSource = axios.CancelToken.source();
   private inMemoryCache: Record<string, string> = {};
   private prefetchQueue: Set<string> = new Set();
-  private isCachingInProgress = false;
 
   private async getFromCache(key: string): Promise<string | undefined> {
     // Try memory cache first
