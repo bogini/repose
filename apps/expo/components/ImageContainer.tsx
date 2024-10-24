@@ -15,14 +15,16 @@ import { useFaceDetector } from "@infinitered/react-native-mlkit-face-detection"
 import * as FileSystem from "expo-file-system";
 import { debounce } from "lodash";
 import { FeatureKey } from "../lib/faceControl";
+import { SelfieSegmentationDetector } from "../api/segmentation";
+import { SegmentationCanvas } from "./SegmentationCanvas";
 
 // Animation constants
 const LOADING_ANIMATION = {
   IMAGE_OPACITY_DURATION_MS: 200,
   CANVAS_OPACITY_DURATION_MS: 2000,
   PULSE_DURATION_MS: 1000,
-  PULSE_OPACITY_TO: 0.4,
-  PULSE_OPACITY_FROM: 0.7,
+  PULSE_OPACITY_TO: 1,
+  PULSE_OPACITY_FROM: 1,
   IMAGE_BLUR: 0,
 };
 
@@ -118,6 +120,9 @@ export const ImageContainer = ({
     undefined
   );
   const [landmarks, setLandmarks] = useState<FaceLandmarkResult | null>(null);
+  const [segmentationPath, setSegmentationPath] = useState<
+    [number, number][] | null
+  >([]);
   const [imageLayout, setImageLayout] = useState<{
     width: number;
     height: number;
@@ -126,9 +131,9 @@ export const ImageContainer = ({
   } | null>(null);
   const [originalImageSize, setOriginalImageSize] =
     useState(DEFAULT_IMAGE_SIZE);
-  const detector = useFaceDetector();
+  const faceDetector = useFaceDetector();
 
-  const detectorOptions = useMemo(() => DETECTOR_OPTIONS, []);
+  const faceDetectorOptions = useMemo(() => DETECTOR_OPTIONS, []);
 
   const downloadAndDetectFace = useCallback(async () => {
     if (!detectFace || !imageUrl) return;
@@ -143,8 +148,8 @@ export const ImageContainer = ({
         await FileSystem.downloadAsync(imageUrl, localUri);
       }
 
-      await detector.initialize(detectorOptions);
-      const result = await detector.detectFaces(localUri);
+      await faceDetector.initialize(faceDetectorOptions);
+      const result = await faceDetector.detectFaces(localUri);
 
       if (!result || result.error || !result.faces.length) {
         return;
@@ -185,18 +190,35 @@ export const ImageContainer = ({
       };
 
       setLandmarks(landmarks);
-      await FileSystem.deleteAsync(localUri);
+      FileSystem.deleteAsync(localUri).catch(console.error);
     } catch (error) {
       console.error("Error detecting face landmarks:", error);
       setLandmarks(null);
     }
-  }, [imageUrl, detectFace, detector, detectorOptions]);
+  }, [imageUrl, detectFace, faceDetector, faceDetectorOptions]);
+
+  const detectBackground = useCallback(async () => {
+    if (!detectFace || !imageUrl) {
+      setSegmentationPath(null);
+      return;
+    }
+
+    try {
+      const segmenter = SelfieSegmentationDetector.getInstance();
+      await segmenter.initialize();
+      const segmentationPath = await segmenter.segmentImage(imageUrl);
+      setSegmentationPath(segmentationPath);
+    } catch (error) {
+      console.error("Error detecting background:", error);
+      setSegmentationPath(null);
+    }
+  }, [imageUrl, detectFace, originalImageSize.width, originalImageSize.height]);
 
   const debouncedDetectFace = useMemo(
     () =>
       debounce(
         async () => {
-          await downloadAndDetectFace();
+          await Promise.all([downloadAndDetectFace(), detectBackground()]);
         },
         75,
         {
@@ -308,6 +330,13 @@ export const ImageContainer = ({
             imageDimensions={imageDimensions}
             featureFilter={selectedControl ? [selectedControl] : undefined}
             originalImageSize={originalImageSize}
+          />
+
+          <SegmentationCanvas
+            path={segmentationPath ? segmentationPath : []}
+            imageDimensions={imageDimensions}
+            originalImageSize={originalImageSize}
+            debug={debug}
           />
         </Animated.View>
       )}
