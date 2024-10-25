@@ -15,13 +15,14 @@ import { useFaceDetector } from "@infinitered/react-native-mlkit-face-detection"
 import * as FileSystem from "expo-file-system";
 import { debounce } from "lodash";
 import { FeatureKey } from "../lib/faceControl";
-import { SelfieSegmentationDetector } from "../api/segmentation";
-import { SegmentationCanvas } from "./SegmentationCanvas";
+import { Segments, SelfieSegmentationDetector } from "../api/segmentation";
+import { SegmentsCanvas } from "./SegmentsCanvas";
+import { memo } from "react";
 
 // Animation constants
 const LOADING_ANIMATION = {
   IMAGE_OPACITY_DURATION_MS: 200,
-  CANVAS_OPACITY_DURATION_MS: 2000,
+  CANVAS_OPACITY_DURATION_MS: 1000,
   PULSE_DURATION_MS: 1000,
   PULSE_OPACITY_TO: 1,
   PULSE_OPACITY_FROM: 1,
@@ -34,15 +35,9 @@ const IMAGE_TRANSITION = {
 } as const;
 
 const DEFAULT_IMAGE_SIZE = {
-  width: 1024,
-  height: 1024,
+  width: 512,
+  height: 512,
 };
-
-const DETECTOR_OPTIONS = {
-  performanceMode: "fast",
-  landmarkMode: false,
-  contourMode: true,
-} as const;
 
 export type LandmarkLocation = [number, number]; // [x, y] coordinates
 
@@ -66,79 +61,18 @@ interface ImageContainerProps {
   selectedControl?: FeatureKey;
 }
 
-const calculateImageDimensions = (
-  containerWidth: number,
-  containerHeight: number,
-  imageWidth: number,
-  imageHeight: number,
-  contentFit: "cover" | "contain" = "cover"
+const useFaceLandmarks = (
+  imageUrl: string | undefined,
+  detectFace: boolean,
+  detectorsInitialized: boolean,
+  faceDetector: any
 ) => {
-  const imageAspectRatio = imageWidth / imageHeight;
-  const containerAspectRatio = containerWidth / containerHeight;
-
-  let width,
-    height,
-    x = 0,
-    y = 0;
-
-  if (contentFit === "cover") {
-    if (containerAspectRatio > imageAspectRatio) {
-      width = containerWidth;
-      height = containerWidth / imageAspectRatio;
-      y = (containerHeight - height) / 2;
-    } else {
-      height = containerHeight;
-      width = containerHeight * imageAspectRatio;
-      x = (containerWidth - width) / 2;
-    }
-  } else {
-    // contain
-    if (containerAspectRatio > imageAspectRatio) {
-      height = containerHeight;
-      width = containerHeight * imageAspectRatio;
-      x = (containerWidth - width) / 2;
-    } else {
-      width = containerWidth;
-      height = containerWidth / imageAspectRatio;
-      y = (containerHeight - height) / 2;
-    }
-  }
-
-  return { width, height, x, y };
-};
-
-export const ImageContainer = ({
-  loading = false,
-  imageUrl,
-  originalImageUrl,
-  detectFace = false,
-  debug = false,
-  selectedControl,
-}: ImageContainerProps) => {
-  loading = true;
-  const [lastLoadedImage, setLastLoadedImage] = useState<string | undefined>(
-    undefined
-  );
   const [landmarks, setLandmarks] = useState<FaceLandmarkResult | null>(null);
-  const [segmentationPath, setSegmentationPath] = useState<
-    [number, number][] | null
-  >([]);
-  const [imageLayout, setImageLayout] = useState<{
-    width: number;
-    height: number;
-    x: number;
-    y: number;
-  } | null>(null);
-  const [originalImageSize, setOriginalImageSize] =
-    useState(DEFAULT_IMAGE_SIZE);
-  const faceDetector = useFaceDetector();
 
-  const faceDetectorOptions = useMemo(() => DETECTOR_OPTIONS, []);
+  const detectFaceLandmarks = useCallback(async () => {
+    if (!detectFace || !imageUrl || !detectorsInitialized) return;
 
-  const downloadAndDetectFace = useCallback(async () => {
-    if (!detectFace || !imageUrl) return;
-
-    setLandmarks(null);
+    const startTime = performance.now();
 
     try {
       const localUri = `${FileSystem.cacheDirectory}${imageUrl.split("/").pop()}`;
@@ -148,7 +82,6 @@ export const ImageContainer = ({
         await FileSystem.downloadAsync(imageUrl, localUri);
       }
 
-      await faceDetector.initialize(faceDetectorOptions);
       const result = await faceDetector.detectFaces(localUri);
 
       if (!result || result.error || !result.faces.length) {
@@ -157,8 +90,8 @@ export const ImageContainer = ({
 
       const face = result.faces[0];
       const getContourPoints = (type: string): LandmarkLocation[] => {
-        const contour = face.contours?.find((c) => c.type === type);
-        return contour?.points?.map((p) => [p.x, p.y]) ?? [];
+        const contour = face.contours?.find((c: any) => c.type === type);
+        return contour?.points?.map((p: any) => [p.x, p.y]) ?? [];
       };
 
       const landmarks = {
@@ -194,79 +127,137 @@ export const ImageContainer = ({
     } catch (error) {
       console.error("Error detecting face landmarks:", error);
       setLandmarks(null);
+    } finally {
+      const endTime = performance.now();
+      console.log(`Face landmark detection took ${endTime - startTime} ms`);
     }
-  }, [imageUrl, detectFace, faceDetector, faceDetectorOptions]);
+  }, [imageUrl, detectFace, faceDetector, detectorsInitialized]);
+
+  return { landmarks, detectFaceLandmarks };
+};
+
+const useBackgroundSegmentation = (
+  imageUrl: string | undefined,
+  detectFace: boolean,
+  detectorsInitialized: boolean
+) => {
+  const [segments, setSegments] = useState<Segments | null>(null);
 
   const detectBackground = useCallback(async () => {
-    if (!detectFace || !imageUrl) {
-      setSegmentationPath(null);
-      return;
-    }
+    if (!detectFace || !imageUrl || !detectorsInitialized) return;
+
+    const startTime = performance.now();
 
     try {
       const segmenter = SelfieSegmentationDetector.getInstance();
-      await segmenter.initialize();
       const segmentationPath = await segmenter.segmentImage(imageUrl);
-      setSegmentationPath(segmentationPath);
+      setSegments(segmentationPath);
     } catch (error) {
       console.error("Error detecting background:", error);
-      setSegmentationPath(null);
+      setSegments(null);
+    } finally {
+      const endTime = performance.now();
+      console.log(`Background segmentation took ${endTime - startTime} ms`);
     }
-  }, [imageUrl, detectFace, originalImageSize.width, originalImageSize.height]);
+  }, [imageUrl, detectFace, detectorsInitialized]);
 
-  const debouncedDetectFace = useMemo(
+  return { segments, detectBackground };
+};
+
+const ImageContainerComponent = ({
+  loading = false,
+  imageUrl,
+  originalImageUrl,
+  detectFace = false,
+  debug = false,
+  selectedControl,
+}: ImageContainerProps) => {
+  loading = true;
+  const [lastLoadedImage, setLastLoadedImage] = useState<string | undefined>(
+    undefined
+  );
+
+  const faceDetector = useFaceDetector();
+  const [detectorsInitialized, setDetectorsInitialized] = useState(false);
+  const [layoutDimensions, setLayoutDimensions] = useState(DEFAULT_IMAGE_SIZE);
+
+  const debouncedSetLayout = useMemo(
+    () =>
+      debounce(
+        (width: number, height: number) => {
+          setLayoutDimensions({ width, height });
+        },
+        20,
+        { trailing: true }
+      ),
+    []
+  );
+
+  useEffect(() => {
+    const initializeDetectors = async () => {
+      if (detectFace && !detectorsInitialized) {
+        const startTime = performance.now();
+        try {
+          const faceDetectorPromise = faceDetector.initialize({
+            performanceMode: "fast",
+            landmarkMode: false,
+            contourMode: true,
+          });
+          const segmenter = SelfieSegmentationDetector.getInstance();
+          const segmenterPromise = segmenter.initialize();
+          await Promise.all([faceDetectorPromise, segmenterPromise]);
+          setDetectorsInitialized(true);
+        } catch (error) {
+          console.error("Error initializing detectors:", error);
+        } finally {
+          const endTime = performance.now();
+          console.log(
+            `Detectors initialization took ${endTime - startTime} ms`
+          );
+        }
+      }
+    };
+
+    initializeDetectors();
+  }, [detectFace, detectorsInitialized, faceDetector]);
+
+  const { landmarks, detectFaceLandmarks } = useFaceLandmarks(
+    imageUrl,
+    detectFace,
+    detectorsInitialized,
+    faceDetector
+  );
+  const { segments, detectBackground } = useBackgroundSegmentation(
+    imageUrl,
+    detectFace,
+    detectorsInitialized
+  );
+
+  const debounced = useMemo(
     () =>
       debounce(
         async () => {
-          await Promise.all([downloadAndDetectFace(), detectBackground()]);
+          console.log("debounced");
+          await Promise.all([detectFaceLandmarks(), detectBackground()]);
         },
-        75,
+        200,
         {
           leading: false,
           trailing: true,
         }
       ),
-    [downloadAndDetectFace]
+    [detectFaceLandmarks, detectBackground]
   );
 
   useEffect(() => {
-    if (imageUrl) {
-      setLandmarks(null);
-      debouncedDetectFace();
+    if (imageUrl && detectFace) {
+      debounced();
+
       return () => {
-        debouncedDetectFace.cancel();
+        debounced.cancel();
       };
     }
-  }, [imageUrl]);
-
-  const handleImageLayout = useCallback((event: LayoutChangeEvent) => {
-    const { width, height, x, y } = event.nativeEvent.layout;
-    setImageLayout({ width, height, x, y });
-  }, []);
-
-  const imageDimensions = useMemo(() => {
-    return imageLayout
-      ? calculateImageDimensions(
-          imageLayout.width,
-          imageLayout.height,
-          originalImageSize.width,
-          originalImageSize.height,
-          "cover"
-        )
-      : null;
-  }, [imageLayout, originalImageSize]);
-
-  useEffect(() => {
-    if (imageUrl) {
-      PhotosService.getImageDimensions(imageUrl)
-        .then((dimensions) => {
-          setOriginalImageSize(dimensions);
-        })
-        .catch((error) => {
-          console.error("Error getting image dimensions:", error);
-        });
-    }
-  }, [imageUrl]);
+  }, [imageUrl, debounced, detectFace]);
 
   const canvasOpacity = useSharedValue(0);
   const loadingOpacity = useSharedValue(1);
@@ -291,7 +282,7 @@ export const ImageContainer = ({
         duration: LOADING_ANIMATION.IMAGE_OPACITY_DURATION_MS,
       });
     }
-  }, [loading, debug]);
+  }, [loading, debug, canvasOpacity, loadingOpacity]);
 
   const imageAnimatedStyle = useAnimatedStyle(() => ({
     opacity: loadingOpacity.value,
@@ -303,7 +294,7 @@ export const ImageContainer = ({
 
   return (
     <View style={[styles.fullSize]}>
-      <Animated.View style={[styles.fullSize, imageAnimatedStyle]}>
+      <Animated.View style={[imageAnimatedStyle]}>
         <Image
           source={{ uri: imageUrl }}
           cachePolicy={"memory-disk"}
@@ -315,27 +306,28 @@ export const ImageContainer = ({
           style={styles.fullSize}
           transition={IMAGE_TRANSITION}
           contentFit="cover"
-          onLoadStart={() => {}}
           onLoadEnd={() => {
             setLastLoadedImage(imageUrl);
           }}
-          onLayout={handleImageLayout}
+          onLayout={(event: LayoutChangeEvent) => {
+            const { width, height } = event.nativeEvent.layout;
+            debouncedSetLayout(width, height);
+          }}
         />
       </Animated.View>
-      {detectFace && imageLayout && imageDimensions && (
+      {detectFace && (
         <Animated.View style={[styles.canvasContainer, canvasAnimatedStyle]}>
           <FaceLandmarksCanvas
             debug={debug}
             landmarks={landmarks}
-            imageDimensions={imageDimensions}
+            imageDimensions={layoutDimensions}
             featureFilter={selectedControl ? [selectedControl] : undefined}
-            originalImageSize={originalImageSize}
+            originalImageSize={DEFAULT_IMAGE_SIZE}
           />
-
-          <SegmentationCanvas
-            path={segmentationPath ? segmentationPath : []}
-            imageDimensions={imageDimensions}
-            originalImageSize={originalImageSize}
+          <SegmentsCanvas
+            segments={segments}
+            imageDimensions={layoutDimensions}
+            originalImageSize={DEFAULT_IMAGE_SIZE}
             debug={debug}
           />
         </Animated.View>
@@ -344,6 +336,20 @@ export const ImageContainer = ({
   );
 };
 
+export const ImageContainer = memo(
+  ImageContainerComponent,
+  (prevProps, nextProps) => {
+    return (
+      prevProps.loading === nextProps.loading &&
+      prevProps.imageUrl === nextProps.imageUrl &&
+      prevProps.originalImageUrl === nextProps.originalImageUrl &&
+      prevProps.detectFace === nextProps.detectFace &&
+      prevProps.debug === nextProps.debug &&
+      prevProps.selectedControl === nextProps.selectedControl
+    );
+  }
+);
+
 const styles = StyleSheet.create({
   fullSize: {
     width: "100%",
@@ -351,11 +357,5 @@ const styles = StyleSheet.create({
   },
   canvasContainer: {
     position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: "center",
-    alignItems: "center",
   },
 });

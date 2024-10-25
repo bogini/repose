@@ -25,8 +25,6 @@ interface FaceLandmarksCanvasProps {
   imageDimensions: {
     width: number;
     height: number;
-    x: number;
-    y: number;
   };
   originalImageSize: { width: number; height: number };
   debug?: boolean;
@@ -65,7 +63,7 @@ export const FaceLandmarksCanvas = ({
   useEffect(() => {
     shaderTime.value = withRepeat(
       withTiming(-10, {
-        duration: 5000,
+        duration: 15000,
         easing: Easing.linear,
       }),
       -1,
@@ -73,48 +71,35 @@ export const FaceLandmarksCanvas = ({
     );
   }, []);
 
+  const scale = useMemo(() => {
+    return Math.max(
+      imageDimensions.width / originalImageSize.width,
+      imageDimensions.height / originalImageSize.height
+    );
+  }, [
+    imageDimensions.width,
+    imageDimensions.height,
+    originalImageSize.width,
+    originalImageSize.height,
+  ]);
+
   const createPath = useCallback(
     (points: LandmarkLocation[] | undefined, shouldClose = true) => {
       if (!points?.length) return Skia.Path.Make();
 
       const path = Skia.Path.Make();
       const [firstX, firstY] = points[0];
-      const scaleX = imageDimensions.width / originalImageSize.width;
-      const scaleY = imageDimensions.height / originalImageSize.height;
 
-      path.moveTo(firstX * scaleX, firstY * scaleY);
+      path.moveTo(firstX * scale, firstY * scale);
 
       points.slice(1).forEach(([x, y]) => {
-        path.lineTo(x * scaleX, y * scaleY);
+        path.lineTo(x * scale, y * scale);
       });
 
       if (shouldClose) path.close();
       return path;
     },
-    [
-      imageDimensions.width,
-      imageDimensions.height,
-      originalImageSize.width,
-      originalImageSize.height,
-    ]
-  );
-
-  const featureOpacity = useCallback(
-    (featureKey: string): number => {
-      // if (!featureFilter) return 1;
-
-      // const groupName =
-      //   featureToGroupMap[featureKey as keyof typeof featureToGroupMap];
-      // const isFeatureEnabled = featureFilter.includes(groupName);
-
-      // // Nearly transparent for disabled features
-      // if (!isFeatureEnabled) {
-      //   return 0.01;
-      // }
-
-      return featureKey === "faceOval" ? 0.2 : 0.5;
-    },
-    [featureFilter]
+    [scale]
   );
 
   const renderFeature = useCallback(
@@ -127,34 +112,25 @@ export const FaceLandmarksCanvas = ({
 
       return (
         <Group key={featureKey}>
-          <Path
-            path={createPath(points, shouldClose)}
-            style="fill"
-            opacity={featureOpacity(featureKey)}
-          >
-            <Shader source={waveShader} uniforms={shaderUniforms} />
-            <BlurMask blur={10} style="normal" />
-          </Path>
-
-          {/* <Path
-            path={createPath(points, shouldClose)}
-            style="stroke"
-            strokeWidth={0.5}
-            opacity={featureOpacity(featureKey)}
-            color="white"
-          /> */}
+          {featureKey === "faceOval" && (
+            <Path
+              path={createPath(points, shouldClose)}
+              style="fill"
+              opacity={0.1}
+            >
+              <Shader source={waveShader} uniforms={shaderUniforms} />
+              <BlurMask blur={5} style="normal" />
+            </Path>
+          )}
         </Group>
       );
     },
-    [createPath, shaderUniforms, featureOpacity]
+    [createPath, shaderUniforms]
   );
 
   const renderDebugPoints = useCallback(
     (points: LandmarkLocation[] | undefined, color = "#00FF00") => {
       if (!points?.length || !debug) return null;
-
-      const scaleX = imageDimensions.width / originalImageSize.width;
-      const scaleY = imageDimensions.height / originalImageSize.height;
 
       return points.map((point, index) => {
         if (!Array.isArray(point) || point.length !== 2) return null;
@@ -164,8 +140,8 @@ export const FaceLandmarksCanvas = ({
         return (
           <Circle
             key={`debug-${index}`}
-            cx={x * scaleX}
-            cy={y * scaleY}
+            cx={x * scale}
+            cy={y * scale}
             r={1}
             color={color}
             opacity={1}
@@ -173,13 +149,7 @@ export const FaceLandmarksCanvas = ({
         );
       });
     },
-    [
-      debug,
-      imageDimensions.width,
-      imageDimensions.height,
-      originalImageSize.width,
-      originalImageSize.height,
-    ]
+    [debug, scale]
   );
 
   const canvasStyle = useMemo(
@@ -188,8 +158,6 @@ export const FaceLandmarksCanvas = ({
       {
         width: imageDimensions.width,
         height: imageDimensions.height,
-        left: imageDimensions.x,
-        top: imageDimensions.y,
       },
     ],
     [imageDimensions]
@@ -197,19 +165,29 @@ export const FaceLandmarksCanvas = ({
 
   return (
     <Canvas style={canvasStyle}>
-      {featureConfig.map(
-        ({ key }) =>
-          featureOpacity(key) && (
-            <Group key={key}>
-              {renderFeature(landmarks[key], true, key)}
-              {debug &&
-                renderDebugPoints(
-                  landmarks[key],
-                  featureConfig.find((f) => f.key === key)?.debugColor
-                )}
-            </Group>
-          )
-      )}
+      <Group
+        transform={[
+          {
+            translateX:
+              (imageDimensions.width - originalImageSize.width * scale) / 2,
+          },
+          {
+            translateY:
+              (imageDimensions.height - originalImageSize.height * scale) / 2,
+          },
+        ]}
+      >
+        {featureConfig.map(({ key }) => (
+          <Group key={key}>
+            {renderFeature(landmarks[key], true, key)}
+            {debug &&
+              renderDebugPoints(
+                landmarks[key],
+                featureConfig.find((f) => f.key === key)?.debugColor
+              )}
+          </Group>
+        ))}
+      </Group>
     </Canvas>
   );
 };
