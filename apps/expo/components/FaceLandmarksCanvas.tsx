@@ -41,6 +41,9 @@ const featureConfig = [
   { key: "lowerLips", debugColor: "#FF00FF" },
 ] as const;
 
+const BLUR_AMOUNT = 2;
+const FACE_FEATURE_OPACITY = 0.1;
+
 export const FaceLandmarksCanvas = ({
   landmarks,
   imageDimensions,
@@ -57,31 +60,26 @@ export const FaceLandmarksCanvas = ({
       time: shaderTime.value,
       resolution: [imageDimensions.width, imageDimensions.height],
     }),
-    [shaderTime.value, imageDimensions.width, imageDimensions.height]
+    [shaderTime, imageDimensions]
   );
 
   useEffect(() => {
     shaderTime.value = withRepeat(
       withTiming(-10, {
-        duration: 15000,
+        duration: 20000,
         easing: Easing.linear,
       }),
       -1,
       false
     );
-  }, []);
+  }, [shaderTime]);
 
   const scale = useMemo(() => {
     return Math.max(
       imageDimensions.width / originalImageSize.width,
       imageDimensions.height / originalImageSize.height
     );
-  }, [
-    imageDimensions.width,
-    imageDimensions.height,
-    originalImageSize.width,
-    originalImageSize.height,
-  ]);
+  }, [imageDimensions, originalImageSize]);
 
   const createPath = useCallback(
     (points: LandmarkLocation[] | undefined, shouldClose = true) => {
@@ -112,14 +110,14 @@ export const FaceLandmarksCanvas = ({
 
       return (
         <Group key={featureKey}>
-          {featureKey === "faceOval" && (
+          {featureKey !== "faceOval" && (
             <Path
               path={createPath(points, shouldClose)}
               style="fill"
-              opacity={0.1}
+              opacity={FACE_FEATURE_OPACITY}
             >
               <Shader source={waveShader} uniforms={shaderUniforms} />
-              <BlurMask blur={5} style="normal" />
+              <BlurMask blur={BLUR_AMOUNT} style="normal" />
             </Path>
           )}
         </Group>
@@ -144,7 +142,6 @@ export const FaceLandmarksCanvas = ({
             cy={y * scale}
             r={1}
             color={color}
-            opacity={1}
           />
         );
       });

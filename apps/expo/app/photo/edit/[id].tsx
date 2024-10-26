@@ -177,6 +177,7 @@ export default function EditScreen() {
       <FaceControlsComponent
         controls={FACE_CONTROLS}
         faceValues={faceValues}
+        loading={loading}
         onFaceValuesChange={handleFaceValuesChange}
         selectedControlKey={selectedControl.key}
         onControlChange={handleControlChange}

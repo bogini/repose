@@ -7,7 +7,13 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { CarouselSlider } from "./CarouselSlider";
 import { SymbolView } from "expo-symbols";
 import { FaceControl, FaceValues } from "../lib/faceControl";
@@ -16,6 +22,7 @@ import { FaceHorizontal } from "./FaceIcons";
 const ANIMATION_DURATION_MS = 100;
 
 interface FaceControlsComponentProps {
+  loading: boolean;
   controls: FaceControl[];
   faceValues: FaceValues;
   onFaceValuesChange: (values: FaceValues) => void;
@@ -24,6 +31,7 @@ interface FaceControlsComponentProps {
 }
 
 export const FaceControlsComponent = ({
+  loading,
   controls,
   faceValues,
   onFaceValuesChange,
@@ -165,6 +173,7 @@ export const FaceControlsComponent = ({
           renderItem={({ item, animationValue, index }) => (
             <FaceControlIcon
               animationValue={animationValue}
+              loading={loading}
               icon={item.icon}
               onPress={() => {
                 scrollToIndex(index);
@@ -186,52 +195,61 @@ const FaceControlIcon = ({
   icon,
   onPress,
   isSelected,
+  loading,
 }: {
   animationValue: Animated.SharedValue<number>;
   icon: string;
   onPress: () => void;
   isSelected: boolean;
+  loading: boolean;
 }) => {
-  const containerStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
+  const containerStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
       animationValue.value,
       [-1, 0, 1],
       [0.4, 1, 0.4],
       Extrapolation.CLAMP
-    );
-    return { opacity };
-  }, [animationValue]);
+    ),
+  }));
 
-  const borderColorStyle = useAnimatedStyle(() => {
-    const borderColor = isSelected
-      ? withTiming("#FFD409", { duration: 250 })
-      : withTiming("#46454A", { duration: 250 });
-    return { borderColor };
-  }, [isSelected]);
+  const borderColorStyle = useAnimatedStyle(() => ({
+    borderColor: withTiming(isSelected ? "#FFD409" : "#46454A", {
+      duration: 250,
+    }),
+  }));
+
+  const renderIcon = () => {
+    if (loading && isSelected) {
+      return <ActivityIndicator size="small" color="#8E8D93" />;
+    }
+
+    if (icon === "face.smiling") {
+      return <FaceHorizontal />;
+    }
+
+    return (
+      <SymbolView
+        name={icon as any}
+        weight="regular"
+        style={styles.faceceControlIcon}
+        resizeMode="scaleAspectFit"
+      />
+    );
+  };
 
   return (
     <Pressable onPress={onPress}>
-      <Animated.View
-        style={[
-          { alignItems: "center", justifyContent: "center" },
-          containerStyle,
-        ]}
-      >
+      <View style={styles.faceControlContainer}>
         <Animated.View
-          style={[styles.faceceControlIconContainer, borderColorStyle]}
+          style={[
+            containerStyle,
+            styles.faceControlIconContainer,
+            borderColorStyle,
+          ]}
         >
-          {icon === "face.smiling" ? (
-            <FaceHorizontal />
-          ) : (
-            <SymbolView
-              name={icon as any}
-              weight="regular"
-              style={styles.faceceControlIcon}
-              resizeMode="scaleAspectFit"
-            />
-          )}
+          {renderIcon()}
         </Animated.View>
-      </Animated.View>
+      </View>
     </Pressable>
   );
 };
@@ -258,10 +276,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  faceceControlIconContainer: {
+  faceControlContainer: {
+    marginHorizontal: 22,
+  },
+  faceControlIconContainer: {
     borderRadius: 50,
     padding: 10,
+    height: 56,
+    width: 56,
     borderWidth: 2,
+    borderCurve: "continuous",
+    alignItems: "center",
+    justifyContent: "center",
   },
   carouselContainer: {
     width: "100%",

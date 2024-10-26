@@ -205,22 +205,25 @@ export const GestureControl: React.FC<GestureControlProps> = ({
     const calculateNewPosition = (value: number, size: number) =>
       value * (size / 2) + size / 2 - FOCAL_POINT_SIZE / 2;
 
-    isAnimating.value = true;
+    // isAnimating.value = true;
+    //
+    // translateX.value = withTiming(
+    //   calculateNewPosition(newX, size.width),
+    //   timingConfig,
+    //   () => {
+    //     isAnimating.value = false;
+    //   }
+    // );
+    // translateY.value = withTiming(
+    //   calculateNewPosition(-newY, size.height),
+    //   timingConfig,
+    //   () => {
+    //     isAnimating.value = false;
+    //   }
+    // );
 
-    translateX.value = withTiming(
-      calculateNewPosition(newX, size.width),
-      timingConfig,
-      () => {
-        isAnimating.value = false;
-      }
-    );
-    translateY.value = withTiming(
-      calculateNewPosition(-newY, size.height),
-      timingConfig,
-      () => {
-        isAnimating.value = false;
-      }
-    );
+    translateX.value = calculateNewPosition(newX, size.width);
+    translateY.value = calculateNewPosition(-newY, size.height);
 
     handleValueChange("handleTap");
   };

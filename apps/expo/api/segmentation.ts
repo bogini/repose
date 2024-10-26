@@ -71,11 +71,10 @@ export class SelfieSegmentationDetector {
       const imageData = await this.prepareImageData(imageUri);
       const masks = await this.runSegmentation(imageData);
 
-      // Cache array length and size calculations
+      // Pre-calculate constants
       const maskSize = INPUT_SIZE.width * INPUT_SIZE.height;
-      const classCount = 6;
+      const numClasses = 6;
 
-      // Create an object to store all segment paths
       const segments: Segments = {
         background: [],
         hair: [],
@@ -85,29 +84,31 @@ export class SelfieSegmentationDetector {
         others: [],
       };
 
-      // Process each class mask
-      for (let classIdx = 0; classIdx < classCount; classIdx++) {
-        const classMask = new Float32Array(maskSize);
+      // Process classes in parallel
+      await Promise.all(
+        [0, 4, 5].map(async (classIdx) => {
+          const classMask = new Float32Array(maskSize);
+          const offset = classIdx;
 
-        for (let i = 0; i < maskSize; i++) {
-          classMask[i] = masks[i * classCount + classIdx];
-        }
+          // Use typed arrays and optimize loop
+          for (let i = 0; i < maskSize; i++) {
+            classMask[i] = masks[i * numClasses + offset];
+          }
 
-        const mask = this.denormalizeMask(
-          classMask,
-          imageData.originalWidth,
-          imageData.originalHeight
-        );
+          const mask = this.denormalizeMask(
+            classMask,
+            imageData.originalWidth,
+            imageData.originalHeight
+          );
 
-        const path = this.maskToPath(
-          mask,
-          imageData.originalWidth,
-          imageData.originalHeight,
-          THRESHOLD
-        );
-
-        segments[CLASS_TO_SEGMENT[classIdx]] = path;
-      }
+          segments[CLASS_TO_SEGMENT[classIdx]] = this.maskToPath(
+            mask,
+            imageData.originalWidth,
+            imageData.originalHeight,
+            THRESHOLD
+          );
+        })
+      );
 
       return segments;
     } catch (error) {
@@ -227,44 +228,46 @@ export class SelfieSegmentationDetector {
     const path: [number, number][] = [];
     const visited = new Set<string>();
 
-    // Helper to check if a pixel is above threshold and within bounds
+    // Pre-calculate width bounds for faster bounds checking
+    const maxX = width - 1;
+    const maxY = height - 1;
+
+    // Optimize isValidPixel with fewer bounds checks
     const isValidPixel = (x: number, y: number): boolean => {
-      if (x < 0 || x >= width || y < 0 || y >= height) return false;
+      if (x < 0 || x > maxX || y < 0 || y > maxY) return false;
       return mask[y * width + x] >= threshold;
     };
 
-    // Helper to create unique key for visited set
-    const getKey = (x: number, y: number): string => `${x},${y}`;
+    // Use a more efficient key generation
+    const getKey = (x: number, y: number): string => x + "," + y;
 
-    // Find leftmost point of the mask as starting point
+    // Find starting point more efficiently by scanning rows
     let startX = -1;
     let startY = -1;
-    let minY = Infinity;
 
-    for (let x = 0; x < width; x++) {
-      for (let y = 0; y < height; y++) {
-        if (isValidPixel(x, y)) {
-          if (y < minY) {
-            startX = x;
-            startY = y;
-            minY = y;
-          }
+    rowLoop: for (let y = 0; y < height; y++) {
+      const rowOffset = y * width;
+      for (let x = 0; x < width; x++) {
+        if (mask[rowOffset + x] >= threshold) {
+          startX = x;
+          startY = y;
+          break rowLoop;
         }
       }
     }
 
     if (startX === -1) return [];
 
-    // Directions for traversal (counter-clockwise)
+    // Cache directions array
     const directions = [
-      [1, 0], // right
-      [1, -1], // up-right
-      [0, -1], // up
-      [-1, -1], // up-left
-      [-1, 0], // left
-      [-1, 1], // down-left
-      [0, 1], // down
-      [1, 1], // down-right
+      [1, 0],
+      [1, -1],
+      [0, -1],
+      [-1, -1],
+      [-1, 0],
+      [-1, 1],
+      [0, 1],
+      [1, 1],
     ];
 
     // Start DFS from topmost leftmost point

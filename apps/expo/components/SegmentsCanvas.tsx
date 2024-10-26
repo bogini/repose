@@ -5,139 +5,225 @@ import {
   Group,
   BlurMask,
   SkPath,
+  Shader,
 } from "@shopify/react-native-skia";
-import { StyleSheet, Text } from "react-native";
-import { memo, useMemo } from "react";
+import { StyleSheet } from "react-native";
+import { memo, useEffect, useMemo, useCallback } from "react";
 import { Segments } from "../api/segmentation";
+import waveShader from "./WaveShader";
+import Animated, {
+  Easing,
+  useDerivedValue,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+  useAnimatedStyle,
+  useAnimatedReaction,
+} from "react-native-reanimated";
 
-// Add segment styling configuration
 const SEGMENT_STYLES = {
-  face: { color: "#FF69B4", opacity: 0.8 }, // Pink
-  hair: { color: "#8B4513", opacity: 0.8 }, // Brown
-  body: { color: "#FFB6C1", opacity: 0.8 }, // Light pink
-  clothes: { color: "#4169E1", opacity: 0.8 }, // Royal blue
-  others: { color: "#808080", opacity: 0.8 }, // Gray
-  background: { color: "#000000", opacity: 0.8 }, // Black
+  face: { opacity: 0, strokeWidth: 2 },
+  hair: { opacity: 0, strokeWidth: 2 },
+  body: { opacity: 1, strokeWidth: 2 },
+  clothes: { opacity: 0.3, strokeWidth: 2 },
+  others: { opacity: 0.4, strokeWidth: 1 },
+  background: { opacity: 0.6, strokeWidth: 3 },
 };
 
 interface SegmentationCanvasProps {
+  visible: boolean;
   segments: Segments | null;
   imageDimensions: {
     width: number;
     height: number;
-  } | null;
+  };
   originalImageSize: { width: number; height: number };
   debug?: boolean;
 }
 
-export const SegmentsCanvas = memo(
-  ({
-    segments,
-    imageDimensions,
-    originalImageSize,
-    debug = false,
-  }: SegmentationCanvasProps) => {
-    console.log("segments", imageDimensions, originalImageSize);
-    if (!segments || !imageDimensions?.width || !imageDimensions?.height)
-      return null;
+export const SegmentsCanvas = ({
+  visible,
+  segments,
+  imageDimensions,
+  originalImageSize,
+  debug = false,
+}: SegmentationCanvasProps) => {
+  const scale = useMemo(() => {
+    return Math.max(
+      imageDimensions.width / originalImageSize.width,
+      imageDimensions.height / originalImageSize.height
+    );
+  }, [
+    imageDimensions.width,
+    imageDimensions.height,
+    originalImageSize.width,
+    originalImageSize.height,
+  ]);
 
-    const scale = useMemo(() => {
-      return Math.max(
-        imageDimensions.width / originalImageSize.width,
-        imageDimensions.height / originalImageSize.height
-      );
-    }, [
-      imageDimensions.width,
-      imageDimensions.height,
-      originalImageSize.width,
-      originalImageSize.height,
-    ]);
+  const segmentPaths = useMemo(() => {
+    const paths: Record<string, SkPath> = {};
 
-    const segmentPaths = useMemo(() => {
-      const paths: Record<string, SkPath> = {};
+    if (!segments) return paths;
 
-      Object.entries(segments).forEach(([segmentName, path]) => {
-        if (!path?.length) return;
+    Object.entries(segments).forEach(([segmentName, path]) => {
+      if (!path?.length) return;
 
-        const segPath = Skia.Path.Make();
-        segPath.moveTo(path[0][0], path[0][1]);
+      const segPath = Skia.Path.Make();
+      segPath.moveTo(path[0][0], path[0][1]);
 
-        for (let i = 1; i < path.length; i++) {
-          segPath.lineTo(path[i][0], path[i][1]);
-        }
+      for (let i = 1; i < path.length; i++) {
+        segPath.lineTo(path[i][0], path[i][1]);
+      }
 
-        paths[segmentName] = segPath;
-      });
+      paths[segmentName] = segPath;
+    });
 
-      return paths;
-    }, [segments]);
+    return paths;
+  }, [segments]);
 
-    const debugPoints = useMemo(() => {
-      if (!debug) return null;
+  const debugPoints = useMemo(() => {
+    if (!debug) return null;
 
-      return Object.values(segmentPaths).map((path, index) => (
-        <Path
-          key={`debug-${index}`}
-          path={path}
-          color="red"
-          style="stroke"
-          strokeWidth={1}
-        />
-      ));
-    }, [debug, segmentPaths]);
+    return Object.values(segmentPaths).map((path, index) => (
+      <Path
+        path={path}
+        key={index}
+        color="red"
+        style="stroke"
+        strokeWidth={1.5}
+      />
+    ));
+  }, [debug, segmentPaths]);
 
-    const canvasStyle = useMemo(
-      () => [
-        styles.canvas,
-        imageDimensions && {
-          width: Math.round(imageDimensions.width),
-          height: Math.round(imageDimensions.height),
-        },
-      ],
-      [imageDimensions]
+  const canvasStyle = useMemo(
+    () => [
+      styles.canvas,
+      imageDimensions && {
+        width: Math.round(imageDimensions.width),
+        height: Math.round(imageDimensions.height),
+      },
+    ],
+    [imageDimensions]
+  );
+
+  const shaderTime = useSharedValue(0);
+  const shaderUniforms = useDerivedValue(
+    () => ({
+      time: shaderTime.value,
+      resolution: [imageDimensions.width, imageDimensions.height],
+    }),
+    [shaderTime, imageDimensions]
+  );
+
+  const backgroundOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    backgroundOpacity.value = withRepeat(
+      withTiming(0.9, {
+        duration: 1000,
+        easing: Easing.inOut(Easing.sin),
+      }),
+      -1,
+      true
     );
 
-    if (!imageDimensions) return null;
+    shaderTime.value = withRepeat(
+      withTiming(-10, {
+        duration: 20000,
+        easing: Easing.linear,
+      }),
+      -1,
+      true
+    );
+
+    return () => {
+      shaderTime.value = 0;
+      backgroundOpacity.value = 0;
+    };
+  }, []);
+
+  const transformGroup = [
+    { scale },
+    {
+      translateX:
+        (imageDimensions.width - originalImageSize.width * scale) / 2 + 7,
+    },
+    {
+      translateY:
+        (imageDimensions.height - originalImageSize.height * scale) / 2,
+    },
+  ];
+
+  const backgroundStyle = useAnimatedStyle(() => ({
+    opacity: backgroundOpacity.value,
+  }));
+
+  const renderBackgroundPath = () => {
+    const backgroundPath = segmentPaths["background"];
+
+    if (!backgroundPath) return null;
 
     return (
-      <Canvas style={canvasStyle}>
-        <Group
-          transform={[
-            { scale },
-            {
-              translateX:
-                (imageDimensions.width - originalImageSize.width * scale) / 2,
-            },
-            {
-              translateY:
-                (imageDimensions.height - originalImageSize.height * scale) / 2,
-            },
-          ]}
+      <Group>
+        <Path
+          path={backgroundPath}
+          style="fill"
+          color="black"
+          opacity={SEGMENT_STYLES["background"].opacity}
         >
-          {Object.entries(segmentPaths).map(([segmentName, path]) => (
-            <Path
-              key={segmentName}
-              path={path}
-              style="fill"
-              color={
-                SEGMENT_STYLES[segmentName as keyof typeof SEGMENT_STYLES].color
-              }
-              opacity={
-                SEGMENT_STYLES[segmentName as keyof typeof SEGMENT_STYLES]
-                  .opacity
-              }
-            >
-              <BlurMask blur={0} style="normal" />
-            </Path>
-          ))}
+          <BlurMask blur={5} style="normal" />
+        </Path>
+      </Group>
+    );
+  };
+
+  const renderSegmentPaths = () => {
+    return Object.entries(segmentPaths)
+      .map(([segmentName, path]) => {
+        if (!path) return null;
+
+        // Type guard to ensure segmentName is a valid key
+        if (!(segmentName in SEGMENT_STYLES)) return null;
+
+        const segmentStyle =
+          SEGMENT_STYLES[segmentName as keyof typeof SEGMENT_STYLES];
+        const strokeWidth = segmentStyle?.strokeWidth ?? 1;
+        const opacity = segmentStyle?.opacity ?? 0;
+
+        if (opacity === 0) return null;
+
+        return (
+          <Path
+            key={segmentName}
+            path={path}
+            strokeWidth={strokeWidth}
+            style="stroke"
+            opacity={opacity}
+          >
+            <Shader source={waveShader} uniforms={shaderUniforms} />
+            <BlurMask blur={strokeWidth} style="normal" />
+          </Path>
+        );
+      })
+      .filter(Boolean);
+  };
+
+  return (
+    <>
+      <Animated.View style={[backgroundStyle]}>
+        <Canvas style={canvasStyle}>
+          <Group transform={transformGroup}>{renderBackgroundPath()}</Group>
+        </Canvas>
+      </Animated.View>
+      <Canvas style={canvasStyle}>
+        <Group transform={transformGroup}>
+          {renderSegmentPaths()}
           {debugPoints}
         </Group>
       </Canvas>
-    );
-  }
-);
-
-SegmentsCanvas.displayName = "SegmentationCanvas";
+    </>
+  );
+};
 
 const styles = StyleSheet.create({
   canvas: {
