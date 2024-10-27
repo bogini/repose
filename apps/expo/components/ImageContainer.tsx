@@ -1,34 +1,19 @@
 import { StyleSheet, View, type LayoutChangeEvent } from "react-native";
 import { Image } from "expo-image";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-  withSpring,
-  Easing,
-  FadeIn,
-  FadeOut,
-} from "react-native-reanimated";
+import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FaceLandmarksCanvas } from "./FaceLandmarksCanvas";
-import { useFaceDetector } from "@infinitered/react-native-mlkit-face-detection";
 import * as FileSystem from "expo-file-system";
 import { debounce } from "lodash";
 import { FeatureKey } from "../lib/faceControl";
 import { Segments, SelfieSegmentationDetector } from "../api/segmentation";
 import { SegmentsCanvas } from "./SegmentsCanvas";
-import { memo } from "react";
+import PhotosService from "../api/photos";
+import { GestureControlValue } from "./GestureControl";
 
 const IMAGE_TRANSITION = {
   duration: 150,
   effect: "cross-dissolve",
 } as const;
-
-const DEFAULT_IMAGE_SIZE = {
-  width: 512,
-  height: 512,
-};
 
 export type LandmarkLocation = [number, number]; // [x, y] coordinates
 
@@ -50,6 +35,7 @@ interface ImageContainerProps {
   detectFace?: boolean;
   debug?: boolean;
   selectedControl?: FeatureKey;
+  gestureControlValue?: GestureControlValue;
 }
 
 const useFaceLandmarks = (
@@ -129,6 +115,8 @@ const useFaceLandmarks = (
   return { landmarks, detectFaceLandmarks };
 };
 
+const segmenter = SelfieSegmentationDetector.getInstance();
+
 const useSelfieSegments = (
   imageUrl: string | undefined,
   detectFace: boolean,
@@ -142,7 +130,6 @@ const useSelfieSegments = (
     const startTime = performance.now();
 
     try {
-      const segmenter = SelfieSegmentationDetector.getInstance();
       const segmentationPath = await segmenter.segmentImage(imageUrl);
       setSegments(segmentationPath);
     } catch (error) {
@@ -164,6 +151,7 @@ export const ImageContainer = ({
   detectFace = false,
   debug = false,
   selectedControl,
+  gestureControlValue,
 }: ImageContainerProps) => {
   const [lastLoadedImage, setLastLoadedImage] = useState<string | undefined>(
     undefined
@@ -171,18 +159,33 @@ export const ImageContainer = ({
 
   // const faceDetector = useFaceDetector();
   const [detectorsInitialized, setDetectorsInitialized] = useState(false);
-  const [layoutDimensions, setLayoutDimensions] = useState(DEFAULT_IMAGE_SIZE);
+  const [layoutDimensions, setLayoutDimensions] = useState({
+    width: 12,
+    height: 500,
+    x: 0,
+    y: 0,
+  });
+  const [originalImageSize, setOriginalImageSize] = useState({
+    width: 1024,
+    height: 1024,
+  });
 
   const debouncedSetLayout = useMemo(
     () =>
       debounce(
-        (width: number, height: number) => {
-          setLayoutDimensions({ width, height });
+        (width: number, height: number, x: number, y: number) => {
+          setLayoutDimensions({ width, height, x, y });
         },
         20,
         { trailing: true }
       ),
     []
+  );
+
+  const { segments, detectSegments } = useSelfieSegments(
+    imageUrl || originalImageUrl,
+    detectFace,
+    detectorsInitialized
   );
 
   useEffect(() => {
@@ -202,6 +205,7 @@ export const ImageContainer = ({
             segmenterPromise,
           ]);
           setDetectorsInitialized(true);
+          detectSegments();
         } catch (error) {
           console.error("Error initializing detectors:", error);
         } finally {
@@ -223,12 +227,6 @@ export const ImageContainer = ({
   //   faceDetector
   // );
 
-  const { segments, detectSegments } = useSelfieSegments(
-    imageUrl,
-    detectFace,
-    detectorsInitialized
-  );
-
   const debounced = useMemo(
     () =>
       debounce(
@@ -240,7 +238,7 @@ export const ImageContainer = ({
         },
         500,
         {
-          leading: false,
+          leading: true,
           trailing: true,
         }
       ),
@@ -260,6 +258,22 @@ export const ImageContainer = ({
     }
   }, [imageUrl, debounced, detectFace, loading]);
 
+  useEffect(() => {
+    const getImageDimensions = async () => {
+      if (imageUrl) {
+        try {
+          const { width, height } =
+            await PhotosService.getImageDimensions(imageUrl);
+          setOriginalImageSize({ width, height });
+        } catch (error) {
+          console.error("Error getting image dimensions:", error);
+        }
+      }
+    };
+
+    getImageDimensions();
+  }, [imageUrl]);
+
   return (
     <View style={[styles.fullSize]}>
       <Animated.View>
@@ -269,30 +283,31 @@ export const ImageContainer = ({
           placeholder={{ uri: lastLoadedImage || originalImageUrl }}
           placeholderContentFit="cover"
           allowDownscaling={false}
-          // blurRadius={loading && !segments ? 1 : 0}
+          blurRadius={loading && !segments ? 1 : 0}
           priority={"high"}
-          style={styles.fullSize}
+          style={[styles.fullSize, { opacity: 1 }]}
           transition={IMAGE_TRANSITION}
           contentFit="cover"
           onLoadEnd={() => {
             setLastLoadedImage(imageUrl);
           }}
           onLayout={(event: LayoutChangeEvent) => {
-            const { width, height } = event.nativeEvent.layout;
-            debouncedSetLayout(width, height);
+            const { width, height, x, y } = event.nativeEvent.layout;
+            debouncedSetLayout(width, height, x, y);
           }}
         />
       </Animated.View>
+
       {detectFace && (
-        <View style={styles.canvasContainer}>
+        <View style={[styles.canvasContainer]}>
           {segments && loading && (
             <Animated.View entering={FadeIn} exiting={FadeOut}>
               <SegmentsCanvas
-                visible={loading}
                 segments={segments}
-                imageDimensions={layoutDimensions}
-                originalImageSize={DEFAULT_IMAGE_SIZE}
+                layoutDimensions={layoutDimensions}
+                imageSize={originalImageSize}
                 debug={debug}
+                gestureControlValue={gestureControlValue}
               />
             </Animated.View>
           )}

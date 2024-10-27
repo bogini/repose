@@ -5,6 +5,7 @@ import { SymbolView } from "expo-symbols";
 import PhotosService, { Photo } from "../../api/photos";
 import ReplicateService from "../../api/replicate";
 import { ImageContainer } from "../../components/ImageContainer";
+import { Canvas, Path } from "@shopify/react-native-skia";
 
 export default function PhotoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();

@@ -101,6 +101,7 @@ export const FaceGestureControl = ({
             detectFace={true}
             imageUrl={imageUrl}
             debug={debug}
+            gestureControlValue={gestureControlValue}
             originalImageUrl={originalImageUrl}
             selectedControl={selectedControl.key}
           />

@@ -7,10 +7,11 @@ import {
   SkPath,
   Shader,
 } from "@shopify/react-native-skia";
-import { StyleSheet } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { memo, useEffect, useMemo, useCallback } from "react";
 import { Segments } from "../api/segmentation";
 import waveShader from "./WaveShader";
+import rippleShader from "./RippleShader";
 import Animated, {
   Easing,
   useDerivedValue,
@@ -20,44 +21,47 @@ import Animated, {
   useAnimatedStyle,
   useAnimatedReaction,
 } from "react-native-reanimated";
+import { GestureControlValue } from "./GestureControl";
 
 const SEGMENT_STYLES = {
   face: { opacity: 0, strokeWidth: 2 },
   hair: { opacity: 0, strokeWidth: 2 },
-  body: { opacity: 1, strokeWidth: 2 },
-  clothes: { opacity: 0.3, strokeWidth: 2 },
-  others: { opacity: 0.4, strokeWidth: 1 },
-  background: { opacity: 0.6, strokeWidth: 3 },
+  body: { opacity: 0.1, strokeWidth: 1 },
+  clothes: { opacity: 0.2, strokeWidth: 1 },
+  others: { opacity: 0.2, strokeWidth: 1 },
+  background: { opacity: 0.8, strokeWidth: 2 },
 };
 
 interface SegmentationCanvasProps {
-  visible: boolean;
   segments: Segments | null;
-  imageDimensions: {
+  layoutDimensions: {
     width: number;
     height: number;
+    x: number;
+    y: number;
   };
-  originalImageSize: { width: number; height: number };
+  imageSize: { width: number; height: number };
   debug?: boolean;
+  gestureControlValue?: GestureControlValue;
 }
 
 export const SegmentsCanvas = ({
-  visible,
   segments,
-  imageDimensions,
-  originalImageSize,
+  layoutDimensions,
+  imageSize,
   debug = false,
+  gestureControlValue,
 }: SegmentationCanvasProps) => {
   const scale = useMemo(() => {
     return Math.max(
-      imageDimensions.width / originalImageSize.width,
-      imageDimensions.height / originalImageSize.height
+      layoutDimensions.width / imageSize.width,
+      layoutDimensions.height / imageSize.height
     );
   }, [
-    imageDimensions.width,
-    imageDimensions.height,
-    originalImageSize.width,
-    originalImageSize.height,
+    layoutDimensions.width,
+    layoutDimensions.height,
+    imageSize.width,
+    imageSize.height,
   ]);
 
   const segmentPaths = useMemo(() => {
@@ -98,22 +102,39 @@ export const SegmentsCanvas = ({
   const canvasStyle = useMemo(
     () => [
       styles.canvas,
-      imageDimensions && {
-        width: Math.round(imageDimensions.width),
-        height: Math.round(imageDimensions.height),
+      layoutDimensions && {
+        width: Math.round(layoutDimensions.width),
+        height: Math.round(layoutDimensions.height),
       },
     ],
-    [imageDimensions]
+    [layoutDimensions]
   );
 
-  const shaderTime = useSharedValue(0);
-  const shaderUniforms = useDerivedValue(
+  const waveShaderTime = useSharedValue(0);
+  const waveShaderUniforms = useDerivedValue(
     () => ({
-      time: shaderTime.value,
-      resolution: [imageDimensions.width, imageDimensions.height],
+      time: waveShaderTime.value,
+      resolution: [layoutDimensions.width, layoutDimensions.height],
     }),
-    [shaderTime, imageDimensions]
+    [waveShaderTime, layoutDimensions]
   );
+
+  const rippleShaderTime = useSharedValue(0);
+  const rippleShaderUniforms = useDerivedValue(() => {
+    return {
+      time: rippleShaderTime.value,
+      position: [imageSize.width / 2, imageSize.height * 1.2],
+      resolution: [layoutDimensions.width, layoutDimensions.height],
+    };
+  }, [rippleShaderTime, layoutDimensions]);
+
+  const backfgrounddRippleShaderUniforms = useDerivedValue(() => {
+    return {
+      time: rippleShaderTime.value + 5,
+      position: [imageSize.width / 2, imageSize.height * 0.9],
+      resolution: [layoutDimensions.width, layoutDimensions.height],
+    };
+  }, [rippleShaderTime, layoutDimensions]);
 
   const backgroundOpacity = useSharedValue(0);
 
@@ -127,7 +148,7 @@ export const SegmentsCanvas = ({
       true
     );
 
-    shaderTime.value = withRepeat(
+    waveShaderTime.value = withRepeat(
       withTiming(-10, {
         duration: 20000,
         easing: Easing.linear,
@@ -136,9 +157,15 @@ export const SegmentsCanvas = ({
       true
     );
 
+    rippleShaderTime.value = withTiming(10, {
+      duration: 1000,
+      easing: Easing.linear,
+    });
+
     return () => {
-      shaderTime.value = 0;
+      waveShaderTime.value = 0;
       backgroundOpacity.value = 0;
+      rippleShaderTime.value = 0;
     };
   }, []);
 
@@ -146,11 +173,14 @@ export const SegmentsCanvas = ({
     { scale },
     {
       translateX:
-        (imageDimensions.width - originalImageSize.width * scale) / 2 + 7,
+        (layoutDimensions.width - imageSize.width * scale) / 2 +
+        (layoutDimensions.x || 0) +
+        7,
     },
     {
       translateY:
-        (imageDimensions.height - originalImageSize.height * scale) / 2,
+        (layoutDimensions.height - imageSize.height * scale) / 2 +
+        (layoutDimensions.y || 0),
     },
   ];
 
@@ -193,23 +223,40 @@ export const SegmentsCanvas = ({
         if (opacity === 0) return null;
 
         return (
-          <Path
-            key={segmentName}
-            path={path}
-            strokeWidth={strokeWidth}
-            style="stroke"
-            opacity={opacity}
-          >
-            <Shader source={waveShader} uniforms={shaderUniforms} />
-            <BlurMask blur={strokeWidth} style="normal" />
-          </Path>
+          <Group key={segmentName}>
+            <Path
+              path={path}
+              strokeWidth={strokeWidth}
+              style="stroke"
+              opacity={opacity}
+            >
+              <Shader source={waveShader} uniforms={waveShaderUniforms} />
+              <BlurMask blur={strokeWidth} style="normal" />
+            </Path>
+            {/* <Path
+              path={path}
+              strokeWidth={strokeWidth}
+              style="fill"
+              opacity={opacity}
+            >
+              <Shader
+                source={rippleShader}
+                uniforms={
+                  segmentName === "background"
+                    ? backfgrounddRippleShaderUniforms
+                    : rippleShaderUniforms
+                }
+              />
+              <BlurMask blur={strokeWidth} style="normal" />
+            </Path> */}
+          </Group>
         );
       })
       .filter(Boolean);
   };
 
   return (
-    <>
+    <View>
       <Animated.View style={[backgroundStyle]}>
         <Canvas style={canvasStyle}>
           <Group transform={transformGroup}>{renderBackgroundPath()}</Group>
@@ -221,12 +268,15 @@ export const SegmentsCanvas = ({
           {debugPoints}
         </Group>
       </Canvas>
-    </>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   canvas: {
+    opacity: 0.5,
     position: "absolute",
+    width: "100%",
+    height: "100%",
   },
 });
