@@ -16,9 +16,12 @@ import {
   Easing,
 } from "react-native-reanimated";
 import { useEffect, useCallback, useMemo } from "react";
-import { FaceLandmarkResult, LandmarkLocation } from "./ImageContainer";
 import waveShader from "./WaveShader";
 import { FeatureKey } from "../lib/faceControl";
+import {
+  FaceLandmarkResult,
+  LandmarkLocation,
+} from "../hooks/useFaceLandmarks";
 
 interface FaceLandmarksCanvasProps {
   landmarks: FaceLandmarkResult | null;

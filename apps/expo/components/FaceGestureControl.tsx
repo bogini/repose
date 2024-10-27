@@ -3,6 +3,12 @@ import { FaceControl, FaceValues, GestureDirection } from "../lib/faceControl";
 import GestureControl, { GestureControlValue } from "./GestureControl";
 import { ImageContainer } from "./ImageContainer";
 import { useMemo } from "react";
+import Animated, {
+  FadeIn,
+  FadeOut,
+  Layout,
+  LinearTransition,
+} from "react-native-reanimated";
 
 interface FaceControlsComponentProps {
   faceValues: FaceValues;
@@ -101,13 +107,18 @@ export const FaceGestureControl = ({
             detectFace={true}
             imageUrl={imageUrl}
             debug={debug}
-            gestureControlValue={gestureControlValue}
             originalImageUrl={originalImageUrl}
             selectedControl={selectedControl.key}
           />
-          <Text style={styles.selectedControlLabel}>
-            {selectedControl.label}
-          </Text>
+
+          <Animated.View
+            layout={LinearTransition.duration(50)}
+            style={styles.selectedControlLabelContainer}
+          >
+            <Text style={styles.selectedControlLabel}>
+              {loading ? "PROCESSING" : selectedControl.label}
+            </Text>
+          </Animated.View>
         </View>
       )}
     </GestureControl>
@@ -119,11 +130,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  selectedControlLabel: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "thin",
-    textAlign: "center",
+  selectedControlLabelContainer: {
     position: "absolute",
     bottom: 10,
     backgroundColor: "black",
@@ -131,5 +138,14 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 4,
     overflow: "hidden",
+    flex: 1,
+    alignContent: "center",
+    justifyContent: "center",
+    textAlign: "center",
+  },
+  selectedControlLabel: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "thin",
   },
 });

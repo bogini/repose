@@ -5,7 +5,6 @@ import { SymbolView } from "expo-symbols";
 import PhotosService, { Photo } from "../../api/photos";
 import ReplicateService from "../../api/replicate";
 import { ImageContainer } from "../../components/ImageContainer";
-import { Canvas, Path } from "@shopify/react-native-skia";
 
 export default function PhotoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -84,7 +83,7 @@ export default function PhotoScreen() {
         onProgressTap={onProgressTap}
       />
       <View style={styles.imageContainer}>
-        <ImageContainer imageUrl={photo.url} />
+        <ImageContainer imageUrl={photo.url} detectFace={true} />
       </View>
       <BottomBar
         id={photo.id}

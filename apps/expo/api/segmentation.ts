@@ -2,7 +2,7 @@ import { loadTensorflowModel, TensorflowModel } from "react-native-fast-tflite";
 import PhotosService from "../api/photos";
 import * as jpeg from "jpeg-js";
 
-const THRESHOLD = 0.2;
+const THRESHOLD = 0.01;
 
 const INPUT_SIZE = {
   width: 256,
@@ -225,100 +225,99 @@ export class SelfieSegmentationDetector {
     height: number,
     threshold: number
   ): [number, number][] {
-    const path: [number, number][] = [];
-    const visited = new Set<string>();
+    // Pre-allocate maximum possible size for path array
+    const path: [number, number][] = new Array(width * height);
+    let pathLength = 0;
 
-    // Pre-calculate width bounds for faster bounds checking
+    // Use a more efficient visited tracking with Uint8Array
+    const visited = new Uint8Array(width * height);
+
+    // Cache frequently accessed values
     const maxX = width - 1;
     const maxY = height - 1;
 
-    // Optimize isValidPixel with fewer bounds checks
+    // Optimize pixel validation with direct array access
     const isValidPixel = (x: number, y: number): boolean => {
       if (x < 0 || x > maxX || y < 0 || y > maxY) return false;
       return mask[y * width + x] >= threshold;
     };
 
-    // Use a more efficient key generation
-    const getKey = (x: number, y: number): string => x + "," + y;
-
-    // Find starting point more efficiently by scanning rows
-    let startX = -1;
-    let startY = -1;
-
-    rowLoop: for (let y = 0; y < height; y++) {
-      const rowOffset = y * width;
+    // Improved starting point search - scan from all sides
+    const findStartPoint = (): [number, number] => {
+      // Check left to right
       for (let x = 0; x < width; x++) {
-        if (mask[rowOffset + x] >= threshold) {
-          startX = x;
-          startY = y;
-          break rowLoop;
+        for (let y = 0; y < height; y++) {
+          if (mask[y * width + x] >= threshold) return [x, y];
         }
       }
-    }
+      // Check top to bottom
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          if (mask[y * width + x] >= threshold) return [x, y];
+        }
+      }
+      return [-1, -1];
+    };
 
+    const [startX, startY] = findStartPoint();
     if (startX === -1) return [];
 
-    // Cache directions array
+    // Enhanced boundary tracking using Moore-Neighbor tracing
     const directions = [
-      [1, 0],
-      [1, -1],
-      [0, -1],
-      [-1, -1],
-      [-1, 0],
-      [-1, 1],
-      [0, 1],
-      [1, 1],
-    ];
+      [1, 0], // Right
+      [1, -1], // Top-right
+      [0, -1], // Top
+      [-1, -1], // Top-left
+      [-1, 0], // Left
+      [-1, 1], // Bottom-left
+      [0, 1], // Bottom
+      [1, 1], // Bottom-right
+    ] as const;
 
-    // Start DFS from topmost leftmost point
-    const stack: [number, number][] = [[startX, startY]];
+    let currentX = startX;
+    let currentY = startY;
+    let dirIndex = 0;
+    const startPixel = currentY * width + currentX;
 
-    while (stack.length > 0) {
-      const [currentX, currentY] = stack.pop()!;
-      const key = getKey(currentX, currentY);
+    do {
+      const currentIdx = currentY * width + currentX;
+      if (!visited[currentIdx]) {
+        visited[currentIdx] = 1;
+        path[pathLength++] = [currentX, currentY];
+      }
 
-      if (visited.has(key)) continue;
+      // Look for next boundary pixel starting from backtracking direction
+      let found = false;
+      for (let i = 0; i < 8; i++) {
+        const checkIndex = (dirIndex + 5 + i) % 8; // Start checking from 3 steps back
+        const newX = currentX + directions[checkIndex][0];
+        const newY = currentY + directions[checkIndex][1];
 
-      visited.add(key);
-      path.push([currentX, currentY]);
-
-      // Find next boundary point with preference for continuing in current direction
-      let nextPoint: [number, number] | null = null;
-      let minDistance = Infinity;
-
-      for (const [dx, dy] of directions) {
-        const newX = currentX + dx;
-        const newY = currentY + dy;
-        const newKey = getKey(newX, newY);
-
-        if (isValidPixel(newX, newY) && !visited.has(newKey)) {
-          // Check if this is a boundary pixel
+        if (isValidPixel(newX, newY)) {
+          // Verify it's a boundary pixel by checking neighbors
           let isBoundary = false;
-          for (const [checkDx, checkDy] of directions) {
-            const checkX = newX + checkDx;
-            const checkY = newY + checkDy;
-            if (!isValidPixel(checkX, checkY)) {
+          for (let j = 0; j < 8; j++) {
+            const neighborX = newX + directions[j][0];
+            const neighborY = newY + directions[j][1];
+            if (!isValidPixel(neighborX, neighborY)) {
               isBoundary = true;
               break;
             }
           }
 
           if (isBoundary) {
-            // Calculate distance from current point
-            const distance = Math.abs(dx) + Math.abs(dy);
-            if (distance < minDistance) {
-              minDistance = distance;
-              nextPoint = [newX, newY];
-            }
+            currentX = newX;
+            currentY = newY;
+            dirIndex = checkIndex;
+            found = true;
+            break;
           }
         }
       }
 
-      if (nextPoint) {
-        stack.push(nextPoint);
-      }
-    }
+      if (!found) break;
+    } while (currentY * width + currentX !== startPixel);
 
-    return path;
+    return path.slice(0, pathLength);
   }
 }

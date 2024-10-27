@@ -116,7 +116,6 @@ class ReplicateService {
     shouldCancel: boolean = true,
     skipCache: boolean = false
   ): Promise<string | undefined> {
-    await new Promise((resolve) => setTimeout(resolve, 2000));
     const {
       outputFormat = DEFAULTS.outputFormat,
       outputQuality = DEFAULTS.outputQuality,

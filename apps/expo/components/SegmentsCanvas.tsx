@@ -19,16 +19,14 @@ import Animated, {
   withRepeat,
   withTiming,
   useAnimatedStyle,
-  useAnimatedReaction,
 } from "react-native-reanimated";
-import { GestureControlValue } from "./GestureControl";
 
 const SEGMENT_STYLES = {
   face: { opacity: 0, strokeWidth: 2 },
   hair: { opacity: 0, strokeWidth: 2 },
   body: { opacity: 0.1, strokeWidth: 1 },
   clothes: { opacity: 0.2, strokeWidth: 1 },
-  others: { opacity: 0.2, strokeWidth: 1 },
+  others: { opacity: 0.5, strokeWidth: 1 },
   background: { opacity: 0.8, strokeWidth: 2 },
 };
 
@@ -42,7 +40,6 @@ interface SegmentationCanvasProps {
   };
   imageSize: { width: number; height: number };
   debug?: boolean;
-  gestureControlValue?: GestureControlValue;
 }
 
 export const SegmentsCanvas = ({
@@ -50,13 +47,23 @@ export const SegmentsCanvas = ({
   layoutDimensions,
   imageSize,
   debug = false,
-  gestureControlValue,
 }: SegmentationCanvasProps) => {
-  const scale = useMemo(() => {
-    return Math.max(
-      layoutDimensions.width / imageSize.width,
-      layoutDimensions.height / imageSize.height
-    );
+  const transform = useMemo(() => {
+    const scaleX = layoutDimensions.width / imageSize.width;
+    const scaleY = layoutDimensions.height / imageSize.height;
+
+    // Use cover (max scale) if image aspect ratio is different from layout
+    const scale = Math.max(scaleX, scaleY);
+
+    // Calculate scaled dimensions
+    const scaledWidth = imageSize.width * scale;
+    const scaledHeight = imageSize.height * scale;
+
+    // Center horizontally and vertically
+    const translateX = (layoutDimensions.width - scaledWidth) / 2;
+    const translateY = (layoutDimensions.height - scaledHeight) / 2;
+
+    return [{ translateX }, { translateY }, { scale }];
   }, [
     layoutDimensions.width,
     layoutDimensions.height,
@@ -84,19 +91,33 @@ export const SegmentsCanvas = ({
 
     return paths;
   }, [segments]);
-
   const debugPoints = useMemo(() => {
     if (!debug) return null;
 
-    return Object.values(segmentPaths).map((path, index) => (
-      <Path
-        path={path}
-        key={index}
-        color="red"
-        style="stroke"
-        strokeWidth={1.5}
-      />
-    ));
+    const colors = ["red", "green", "blue", "yellow", "purple", "orange"];
+
+    return Object.values(segmentPaths).map((path, index) => {
+      const color = colors[index % colors.length];
+      return (
+        <>
+          <Path
+            path={path}
+            key={`stroke-${index}`}
+            color={color}
+            style="stroke"
+            strokeWidth={1.5}
+            opacity={0.7}
+          />
+          <Path
+            path={path}
+            key={`fill-${index}`}
+            color={color}
+            style="fill"
+            opacity={0.2}
+          />
+        </>
+      );
+    });
   }, [debug, segmentPaths]);
 
   const canvasStyle = useMemo(
@@ -169,21 +190,6 @@ export const SegmentsCanvas = ({
     };
   }, []);
 
-  const transformGroup = [
-    { scale },
-    {
-      translateX:
-        (layoutDimensions.width - imageSize.width * scale) / 2 +
-        (layoutDimensions.x || 0) +
-        7,
-    },
-    {
-      translateY:
-        (layoutDimensions.height - imageSize.height * scale) / 2 +
-        (layoutDimensions.y || 0),
-    },
-  ];
-
   const backgroundStyle = useAnimatedStyle(() => ({
     opacity: backgroundOpacity.value,
   }));
@@ -193,9 +199,12 @@ export const SegmentsCanvas = ({
 
     if (!backgroundPath) return null;
 
+    const pathLength = backgroundPath?.countPoints();
+
     return (
-      <Group>
+      <Group key={`background-group-${pathLength}`}>
         <Path
+          key={`background-path-${pathLength}`}
           path={backgroundPath}
           style="fill"
           color="black"
@@ -259,13 +268,13 @@ export const SegmentsCanvas = ({
     <View>
       <Animated.View style={[backgroundStyle]}>
         <Canvas style={canvasStyle}>
-          <Group transform={transformGroup}>{renderBackgroundPath()}</Group>
+          <Group transform={transform}>{renderBackgroundPath()}</Group>
         </Canvas>
       </Animated.View>
       <Canvas style={canvasStyle}>
-        <Group transform={transformGroup}>
-          {renderSegmentPaths()}
+        <Group transform={transform}>
           {debugPoints}
+          {renderSegmentPaths()}
         </Group>
       </Canvas>
     </View>
@@ -276,7 +285,5 @@ const styles = StyleSheet.create({
   canvas: {
     opacity: 0.5,
     position: "absolute",
-    width: "100%",
-    height: "100%",
   },
 });
