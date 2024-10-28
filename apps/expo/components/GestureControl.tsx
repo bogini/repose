@@ -333,7 +333,7 @@ export const GestureControl: React.FC<GestureControlProps> = ({
     .onStart(handleDoubleTapStart)
     .onEnd(handleDoubleTapEnd);
 
-  const composedGestures = Gesture.Race(
+  const composedGestures = Gesture.Exclusive(
     Gesture.Simultaneous(panGesture, pinchGesture, rotationGesture),
     Gesture.Exclusive(doubleTapGesture, tapGesture)
   );
