@@ -2,7 +2,13 @@ import { StyleSheet, Text, View } from "react-native";
 import { FaceControl, FaceValues, GestureDirection } from "../lib/faceControl";
 import GestureControl, { GestureControlValue } from "./GestureControl";
 import { ImageContainer } from "./ImageContainer";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
+import Animated, {
+  FadeIn,
+  FadeOut,
+  Layout,
+  LinearTransition,
+} from "react-native-reanimated";
 
 interface FaceControlsComponentProps {
   faceValues: FaceValues;
@@ -24,49 +30,35 @@ export const FaceGestureControl = ({
   loading = false,
   debug = false,
 }: FaceControlsComponentProps) => {
-  const handleGestureValueChange = ({
-    x,
-    y,
-    rotation,
-    scale,
-  }: GestureControlValue) => {
-    const updatedFaceValues = { ...faceValues };
+  const handleGestureValueChange = useCallback(
+    ({ x, y, rotation, scale }: GestureControlValue) => {
+      const updatedFaceValues = { ...faceValues };
 
-    selectedControl.values.forEach(({ key, min, max, gesture, direction }) => {
-      let value;
-      switch (gesture) {
-        case "x":
-          value = x;
-          break;
-        case "y":
-          value = y;
-          break;
-        case "rotation":
-          value = rotation;
-          break;
-        case "scale":
-          value = scale;
-          break;
-        default:
-          return;
-      }
+      selectedControl.values.forEach(
+        ({ key, min, max, gesture, direction }) => {
+          const gestureValues = { x, y, rotation, scale };
+          const value = gestureValues[gesture];
+          if (value === undefined) return;
 
-      // Normalize the value based on min and max
-      const normalizedValue = (value + 1) * ((max - min) / 2) + min;
+          const normalizedValue = (value + 1) * ((max - min) / 2) + min;
+          const finalValue =
+            direction === GestureDirection.Inverted
+              ? max - (normalizedValue - min)
+              : normalizedValue;
 
-      // Invert the value if direction is inverted
-      const finalValue =
-        direction === GestureDirection.Inverted
-          ? max - (normalizedValue - min)
-          : normalizedValue;
+          const roundedValue = Math.round(finalValue);
 
-      const roundedValue = Math.round(finalValue);
+          // Only update if the value has actually changed
+          if (updatedFaceValues[key] !== roundedValue) {
+            updatedFaceValues[key] = roundedValue;
+          }
+        }
+      );
 
-      updatedFaceValues[key] = roundedValue;
-    });
-
-    onFaceValuesChange(updatedFaceValues);
-  };
+      onFaceValuesChange(updatedFaceValues);
+    },
+    [faceValues, selectedControl.values, onFaceValuesChange]
+  );
 
   const gestureControlValue = useMemo(() => {
     const gestureValues = selectedControl.values.reduce(
@@ -104,9 +96,15 @@ export const FaceGestureControl = ({
             originalImageUrl={originalImageUrl}
             selectedControl={selectedControl.key}
           />
-          <Text style={styles.selectedControlLabel}>
-            {selectedControl.label}
-          </Text>
+
+          <Animated.View
+            layout={LinearTransition.duration(50)}
+            style={styles.selectedControlLabelContainer}
+          >
+            <Text style={styles.selectedControlLabel}>
+              {loading ? "PROCESSING" : selectedControl.label}
+            </Text>
+          </Animated.View>
         </View>
       )}
     </GestureControl>
@@ -118,11 +116,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  selectedControlLabel: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "thin",
-    textAlign: "center",
+  selectedControlLabelContainer: {
     position: "absolute",
     bottom: 10,
     backgroundColor: "black",
@@ -130,5 +124,14 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 4,
     overflow: "hidden",
+    flex: 1,
+    alignContent: "center",
+    justifyContent: "center",
+    textAlign: "center",
+  },
+  selectedControlLabel: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "thin",
   },
 });

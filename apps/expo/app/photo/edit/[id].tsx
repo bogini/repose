@@ -70,6 +70,7 @@ export default function EditScreen() {
         }
         setOriginalImageUrl(fetchedPhoto.url);
         setEditedImageUrl(fetchedPhoto.url);
+        debouncedCache(fetchedPhoto.url, faceValues, selectedControl);
       } catch (error) {
         console.error("Error fetching photo:", error);
       }
@@ -82,52 +83,38 @@ export default function EditScreen() {
     async (values: FaceValues) => {
       setFaceValues(values);
 
-      if (originalImageUrl) {
-        const requestTimestamp = Date.now();
+      if (!originalImageUrl) return;
 
-        // Only show loading after a bit of waiting
-        const loadingTimeout = setTimeout(
-          () => setLoading(true),
-          LOADING_DELAY_MS
+      const requestTimestamp = Date.now();
+      const isOutdated = () =>
+        requestTimestamp < lastStateUpdateTimestampRef.current;
+
+      // Set up delayed loading state
+      const loadingTimeout = setTimeout(() => {
+        if (!isOutdated()) {
+          setLoading(true);
+        }
+      }, LOADING_DELAY_MS);
+
+      try {
+        if (isOutdated()) return;
+
+        const updatedImageUrl = await ReplicateService.runExpressionEditor(
+          {
+            image: originalImageUrl,
+            ...values,
+          },
+          true
         );
 
-        try {
-          const updatedImageUrl = await ReplicateService.runExpressionEditor(
-            {
-              image: originalImageUrl,
-              rotatePitch: values.rotatePitch,
-              rotateYaw: values.rotateYaw,
-              rotateRoll: values.rotateRoll,
-              pupilX: values.pupilX,
-              eyebrow: values.eyebrow,
-              pupilY: values.pupilY,
-              smile: values.smile,
-              blink: values.blink,
-              wink: values.wink,
-            },
-            true
-          );
-
-          if (updatedImageUrl) {
-            // Only update the state if the request timestamp is greater than the last state update timestamp
-            if (loadingTimeout) {
-              clearTimeout(loadingTimeout);
-              if (requestTimestamp > lastStateUpdateTimestampRef.current) {
-                setEditedImageUrl(updatedImageUrl);
-                lastStateUpdateTimestampRef.current = requestTimestamp;
-              }
-            } else {
-              if (requestTimestamp > lastStateUpdateTimestampRef.current) {
-                setEditedImageUrl(updatedImageUrl);
-                lastStateUpdateTimestampRef.current = requestTimestamp;
-              }
-            }
-          }
-        } finally {
-          if (loadingTimeout) {
-            clearTimeout(loadingTimeout);
-            setLoading(false);
-          }
+        if (!isOutdated() && updatedImageUrl) {
+          setEditedImageUrl(updatedImageUrl);
+          lastStateUpdateTimestampRef.current = requestTimestamp;
+        }
+      } finally {
+        clearTimeout(loadingTimeout);
+        if (!isOutdated()) {
+          setLoading(false);
         }
       }
     },
@@ -177,6 +164,7 @@ export default function EditScreen() {
       <FaceControlsComponent
         controls={FACE_CONTROLS}
         faceValues={faceValues}
+        loading={loading}
         onFaceValuesChange={handleFaceValuesChange}
         selectedControlKey={selectedControl.key}
         onControlChange={handleControlChange}

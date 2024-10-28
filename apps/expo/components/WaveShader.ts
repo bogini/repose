@@ -8,7 +8,7 @@ vec4 main(vec2 pos) {
     vec2 uv = pos / resolution;
     
     // Normalize time to [0, 1] for perfect looping
-    float normalizedTime = mod(time, 10.0) / 10.0;
+    float normalizedTime = time;
     
     float waveFrequency = 12.56;
     float waveAmplitude = 0.040;
@@ -26,7 +26,7 @@ vec4 main(vec2 pos) {
         normalizedTime * 6.3
     )), 2.0);
     
-    float grayscale = 0.25 + (pattern * 0.60);
+    float grayscale = 0.0 + (pattern * 0.60);
     
     return vec4(grayscale, grayscale, grayscale, 0.0);
 }`)!;

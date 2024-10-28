@@ -14,6 +14,7 @@ import Animated, {
   useAnimatedStyle,
 } from "react-native-reanimated";
 import { debounce } from "lodash";
+import * as Haptics from "expo-haptics";
 
 const DEBOUNCE_TIME_MS = 16;
 const SCROLL_DURATION_MS = 350;
@@ -100,13 +101,19 @@ export const CarouselSlider: React.FC<SliderProps> = ({
           onScrollStart?.();
         }}
         onSnapToItem={(index) => {
-          // console.log("onSnapToItem", index);
           debouncedHandleValueChange(index);
           onScrollEnd?.();
         }}
         onProgressChange={(_, absoluteProgress) => {
+          const currentIndex = carouselRef.current?.getCurrentIndex();
           const newIndex = Math.round(absoluteProgress);
-          if (carouselRef.current?.getCurrentIndex() !== newIndex) {
+          if (
+            currentIndex !== undefined &&
+            Math.abs(currentIndex - absoluteProgress) >= 0.03
+          ) {
+            Haptics.selectionAsync();
+          }
+          if (currentIndex !== newIndex) {
             debouncedHandleValueChange(newIndex);
           }
         }}
