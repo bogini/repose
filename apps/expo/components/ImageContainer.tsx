@@ -38,7 +38,7 @@ const SegmentationOverlay = memo(
   }) => {
     if (
       !segments ||
-      (!loading && !debug) ||
+      !loading ||
       !layoutDimensions.width ||
       !layoutDimensions.height
     ) {

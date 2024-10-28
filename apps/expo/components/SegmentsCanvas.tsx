@@ -238,6 +238,7 @@ export const SegmentsCanvas = ({
               strokeWidth={strokeWidth}
               style="stroke"
               opacity={opacity}
+              key={`stroke-${segmentName}`}
             >
               <Shader source={waveShader} uniforms={waveShaderUniforms} />
               <BlurMask blur={strokeWidth} style="normal" />
@@ -247,6 +248,7 @@ export const SegmentsCanvas = ({
               strokeWidth={strokeWidth}
               style="fill"
               opacity={opacity}
+              key={`fill-${segmentName}`}
             >
               <Shader
                 source={rippleShader}

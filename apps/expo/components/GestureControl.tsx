@@ -1,22 +1,24 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { View, StyleSheet, TouchableWithoutFeedback } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import React, { useState, useCallback, useMemo } from "react";
+import { View, StyleSheet } from "react-native";
+import {
+  Gesture,
+  GestureDetector,
+  TapGestureHandlerEventPayload,
+} from "react-native-gesture-handler";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedReaction,
   withDecay,
   runOnJS,
-  useAnimatedReaction,
   withTiming,
-  Easing,
 } from "react-native-reanimated";
 import { ViewStyle } from "react-native";
 import { debounce } from "lodash";
 import { NUM_BUCKETS } from "../api/replicate";
+import * as Haptics from "expo-haptics";
 
 const FOCAL_POINT_SIZE = 34;
-const DEBOUNCE_TIME_MS = 5;
-const RUBBER_BAND_EFFECT = false;
 
 export interface GestureControlValue {
   x: number;
@@ -52,34 +54,61 @@ export const GestureControl: React.FC<GestureControlProps> = ({
   const prevTranslateY = useSharedValue(translateY.value);
   const scale = useSharedValue(0);
   const rotation = useSharedValue(0);
+  const isGestureActive = useSharedValue(false);
+  const isDecayActiveX = useSharedValue(false);
+  const isDecayActiveY = useSharedValue(false);
 
   const marginSizeX = size.width / NUM_BUCKETS / 1.5;
   const marginSizeY = size.height / NUM_BUCKETS / 1.5;
 
-  useEffect(() => {
-    if (isAnimating.value) return;
+  useAnimatedReaction(
+    () => {
+      return value;
+    },
+    (currentValue, previousValue) => {
+      if (
+        currentValue !== previousValue &&
+        size.width > 0 &&
+        size.height > 0 &&
+        !isGestureActive.value
+      ) {
+        translateX.value =
+          currentValue.x * (size.width / 2) +
+          size.width / 2 -
+          FOCAL_POINT_SIZE / 2;
+        translateY.value =
+          -currentValue.y * (size.height / 2) +
+          size.height / 2 -
+          FOCAL_POINT_SIZE / 2;
+        rotation.value = currentValue.rotation;
+        scale.value = currentValue.scale;
+      }
+    },
+    [value, size]
+  );
 
-    if (size.width > 0 && size.height > 0) {
-      translateX.value =
-        value.x * (size.width / 2) + size.width / 2 - FOCAL_POINT_SIZE / 2;
-      translateY.value =
-        -value.y * (size.height / 2) + size.height / 2 - FOCAL_POINT_SIZE / 2;
-      rotation.value = value.rotation;
-      scale.value = value.scale;
-    }
-  }, [value, size]);
+  // const debouncedOnChange = useMemo(
+  //   () =>
+  //     debounce((values: GestureControlValue) => {
+  //       onChange?.(values);
+  //     }, DEBOUNCE_TIME_MS),
+  //   [onChange]
+  // );
 
   const handleValueChange = useCallback(
-    debounce((source: string) => {
+    (source: string) => {
+      if (!size.width || !size.height) return;
+
+      // Calculate normalized values (-1 to 1)
       const x = Number(
         (
-          (translateX.value + FOCAL_POINT_SIZE / 2 - size.width / 2) /
+          (translateX.value - (size.width / 2 - FOCAL_POINT_SIZE / 2)) /
           (size.width / 2)
         ).toFixed(2)
       );
       const y = Number(
         (
-          -(translateY.value + FOCAL_POINT_SIZE / 2 - size.height / 2) /
+          -(translateY.value - (size.height / 2 - FOCAL_POINT_SIZE / 2)) /
           (size.height / 2)
         ).toFixed(2)
       );
@@ -88,51 +117,63 @@ export const GestureControl: React.FC<GestureControlProps> = ({
         !isNaN(x) &&
         !isNaN(y) &&
         !isNaN(rotation.value) &&
-        !isNaN(scale.value)
+        !isNaN(scale.value) &&
+        x >= -1 &&
+        x <= 1 &&
+        y >= -1 &&
+        y <= 1
       ) {
-        const logValue = {
+        const values = {
           x: Number(x.toFixed(2)),
           y: Number(y.toFixed(2)),
           rotation: Number(rotation.value.toFixed(2)),
           scale: Number(scale.value.toFixed(2)),
         };
 
-        if (onChange) {
-          runOnJS(onChange)(logValue);
-        }
+        // console.log(source, values);
+        onChange?.(values);
       }
-    }, DEBOUNCE_TIME_MS),
-    [size, onChange]
+    },
+    [size, onChange, translateX, translateY, rotation, scale]
+  );
+
+  const debouncedHandleValueChange = useMemo(
+    () =>
+      debounce((source: string) => {
+        handleValueChange(source);
+      }, 10),
+    [handleValueChange]
   );
 
   const handlePanStart = () => {
+    isGestureActive.value = true;
+    isDecayActiveX.value = false;
+    isDecayActiveY.value = false;
     prevTranslateX.value = translateX.value;
     prevTranslateY.value = translateY.value;
   };
 
-  const isAnimating = useSharedValue(false);
-
-  useAnimatedReaction(
-    () => {
-      return {
-        x: translateX.value,
-        y: translateY.value,
-        rotation: rotation.value,
-        scale: scale.value,
-      };
-    },
-    (curr, prev) => {
-      if (
-        isAnimating.value &&
-        (curr.x !== prev?.x ||
-          curr.y !== prev?.y ||
-          curr.rotation !== prev?.rotation ||
-          curr.scale !== prev?.scale)
-      ) {
-        runOnJS(handleValueChange)("useAnimatedReaction");
-      }
-    },
-    [translateX, translateY, rotation, scale, handleValueChange]
+  const debouncedHaptics = useMemo(
+    () =>
+      debounce(
+        (velocity: number) => {
+          if (velocity < 500) {
+            Haptics.selectionAsync();
+          } else if (velocity < 1000) {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          } else if (velocity < 2000) {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          } else {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          }
+        },
+        100,
+        {
+          leading: true,
+          trailing: false,
+        }
+      ),
+    []
   );
 
   const handlePanUpdate = (event: any) => {
@@ -150,90 +191,124 @@ export const GestureControl: React.FC<GestureControlProps> = ({
       Math.min(maxTranslateY, event.translationY + prevTranslateY.value)
     );
 
-    handleValueChange("handlePanUpdate");
+    const minTranslateXMargin = -FOCAL_POINT_SIZE / 2 + marginSizeX;
+    const minTranslateYMargin = -FOCAL_POINT_SIZE / 2 + marginSizeY;
+    const maxTranslateXMargin = size.width - FOCAL_POINT_SIZE / 2 - marginSizeX;
+    const maxTranslateYMargin =
+      size.height - FOCAL_POINT_SIZE / 2 - marginSizeY;
+
+    if (
+      event.translationX + prevTranslateX.value <= minTranslateXMargin ||
+      event.translationX + prevTranslateX.value >= maxTranslateXMargin ||
+      event.translationY + prevTranslateY.value <= minTranslateYMargin ||
+      event.translationY + prevTranslateY.value >= maxTranslateYMargin
+    ) {
+      debouncedHaptics(
+        Math.max(Math.abs(event.velocityX), Math.abs(event.velocityY))
+      );
+    }
+
+    debouncedHandleValueChange("handlePanUpdate");
   };
 
   const handlePanEnd = (event: any) => {
+    debouncedHandleValueChange.cancel();
+
     const minTranslateX = -FOCAL_POINT_SIZE / 2 + marginSizeX;
     const minTranslateY = -FOCAL_POINT_SIZE / 2 + marginSizeY;
     const maxTranslateX = size.width - FOCAL_POINT_SIZE / 2 - marginSizeX;
     const maxTranslateY = size.height - FOCAL_POINT_SIZE / 2 - marginSizeY;
 
+    isDecayActiveX.value = true;
+    isDecayActiveY.value = true;
+
     translateX.value = withDecay({
       velocity: event.velocityX,
-      rubberBandEffect: RUBBER_BAND_EFFECT,
       clamp: [minTranslateX, maxTranslateX],
-    });
-    translateY.value = withDecay({
-      velocity: event.velocityY,
-      rubberBandEffect: RUBBER_BAND_EFFECT,
-      clamp: [minTranslateY, maxTranslateY],
+      deceleration: 0.99,
+      velocityFactor: 1,
+      rubberBandEffect: true,
+      rubberBandFactor: 2,
     });
 
-    handleValueChange("handlePanEnd");
+    translateY.value = withDecay({
+      velocity: event.velocityY,
+      clamp: [minTranslateY, maxTranslateY],
+      deceleration: 0.99,
+      velocityFactor: 1,
+      rubberBandEffect: true,
+      rubberBandFactor: 2,
+    });
   };
 
   const handleRotationUpdate = (event: any) => {
+    isGestureActive.value = true;
     rotation.value = Math.min(Math.max(event.rotation, -1), 1);
-    handleValueChange("handleRotationUpdate");
+    debouncedHandleValueChange("handleRotationUpdate");
   };
 
   const handleRotationEnd = () => {
-    value.rotation = rotation.value;
+    handleValueChange("handleRotationEnd");
+    isGestureActive.value = false;
   };
 
   const handlePinchUpdate = (event: any) => {
+    isGestureActive.value = true;
     scale.value = Math.min(Math.max(event.scale - 1, -1), 1);
-    handleValueChange("handlePinchUpdate");
+    debouncedHandleValueChange("handlePinchUpdate");
   };
 
   const handlePinchEnd = () => {
-    value.scale = scale.value;
+    handleValueChange("handlePinchEnd");
+    isGestureActive.value = false;
   };
 
-  const handleTap = (event: any) => {
-    const { locationX, locationY } = event.nativeEvent;
+  const handleTapStart = (event: TapGestureHandlerEventPayload) => {
+    isGestureActive.value = true;
+    const { x: locationX, y: locationY } = event;
 
     const newX = (locationX - size.width / 2) / (size.width / 2);
     const newY = -(locationY - size.height / 2) / (size.height / 2);
 
-    const timingConfig = {
-      duration: 200,
-      easing: Easing.linear,
-    };
-
     const calculateNewPosition = (value: number, size: number) =>
       value * (size / 2) + size / 2 - FOCAL_POINT_SIZE / 2;
 
-    // isAnimating.value = true;
-    //
-    // translateX.value = withTiming(
-    //   calculateNewPosition(newX, size.width),
-    //   timingConfig,
-    //   () => {
-    //     isAnimating.value = false;
-    //   }
-    // );
-    // translateY.value = withTiming(
-    //   calculateNewPosition(-newY, size.height),
-    //   timingConfig,
-    //   () => {
-    //     isAnimating.value = false;
-    //   }
-    // );
+    const targetX = calculateNewPosition(newX, size.width);
+    const targetY = calculateNewPosition(-newY, size.height);
 
-    translateX.value = calculateNewPosition(newX, size.width);
-    translateY.value = calculateNewPosition(-newY, size.height);
+    const distance = Math.sqrt(
+      Math.pow(targetX - translateX.value, 2) +
+        Math.pow(targetY - translateY.value, 2)
+    );
 
-    handleValueChange("handleTap");
+    isDecayActiveX.value = true;
+    isDecayActiveY.value = true;
+
+    translateX.value = withTiming(targetX, {
+      duration: Math.min(distance * 1, 1000),
+    });
+
+    translateY.value = withTiming(targetY, {
+      duration: Math.min(distance * 1, 1000),
+    });
   };
 
-  const handleDoubleTap = () => {
+  const handleTapEnd = () => {
+    // handleValueChange("handleTapEnd");
+    // isGestureActive.value = false;
+  };
+
+  const handleDoubleTapStart = () => {
+    isGestureActive.value = true;
     translateX.value = size.width / 2 - FOCAL_POINT_SIZE / 2;
     translateY.value = size.height / 2 - FOCAL_POINT_SIZE / 2;
     rotation.value = 0;
     scale.value = 0;
-    handleValueChange("handleDoubleTap");
+  };
+
+  const handleDoubleTapEnd = () => {
+    handleValueChange("handleDoubleTapEnd");
+    isGestureActive.value = false;
   };
 
   const panGesture = Gesture.Pan()
@@ -250,14 +325,17 @@ export const GestureControl: React.FC<GestureControlProps> = ({
     .onUpdate(handlePinchUpdate)
     .onEnd(handlePinchEnd);
 
+  const tapGesture = Gesture.Tap().onStart(handleTapStart).onEnd(handleTapEnd);
+
   const doubleTapGesture = Gesture.Tap()
     .numberOfTaps(2)
-    .onStart(handleDoubleTap);
+    .maxDuration(250)
+    .onStart(handleDoubleTapStart)
+    .onEnd(handleDoubleTapEnd);
 
-  const composedGestures = Gesture.Simultaneous(
-    Gesture.Simultaneous(panGesture, pinchGesture),
-    rotationGesture,
-    doubleTapGesture
+  const composedGestures = Gesture.Race(
+    Gesture.Simultaneous(panGesture, pinchGesture, rotationGesture),
+    Gesture.Exclusive(doubleTapGesture, tapGesture)
   );
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -271,42 +349,72 @@ export const GestureControl: React.FC<GestureControlProps> = ({
     height: FOCAL_POINT_SIZE,
   }));
 
+  // Handle decay updates
+  useAnimatedReaction(
+    () => {
+      return {
+        x: translateX.value,
+        y: translateY.value,
+      };
+    },
+    (current, previous) => {
+      if (
+        (isDecayActiveX.value || isDecayActiveY.value) &&
+        previous &&
+        (current.x !== previous.x || current.y !== previous.y)
+      ) {
+        // Check if change is very small (less than 0.1 pixels)
+        const deltaX = Math.abs(current.x - previous.x);
+        const deltaY = Math.abs(current.y - previous.y);
+
+        if (deltaX < 0.1) {
+          isDecayActiveX.value = false;
+        }
+
+        if (deltaY < 0.1) {
+          isDecayActiveY.value = false;
+        }
+
+        runOnJS(debouncedHandleValueChange)("decay");
+      }
+    },
+    [debouncedHandleValueChange]
+  );
+
   return (
     <View style={[styles.container, style]}>
       <GestureDetector gesture={composedGestures}>
-        <TouchableWithoutFeedback onPress={handleTap}>
-          <Animated.View
-            style={[styles.surface]}
-            onLayout={(event) => {
-              const { width, height } = event.nativeEvent.layout;
-              setSize({ width, height });
+        <Animated.View
+          style={[styles.surface]}
+          onLayout={(event) => {
+            const { width, height } = event.nativeEvent.layout;
+            setSize({ width, height });
 
-              translateX.value = width / 2 - FOCAL_POINT_SIZE / 2;
-              translateY.value = height / 2 - FOCAL_POINT_SIZE / 2;
-            }}
-          >
-            {children}
-            {debug && (
-              <>
-                <View
-                  style={[
-                    styles.marginContainer,
-                    { borderWidth: marginSizeX }, // Apply dynamic margin size
-                  ]}
-                ></View>
-                <Animated.View
-                  style={[styles.pointContainer, animatedStyle]}
-                  pointerEvents="none"
-                >
-                  <View style={styles.point}>
-                    <View style={styles.dot} />
-                    <View style={styles.line} />
-                  </View>
-                </Animated.View>
-              </>
-            )}
-          </Animated.View>
-        </TouchableWithoutFeedback>
+            translateX.value = width / 2 - FOCAL_POINT_SIZE / 2;
+            translateY.value = height / 2 - FOCAL_POINT_SIZE / 2;
+          }}
+        >
+          {children}
+          {debug && (
+            <>
+              <View
+                style={[
+                  styles.marginContainer,
+                  { borderWidth: marginSizeX }, // Apply dynamic margin size
+                ]}
+              ></View>
+              <Animated.View
+                style={[styles.pointContainer, animatedStyle]}
+                pointerEvents="none"
+              >
+                <View style={styles.point}>
+                  <View style={styles.dot} />
+                  <View style={styles.line} />
+                </View>
+              </Animated.View>
+            </>
+          )}
+        </Animated.View>
       </GestureDetector>
     </View>
   );
@@ -349,6 +457,7 @@ const styles = StyleSheet.create({
     width: 2,
     height: "100%",
     backgroundColor: "white",
+    zIndex: 1,
   },
   marginContainer: {
     position: "absolute",

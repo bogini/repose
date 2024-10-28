@@ -25,7 +25,6 @@ import PhotosService, { Photo } from "../api/photos";
 import UploadImageTile from "../components/UploadImageTile";
 import ReplicateService from "../api/replicate";
 import { ImageContainer } from "../components/ImageContainer";
-import { RNMLKitFaceDetectionContextProvider } from "@infinitered/react-native-mlkit-face-detection";
 
 export default function App() {
   const { height, width } = useWindowDimensions();
@@ -129,73 +128,71 @@ export default function App() {
           <ActivityIndicator size="large" />
         </View>
       ) : (
-        <RNMLKitFaceDetectionContextProvider>
-          <GestureDetector gesture={composedGesture}>
-            <Animated.ScrollView
-              ref={pageScrollViewRef}
-              scrollEnabled={pageScrollEnabled}
-              style={[styles.container]}
-              onScroll={onPageScroll}
-            >
-              <Animated.View style={headerStyle}>
-                <Animated.FlatList
-                  ref={flatListRef}
-                  style={{ width }}
-                  data={[
-                    ...(photos.length > 3 ? photos.slice(-3) : photos),
-                    { id: "upload", url: "" },
-                    ...(photos.length > 3 ? photos.slice(0, -3) : []),
-                  ]}
-                  numColumns={4}
-                  contentContainerStyle={{ gap: 1 }}
-                  columnWrapperStyle={{ gap: 1 }}
-                  scrollEnabled={flatListScrollEnabled}
-                  inverted
-                  onScroll={onFlatListScroll}
-                  renderItem={({ item }) =>
-                    item.id === "upload" ? (
-                      <View style={{ width: "25%", aspectRatio: 1 }}>
-                        <UploadImageTile
-                          onUploadSuccess={(response: Photo) => {
-                            setIsLoading(true);
-                            ReplicateService.cacheExpressionEditorResults(
-                              response.url
-                            );
-                            setIsLoading(false);
-                          }}
-                        />
-                      </View>
-                    ) : (
-                      <Link href={`/photo/${item.id}`} asChild>
-                        <Pressable style={{ width: "25%", aspectRatio: 1 }}>
-                          <ImageContainer imageUrl={item.url} />
-                        </Pressable>
-                      </Link>
-                    )
-                  }
+        <GestureDetector gesture={composedGesture}>
+          <Animated.ScrollView
+            ref={pageScrollViewRef}
+            scrollEnabled={pageScrollEnabled}
+            style={[styles.container]}
+            onScroll={onPageScroll}
+          >
+            <Animated.View style={headerStyle}>
+              <Animated.FlatList
+                ref={flatListRef}
+                style={{ width }}
+                data={[
+                  ...(photos.length > 3 ? photos.slice(-3) : photos),
+                  { id: "upload", url: "" },
+                  ...(photos.length > 3 ? photos.slice(0, -3) : []),
+                ]}
+                numColumns={4}
+                contentContainerStyle={{ gap: 1 }}
+                columnWrapperStyle={{ gap: 1 }}
+                scrollEnabled={flatListScrollEnabled}
+                inverted
+                onScroll={onFlatListScroll}
+                renderItem={({ item }) =>
+                  item.id === "upload" ? (
+                    <View style={{ width: "25%", aspectRatio: 1 }}>
+                      <UploadImageTile
+                        onUploadSuccess={(response: Photo) => {
+                          setIsLoading(true);
+                          ReplicateService.cacheExpressionEditorResults(
+                            response.url
+                          );
+                          setIsLoading(false);
+                        }}
+                      />
+                    </View>
+                  ) : (
+                    <Link href={`/photo/${item.id}`} asChild>
+                      <Pressable style={{ width: "25%", aspectRatio: 1 }}>
+                        <ImageContainer imageUrl={item.url} />
+                      </Pressable>
+                    </Link>
+                  )
+                }
+              />
+            </Animated.View>
+            {photos.length >= 10 && (
+              <>
+                <Carousel
+                  title="Albums"
+                  photos={photos.slice(3, 6).map((photo) => ({
+                    id: photo.pathname,
+                    url: photo.url,
+                  }))}
                 />
-              </Animated.View>
-              {photos.length >= 10 && (
-                <>
-                  <Carousel
-                    title="Albums"
-                    photos={photos.slice(3, 6).map((photo) => ({
-                      id: photo.pathname,
-                      url: photo.url,
-                    }))}
-                  />
-                  <Carousel
-                    title={isLoading ? "Featured" : "People"}
-                    photos={photos.slice(6, 10).map((photo) => ({
-                      id: photo.pathname,
-                      url: photo.url,
-                    }))}
-                  />
-                </>
-              )}
-            </Animated.ScrollView>
-          </GestureDetector>
-        </RNMLKitFaceDetectionContextProvider>
+                <Carousel
+                  title={isLoading ? "Featured" : "People"}
+                  photos={photos.slice(6, 10).map((photo) => ({
+                    id: photo.pathname,
+                    url: photo.url,
+                  }))}
+                />
+              </>
+            )}
+          </Animated.ScrollView>
+        </GestureDetector>
       )}
       <StatusBar style="auto" />
     </>
