@@ -209,8 +209,35 @@ class ReplicateService {
       rotateRoll: number,
       additionalValues: Partial<FaceValues> = {}
     ) => {
+      // Find linked values for rotations from FACE_CONTROLS
+      const faceControl = FACE_CONTROLS.find(
+        (control) => control.key === "face"
+      );
+      const linkedValues: Partial<FaceValues> = {};
+
+      if (faceControl) {
+        // Handle pitch linked values
+        const pitchValue = faceControl.values.find(
+          (v) => v.key === "rotatePitch"
+        );
+        if (pitchValue?.linkedValues) {
+          pitchValue.linkedValues.forEach(({ key, factor }) => {
+            linkedValues[key] = rotatePitch * factor;
+          });
+        }
+
+        // Handle yaw linked values
+        const yawValue = faceControl.values.find((v) => v.key === "rotateYaw");
+        if (yawValue?.linkedValues) {
+          yawValue.linkedValues.forEach(({ key, factor }) => {
+            linkedValues[key] = rotateYaw * factor;
+          });
+        }
+      }
+
       const updatedInput: ExpressionEditorInput = {
         ...DEFAULT_FACE_VALUES,
+        ...linkedValues,
         ...additionalValues,
         ...DEFAULTS,
         image,
@@ -278,9 +305,18 @@ class ReplicateService {
             value.min,
             value.max
           )!;
+
           const additionalValues: Partial<FaceValues> = {
             [value.key]: bucketValue,
           };
+
+          // Add linked values if they exist
+          if (value.linkedValues) {
+            value.linkedValues.forEach(({ key, factor }) => {
+              additionalValues[key] = bucketValue * factor;
+            });
+          }
+
           await concurrently(() => processRotation(0, 0, 0, additionalValues));
         }
       }
@@ -347,17 +383,25 @@ class ReplicateService {
         // Generate all possible combinations of values for the selected control
         const valueRanges = controlValues.map((value) => {
           const bucketSize = (value.max - value.min) / NUM_BUCKETS;
-          return Array.from({ length: NUM_BUCKETS + 1 }, (_, i) => {
-            return getBucketValue(
+          return Array.from({ length: NUM_BUCKETS + 1 }, (_, i) => ({
+            value: getBucketValue(
               value.min + bucketSize * i,
               value.min,
               value.max
-            );
-          }).filter((v): v is number => v !== undefined);
+            ),
+            controlValue: value,
+          })).filter(
+            (v): v is { value: number; controlValue: typeof value } =>
+              v.value !== undefined
+          );
         });
 
         // Generate cartesian product of all value combinations
-        const combinations = valueRanges.reduce<number[][]>((acc, curr) => {
+        const combinations = valueRanges.reduce<
+          Array<
+            Array<{ value: number; controlValue: (typeof controlValues)[0] }>
+          >
+        >((acc, curr) => {
           if (acc.length === 0) return curr.map((v) => [v]);
           return acc.flatMap((combo) => curr.map((v) => [...combo, v]));
         }, []);
@@ -370,8 +414,16 @@ class ReplicateService {
           };
 
           // Apply each value in the combination to its corresponding control
-          controlValues.forEach((value, index) => {
-            input[value.key] = combination[index];
+          combination.forEach(({ value, controlValue }) => {
+            // Set the primary value
+            input[controlValue.key] = value;
+
+            // Apply linked values if they exist
+            if (controlValue.linkedValues) {
+              controlValue.linkedValues.forEach(({ key, factor }) => {
+                input[key] = value * factor;
+              });
+            }
           });
 
           return concurrently(() => processInput(input));

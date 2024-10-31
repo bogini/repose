@@ -8,10 +8,9 @@ import {
   Shader,
 } from "@shopify/react-native-skia";
 import { StyleSheet, View } from "react-native";
-import { memo, useEffect, useMemo, useCallback } from "react";
+import { useEffect, useMemo } from "react";
 import { Segments } from "../api/segmentation";
 import waveShader from "./WaveShader";
-import rippleShader from "./RippleShader";
 import Animated, {
   Easing,
   useDerivedValue,
@@ -20,6 +19,7 @@ import Animated, {
   withTiming,
   useAnimatedStyle,
 } from "react-native-reanimated";
+import React from "react";
 
 const SEGMENT_STYLES = {
   face: { opacity: 0, strokeWidth: 2 },
@@ -99,7 +99,7 @@ export const SegmentsCanvas = ({
     return Object.values(segmentPaths).map((path, index) => {
       const color = colors[index % colors.length];
       return (
-        <>
+        <React.Fragment key={`debug-${index}`}>
           <Path
             path={path}
             key={`stroke-${index}`}
@@ -115,7 +115,7 @@ export const SegmentsCanvas = ({
             style="fill"
             opacity={0.2}
           />
-        </>
+        </React.Fragment>
       );
     });
   }, [debug, segmentPaths]);
@@ -232,7 +232,7 @@ export const SegmentsCanvas = ({
         if (opacity === 0) return null;
 
         return (
-          <Group key={segmentName}>
+          <Group key={`group-${segmentName}`}>
             <Path
               path={path}
               strokeWidth={strokeWidth}

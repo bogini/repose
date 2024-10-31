@@ -17,6 +17,10 @@ export interface FaceControl {
     max: number;
     gesture: "x" | "y" | "rotation" | "scale";
     direction?: GestureDirection;
+    linkedValues?: Array<{
+      key: keyof FaceValues;
+      factor: number;
+    }>;
   }[];
 }
 
@@ -33,6 +37,7 @@ export const FACE_CONTROLS: FaceControl[] = [
         min: -20,
         max: 20,
         gesture: "x",
+        linkedValues: [{ key: "pupilX", factor: 0.5 }],
       },
       {
         key: "rotatePitch",
@@ -41,6 +46,7 @@ export const FACE_CONTROLS: FaceControl[] = [
         max: 20,
         gesture: "y",
         direction: GestureDirection.Inverted,
+        linkedValues: [{ key: "pupilY", factor: 0.5 }],
       },
       {
         key: "rotateRoll",
@@ -79,7 +85,6 @@ export const FACE_CONTROLS: FaceControl[] = [
         min: -15,
         max: 15,
         gesture: "x",
-        // direction: GestureDirection.Inverted,
       },
       {
         key: "pupilY",
@@ -87,7 +92,6 @@ export const FACE_CONTROLS: FaceControl[] = [
         min: -15,
         max: 15,
         gesture: "y",
-        //direction: GestureDirection.Inverted,
       },
     ],
   },
@@ -103,7 +107,6 @@ export const FACE_CONTROLS: FaceControl[] = [
         min: -10,
         max: 15,
         gesture: "y",
-        // direction: GestureDirection.Inverted,
       },
     ],
   },

@@ -31,7 +31,6 @@ export default function EditScreen() {
     string | undefined
   >();
   const [editedImageUrl, setEditedImageUrl] = useState<string | undefined>();
-  const lastStateUpdateTimestampRef = useRef(0);
 
   const debouncedCache = useCallback(
     debounce(
@@ -43,7 +42,7 @@ export default function EditScreen() {
         );
       },
       1000,
-      { trailing: true }
+      { leading: false, trailing: true }
     ),
     []
   );
@@ -79,59 +78,48 @@ export default function EditScreen() {
     fetchPhoto();
   }, [id]);
 
+  const requestCounter = useRef(0);
+
   const handleFaceValuesChange = useCallback(
-    async (values: FaceValues) => {
-      setFaceValues(values);
+    async (values: Partial<FaceValues>) => {
+      const currentRequest = ++requestCounter.current;
+      const newValues = { ...faceValues, ...values };
+
+      setFaceValues(newValues);
 
       if (!originalImageUrl) return;
 
-      const requestTimestamp = Date.now();
-      const isOutdated = () =>
-        requestTimestamp < lastStateUpdateTimestampRef.current;
-
       // Set up delayed loading state
       const loadingTimeout = setTimeout(() => {
-        if (!isOutdated()) {
+        if (currentRequest === requestCounter.current) {
           setLoading(true);
         }
       }, LOADING_DELAY_MS);
 
       try {
-        if (isOutdated()) return;
-
         const updatedImageUrl = await ReplicateService.runExpressionEditor(
           {
             image: originalImageUrl,
-            ...values,
+            ...newValues,
           },
-          true
+          true // Ensure cancellation of previous requests
         );
 
-        if (!isOutdated() && updatedImageUrl) {
+        if (updatedImageUrl && currentRequest === requestCounter.current) {
           setEditedImageUrl(updatedImageUrl);
-          lastStateUpdateTimestampRef.current = requestTimestamp;
         }
       } finally {
         clearTimeout(loadingTimeout);
-        if (!isOutdated()) {
+        if (currentRequest === requestCounter.current) {
           setLoading(false);
         }
       }
     },
-    [originalImageUrl]
+    [originalImageUrl, faceValues, setLoading, setEditedImageUrl]
   );
 
   useEffect(() => {
-    // Initial run
-    const timeoutId = setTimeout(() => {
-      if (originalImageUrl) {
-        handleFaceValuesChange(faceValues);
-      }
-    }, 1000);
-
-    return () => {
-      clearTimeout(timeoutId);
-    };
+    handleFaceValuesChange(faceValues);
   }, [originalImageUrl]);
 
   if (!originalImageUrl) {

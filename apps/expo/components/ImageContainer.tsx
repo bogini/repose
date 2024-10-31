@@ -80,7 +80,7 @@ export const ImageContainer = ({
   );
 
   const debouncedDetectSegments = useMemo(
-    () => debounce(detectSegments, 1000, { leading: false, trailing: true }),
+    () => debounce(detectSegments, 3000, { leading: false, trailing: true }),
     [detectSegments]
   );
 

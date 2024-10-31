@@ -11,12 +11,14 @@ import Animated, {
   Extrapolation,
   interpolate,
   interpolateColor,
+  runOnJS,
   useAnimatedStyle,
 } from "react-native-reanimated";
 import { debounce } from "lodash";
 import * as Haptics from "expo-haptics";
+import { opacity } from "react-native-reanimated/lib/typescript/reanimated2/Colors";
 
-const DEBOUNCE_TIME_MS = 16;
+const DEBOUNCE_TIME_MS = 50;
 const SCROLL_DURATION_MS = 350;
 const NUM_TICKS = 40;
 
@@ -39,40 +41,65 @@ export const CarouselSlider: React.FC<SliderProps> = ({
   onScrollStart,
   onScrollEnd,
 }) => {
+  const [isProgrammaticScroll, setIsProgrammaticScroll] = useState(false);
+
+  const valueToIndex = useCallback(
+    (val: number) => {
+      "worklet";
+      const normalizedValue = (val - min) / (max - min);
+      const index = Math.round(normalizedValue * (NUM_TICKS - 1));
+      return Math.max(0, Math.min(index, NUM_TICKS - 1));
+    },
+    [min, max]
+  );
+
+  const indexToValue = useCallback(
+    (index: number) => {
+      "worklet";
+      const normalizedPosition = index / (NUM_TICKS - 1);
+      return Math.round((min + normalizedPosition * (max - min)) * 100) / 100;
+    },
+    [min, max]
+  );
+
   const carouselRef = useRef<ICarouselInstance>(null);
 
-  const scrollToIndex = useCallback((index: number) => {
-    if (carouselRef.current?.getCurrentIndex() !== index) {
-      carouselRef.current?.scrollTo({
-        index,
-        animated: true,
-      });
-    }
-  }, []);
+  const scrollToIndex = useCallback(
+    (index: number, isProgrammatic: boolean) => {
+      if (carouselRef.current?.getCurrentIndex() !== index) {
+        setIsProgrammaticScroll(isProgrammatic);
+        carouselRef.current?.scrollTo({
+          index,
+          animated: true,
+          onFinished: () => {
+            setTimeout(() => {
+              setIsProgrammaticScroll(false);
+            }, 1000);
+          },
+        });
+      }
+    },
+    []
+  );
 
   const debouncedScrollToIndex = useMemo(
     () =>
-      debounce(scrollToIndex, 5, {
+      debounce(scrollToIndex, 20, {
         leading: false,
         trailing: true,
       }),
     [scrollToIndex]
   );
 
-  useEffect(() => {
-    const index = Math.round(((value - min) / (max - min)) * (NUM_TICKS - 1));
-    debouncedScrollToIndex(index);
-  }, [value, min, max, debouncedScrollToIndex]);
-
   const handleValueChange = useCallback(
     (index: number) => {
-      const normalizedValue = (index / (NUM_TICKS - 1)) * (max - min) + min;
-      const roundedValue = Math.round(normalizedValue);
-      if (roundedValue !== value) {
+      const newValue = indexToValue(index);
+      const roundedValue = Math.round(newValue);
+      if (roundedValue !== value && !isProgrammaticScroll) {
         onValueChange(roundedValue);
       }
     },
-    [max, min, onValueChange]
+    [indexToValue, onValueChange, value, isProgrammaticScroll]
   );
 
   const debouncedHandleValueChange = useMemo(
@@ -80,20 +107,57 @@ export const CarouselSlider: React.FC<SliderProps> = ({
       debounce(handleValueChange, DEBOUNCE_TIME_MS, {
         leading: false,
         trailing: true,
+        maxWait: 1000,
       }),
     [handleValueChange]
   );
 
+  const debouncedHaptics = useMemo(
+    () =>
+      debounce(
+        () => {
+          Haptics.selectionAsync();
+        },
+        30,
+        {
+          leading: false,
+          trailing: true,
+          maxWait: 150,
+        }
+      ),
+    []
+  );
+
+  const initialIndex = useMemo(() => valueToIndex(value), [valueToIndex]);
+
+  useEffect(() => {
+    const index = Math.round(((value - min) / (max - min)) * (NUM_TICKS - 1));
+    debouncedScrollToIndex(index, true);
+
+    return () => {
+      debouncedScrollToIndex.cancel();
+      debouncedHandleValueChange.cancel();
+      debouncedHaptics.cancel();
+    };
+  }, [
+    value,
+    min,
+    max,
+    debouncedScrollToIndex,
+    debouncedHandleValueChange,
+    debouncedHaptics,
+  ]);
+
   return (
-    <View style={styles.container}>
+    <View
+      style={[styles.container, { opacity: isProgrammaticScroll ? 0.9 : 1 }]}
+    >
       <Carousel
         ref={carouselRef}
         style={styles.carousel}
         width={10}
         height={14}
-        defaultIndex={Math.round(
-          ((value - min) / (max - min)) * (NUM_TICKS - 1)
-        )}
+        defaultIndex={initialIndex}
         data={data}
         scrollAnimationDuration={SCROLL_DURATION_MS}
         loop={false}
@@ -101,26 +165,30 @@ export const CarouselSlider: React.FC<SliderProps> = ({
           onScrollStart?.();
         }}
         onSnapToItem={(index) => {
-          debouncedHandleValueChange(index);
+          if (!isProgrammaticScroll) {
+            debouncedHandleValueChange(index);
+          }
+          debouncedHaptics.cancel();
           onScrollEnd?.();
         }}
         onProgressChange={(_, absoluteProgress) => {
+          if (
+            Math.abs(absoluteProgress - Math.round(absoluteProgress)) >= 0.02 &&
+            !isProgrammaticScroll
+          ) {
+            runOnJS(debouncedHaptics)();
+          }
+
           const currentIndex = carouselRef.current?.getCurrentIndex();
           const newIndex = Math.round(absoluteProgress);
-          if (
-            currentIndex !== undefined &&
-            Math.abs(currentIndex - absoluteProgress) >= 0.03
-          ) {
-            Haptics.selectionAsync();
-          }
-          if (currentIndex !== newIndex) {
+          if (currentIndex !== newIndex && !isProgrammaticScroll) {
             debouncedHandleValueChange(newIndex);
           }
         }}
         renderItem={({ index, animationValue }) => (
           <SliderTick
             animationValue={animationValue}
-            onPress={() => scrollToIndex(index)}
+            onPress={() => scrollToIndex(index, false)}
             isSpecialTick={index % 10 === 0 || index === NUM_TICKS - 1}
           />
         )}

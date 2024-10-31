@@ -3,12 +3,7 @@ import { FaceControl, FaceValues, GestureDirection } from "../lib/faceControl";
 import GestureControl, { GestureControlValue } from "./GestureControl";
 import { ImageContainer } from "./ImageContainer";
 import { useCallback, useMemo } from "react";
-import Animated, {
-  FadeIn,
-  FadeOut,
-  Layout,
-  LinearTransition,
-} from "react-native-reanimated";
+import Animated, { LinearTransition } from "react-native-reanimated";
 
 interface FaceControlsComponentProps {
   faceValues: FaceValues;
@@ -35,7 +30,7 @@ export const FaceGestureControl = ({
       const updatedFaceValues = { ...faceValues };
 
       selectedControl.values.forEach(
-        ({ key, min, max, gesture, direction }) => {
+        ({ key, min, max, gesture, direction, linkedValues }) => {
           const gestureValues = { x, y, rotation, scale };
           const value = gestureValues[gesture];
           if (value === undefined) return;
@@ -51,6 +46,11 @@ export const FaceGestureControl = ({
           // Only update if the value has actually changed
           if (updatedFaceValues[key] !== roundedValue) {
             updatedFaceValues[key] = roundedValue;
+
+            // Update linked values
+            linkedValues?.forEach(({ key, factor }) => {
+              updatedFaceValues[key] = roundedValue * factor;
+            });
           }
         }
       );
@@ -85,6 +85,7 @@ export const FaceGestureControl = ({
       debug={debug}
       value={gestureControlValue}
       onChange={handleGestureValueChange}
+      selectedControl={selectedControl.key}
     >
       {imageUrl && (
         <View style={styles.faceGestureControlContainer}>

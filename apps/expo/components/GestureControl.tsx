@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { View, StyleSheet } from "react-native";
 import {
   Gesture,
@@ -29,15 +29,11 @@ export interface GestureControlValue {
 
 interface GestureControlProps {
   value?: GestureControlValue;
-  onChange?: (value: {
-    x: number;
-    y: number;
-    rotation: number;
-    scale: number;
-  }) => void;
+  onChange?: (value: GestureControlValue) => void;
   style?: ViewStyle;
   debug?: boolean;
   children?: React.ReactNode;
+  selectedControl?: string;
 }
 
 export const GestureControl: React.FC<GestureControlProps> = ({
@@ -46,6 +42,7 @@ export const GestureControl: React.FC<GestureControlProps> = ({
   style,
   debug = false,
   children,
+  selectedControl,
 }) => {
   const [size, setSize] = useState({ width: 0, height: 0 });
   const translateX = useSharedValue(0);
@@ -58,48 +55,24 @@ export const GestureControl: React.FC<GestureControlProps> = ({
   const isDecayActiveX = useSharedValue(false);
   const isDecayActiveY = useSharedValue(false);
 
-  const marginSizeX = size.width / NUM_BUCKETS / 1.5;
-  const marginSizeY = size.height / NUM_BUCKETS / 1.5;
+  const marginSizeX = size.width / NUM_BUCKETS / 1.4;
+  const marginSizeY = size.height / NUM_BUCKETS / 1.4;
 
-  useAnimatedReaction(
-    () => {
-      return value;
-    },
-    (currentValue, previousValue) => {
-      if (
-        currentValue !== previousValue &&
-        size.width > 0 &&
-        size.height > 0 &&
-        !isGestureActive.value
-      ) {
-        translateX.value =
-          currentValue.x * (size.width / 2) +
-          size.width / 2 -
-          FOCAL_POINT_SIZE / 2;
-        translateY.value =
-          -currentValue.y * (size.height / 2) +
-          size.height / 2 -
-          FOCAL_POINT_SIZE / 2;
-        rotation.value = currentValue.rotation;
-        scale.value = currentValue.scale;
-      }
-    },
-    [value, size]
-  );
-
-  // const debouncedOnChange = useMemo(
-  //   () =>
-  //     debounce((values: GestureControlValue) => {
-  //       onChange?.(values);
-  //     }, DEBOUNCE_TIME_MS),
-  //   [onChange]
-  // );
+  const updateTransformValues = (currentValue: GestureControlValue) => {
+    translateX.value =
+      currentValue.x * (size.width / 2) + size.width / 2 - FOCAL_POINT_SIZE / 2;
+    translateY.value =
+      -currentValue.y * (size.height / 2) +
+      size.height / 2 -
+      FOCAL_POINT_SIZE / 2;
+    rotation.value = currentValue.rotation;
+    scale.value = currentValue.scale;
+  };
 
   const handleValueChange = useCallback(
     (source: string) => {
       if (!size.width || !size.height) return;
 
-      // Calculate normalized values (-1 to 1)
       const x = Number(
         (
           (translateX.value - (size.width / 2 - FOCAL_POINT_SIZE / 2)) /
@@ -130,7 +103,6 @@ export const GestureControl: React.FC<GestureControlProps> = ({
           scale: Number(scale.value.toFixed(2)),
         };
 
-        // console.log(source, values);
         onChange?.(values);
       }
     },
@@ -141,7 +113,7 @@ export const GestureControl: React.FC<GestureControlProps> = ({
     () =>
       debounce((source: string) => {
         handleValueChange(source);
-      }, 10),
+      }, 1),
     [handleValueChange]
   );
 
@@ -167,7 +139,7 @@ export const GestureControl: React.FC<GestureControlProps> = ({
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
           }
         },
-        100,
+        500,
         {
           leading: true,
           trailing: false,
@@ -228,7 +200,7 @@ export const GestureControl: React.FC<GestureControlProps> = ({
       deceleration: 0.99,
       velocityFactor: 1,
       rubberBandEffect: true,
-      rubberBandFactor: 2,
+      rubberBandFactor: 3,
     });
 
     translateY.value = withDecay({
@@ -237,7 +209,7 @@ export const GestureControl: React.FC<GestureControlProps> = ({
       deceleration: 0.99,
       velocityFactor: 1,
       rubberBandEffect: true,
-      rubberBandFactor: 2,
+      rubberBandFactor: 3,
     });
   };
 
@@ -333,9 +305,9 @@ export const GestureControl: React.FC<GestureControlProps> = ({
     .onStart(handleDoubleTapStart)
     .onEnd(handleDoubleTapEnd);
 
-  const composedGestures = Gesture.Exclusive(
-    Gesture.Simultaneous(panGesture, pinchGesture, rotationGesture),
-    Gesture.Exclusive(doubleTapGesture, tapGesture)
+  const composedGestures = Gesture.Race(
+    Gesture.Exclusive(doubleTapGesture, tapGesture),
+    Gesture.Simultaneous(panGesture, rotationGesture, pinchGesture)
   );
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -363,15 +335,15 @@ export const GestureControl: React.FC<GestureControlProps> = ({
         previous &&
         (current.x !== previous.x || current.y !== previous.y)
       ) {
-        // Check if change is very small (less than 0.1 pixels)
+        // Check if change is very small
         const deltaX = Math.abs(current.x - previous.x);
         const deltaY = Math.abs(current.y - previous.y);
 
-        if (deltaX < 0.1) {
+        if (deltaX < 0.001) {
           isDecayActiveX.value = false;
         }
 
-        if (deltaY < 0.1) {
+        if (deltaY < 0.001) {
           isDecayActiveY.value = false;
         }
 
@@ -379,6 +351,23 @@ export const GestureControl: React.FC<GestureControlProps> = ({
       }
     },
     [debouncedHandleValueChange]
+  );
+
+  useAnimatedReaction(
+    () => value,
+    (currentValue, previousValue) => {
+      if (
+        currentValue &&
+        !isGestureActive.value &&
+        (!previousValue ||
+          currentValue.x !== previousValue.x ||
+          currentValue.y !== previousValue.y ||
+          currentValue.rotation !== previousValue.rotation ||
+          currentValue.scale !== previousValue.scale)
+      ) {
+        runOnJS(updateTransformValues)(currentValue);
+      }
+    }
   );
 
   return (
