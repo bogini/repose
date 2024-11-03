@@ -89,7 +89,7 @@ export const FaceGestureControl = ({
       debug={debug}
       value={gestureControlValue}
       onChange={handleGestureValueChange}
-      margins={!DISABLED_MARGINS.includes(originalImageUrl)}
+      margins={!DISABLED_MARGINS.includes(originalImageUrl ?? "")}
     >
       {imageUrl && (
         <View style={styles.faceGestureControlContainer}>
