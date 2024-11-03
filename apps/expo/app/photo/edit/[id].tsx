@@ -47,6 +47,12 @@ export default function EditScreen() {
     []
   );
 
+  useEffect(() => {
+    return () => {
+      debouncedCache.cancel();
+    };
+  }, [debouncedCache]);
+
   const handleControlChange = useCallback(
     (control: FaceControl) => {
       if (control.key !== selectedControl.key) {
@@ -57,7 +63,7 @@ export default function EditScreen() {
         }
       }
     },
-    [originalImageUrl, faceValues, selectedControl.key, debouncedCache]
+    [originalImageUrl, faceValues, selectedControl.key]
   );
 
   useEffect(() => {

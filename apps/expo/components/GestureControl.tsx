@@ -33,7 +33,7 @@ interface GestureControlProps {
   style?: ViewStyle;
   debug?: boolean;
   children?: React.ReactNode;
-  selectedControl?: string;
+  margins?: boolean;
 }
 
 export const GestureControl: React.FC<GestureControlProps> = ({
@@ -42,7 +42,7 @@ export const GestureControl: React.FC<GestureControlProps> = ({
   style,
   debug = false,
   children,
-  selectedControl,
+  margins = true,
 }) => {
   const [size, setSize] = useState({ width: 0, height: 0 });
   const translateX = useSharedValue(0);
@@ -55,8 +55,8 @@ export const GestureControl: React.FC<GestureControlProps> = ({
   const isDecayActiveX = useSharedValue(false);
   const isDecayActiveY = useSharedValue(false);
 
-  const marginSizeX = size.width / NUM_BUCKETS / 1.4;
-  const marginSizeY = size.height / NUM_BUCKETS / 1.4;
+  const marginSizeX = margins ? (size.width / NUM_BUCKETS) * 0.8 : 0;
+  const marginSizeY = margins ? (size.height / NUM_BUCKETS) * 0.8 : 0;
 
   const updateTransformValues = (currentValue: GestureControlValue) => {
     translateX.value =

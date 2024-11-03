@@ -16,6 +16,10 @@ interface FaceControlsComponentProps {
   debug?: boolean;
 }
 
+const DISABLED_MARGINS = [
+  "https://pb5bgngllwiflhmq.public.blob.vercel-storage.com/photos/1727809492353-RjR7qgJno8CcATO0ipIc7dFK4y3g6Q.webp", // inigo jr.
+];
+
 export const FaceGestureControl = ({
   imageUrl,
   faceValues,
@@ -85,7 +89,7 @@ export const FaceGestureControl = ({
       debug={debug}
       value={gestureControlValue}
       onChange={handleGestureValueChange}
-      selectedControl={selectedControl.key}
+      margins={!DISABLED_MARGINS.includes(originalImageUrl)}
     >
       {imageUrl && (
         <View style={styles.faceGestureControlContainer}>

@@ -231,7 +231,7 @@ const FaceControlIcon = ({
       <SymbolView
         name={icon as any}
         weight="regular"
-        style={styles.faceceControlIcon}
+        style={styles.faceControlIcon}
         resizeMode="scaleAspectFit"
       />
     );
@@ -280,14 +280,14 @@ const styles = StyleSheet.create({
     marginHorizontal: 22,
   },
   faceControlIconContainer: {
-    borderRadius: 50,
+    borderRadius: 56,
     padding: 10,
-    height: 56,
-    width: 56,
-    borderWidth: 2,
-    borderCurve: "continuous",
+    height: 56 * 2,
+    width: 56 * 2,
+    borderWidth: 3,
     alignItems: "center",
     justifyContent: "center",
+    transform: [{ scale: 0.5 }, { translateX: -56 }, { translateY: -56 }],
   },
   carouselContainer: {
     width: "100%",
@@ -300,9 +300,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  faceceControlIcon: {
-    height: 32,
-    width: 32,
+  faceControlIcon: {
+    height: 64,
+    width: 64,
     tintColor: "#8E8D93",
   },
   sliderLabel: {

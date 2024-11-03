@@ -12,8 +12,8 @@ interface SvgProps {
 
 export const FaceHorizontal: React.FC<SvgProps> = (props) => (
   <Svg
-    width="32"
-    height="32"
+    width="64"
+    height="64"
     viewBox="0 0 287 261"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"

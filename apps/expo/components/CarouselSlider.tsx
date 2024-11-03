@@ -72,9 +72,9 @@ export const CarouselSlider: React.FC<SliderProps> = ({
           index,
           animated: true,
           onFinished: () => {
-            setTimeout(() => {
-              setIsProgrammaticScroll(false);
-            }, 1000);
+            //setTimeout(() => {
+            setIsProgrammaticScroll(false);
+            //}, SCROLL_DURATION_MS);
           },
         });
       }
@@ -84,12 +84,23 @@ export const CarouselSlider: React.FC<SliderProps> = ({
 
   const debouncedScrollToIndex = useMemo(
     () =>
-      debounce(scrollToIndex, 20, {
+      debounce(scrollToIndex, 500, {
         leading: false,
         trailing: true,
       }),
     [scrollToIndex]
   );
+
+  useEffect(() => {
+    const index = Math.round(((value - min) / (max - min)) * (NUM_TICKS - 1));
+    debouncedScrollToIndex(index, true);
+
+    // return () => {
+    //   debouncedScrollToIndex.cancel();
+    //   debouncedHandleValueChange.cancel();
+    //   debouncedHaptics.cancel();
+    // };
+  }, [value, min, max, debouncedScrollToIndex]);
 
   const handleValueChange = useCallback(
     (index: number) => {
@@ -107,7 +118,7 @@ export const CarouselSlider: React.FC<SliderProps> = ({
       debounce(handleValueChange, DEBOUNCE_TIME_MS, {
         leading: false,
         trailing: true,
-        maxWait: 1000,
+        maxWait: 500,
       }),
     [handleValueChange]
   );
@@ -129,24 +140,6 @@ export const CarouselSlider: React.FC<SliderProps> = ({
   );
 
   const initialIndex = useMemo(() => valueToIndex(value), [valueToIndex]);
-
-  useEffect(() => {
-    const index = Math.round(((value - min) / (max - min)) * (NUM_TICKS - 1));
-    debouncedScrollToIndex(index, true);
-
-    return () => {
-      debouncedScrollToIndex.cancel();
-      debouncedHandleValueChange.cancel();
-      debouncedHaptics.cancel();
-    };
-  }, [
-    value,
-    min,
-    max,
-    debouncedScrollToIndex,
-    debouncedHandleValueChange,
-    debouncedHaptics,
-  ]);
 
   return (
     <View
