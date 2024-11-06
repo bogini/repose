@@ -220,7 +220,13 @@ const FaceControlIcon = ({
 
   const renderIcon = () => {
     if (loading && isSelected) {
-      return <ActivityIndicator size="small" color="#8E8D93" />;
+      return (
+        <ActivityIndicator
+          size="small"
+          color="#8E8D93"
+          style={{ transform: [{ scale: 2 }] }}
+        />
+      );
     }
 
     if (icon === "face.smiling") {
