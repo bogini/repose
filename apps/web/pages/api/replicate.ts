@@ -3,7 +3,7 @@ import Replicate from "replicate";
 import { list, put, ListBlobResult } from "@vercel/blob";
 import { kv } from "@vercel/kv";
 
-const MODEL_IDENTIFIER = "bogini/expression-editor";
+const MODEL_IDENTIFIER = "YOUR-MODEL-IDENTIFIER";
 
 interface ExpressionEditorInput {
   image: string;

@@ -11,9 +11,29 @@ https://github.com/user-attachments/assets/4f258f99-3fa5-4506-a563-b2ebd1a554bb
 The project is organized as a monorepo using [Turborepo](https://turbo.build/). It consists of the following apps:
 
 - `apps/expo`: The main React Native app built with Expo.
+  - Handles user interface and interactions
+  - Implements gesture controls for facial expression editing
+  - Manages local caching of results
+  - Uses Reanimated for smooth animations
+  - Implements a Photos app-like UI with carousels and grid views
 - `apps/web`: An API server built with Next.js.
+  - Provides API endpoints for the Replicate model
+  - Handles server-side caching using Vercel KV and Blob Storage
+  - Manages photo uploads and storage
 
-## Caching strategy
+## Key Features
+
+### Gesture Controls
+- Direct manipulation of facial features using intuitive gestures
+- Real-time preview of expression changes
+- Haptic feedback for enhanced user experience
+- Support for:
+  - Face rotation (pitch, yaw, roll)
+  - Eye position and blinking
+  - Smile intensity
+  - Eyebrow position
+
+### Multi-level Caching Strategy
 
 The Expression Editor app uses a multi-level caching strategy to provide a low-latency responsive experience:
 
@@ -28,6 +48,7 @@ The Expression Editor app uses a multi-level caching strategy to provide a low-l
 
 - Results are cached locally using `AsyncStorage`.
 - If found, the result is stored in the `inMemoryCache` for faster subsequent access.
+- Provides offline access to previously generated expressions
 
 ### Server-Side Caching (apps/web/pages/api/replicate.ts)
 
@@ -35,6 +56,14 @@ The Expression Editor app uses a multi-level caching strategy to provide a low-l
 - The server generates a cache key based on input parameters.
 - It checks Redis and Blob Storage for cached results.
 - If not found, the model is run, and the result is cached in Redis and Blob Storage for future requests.
+
+### Photo Management
+
+- Browse and select photos from a gallery
+- Upload new photos
+- Organize photos in albums
+- Carousel view for featured photos
+- Grid view for photo library
 
 ## Getting Started
 
@@ -45,6 +74,29 @@ Before running the app, make sure you have the following installed:
 - Node.js (v14 or later)
 - Yarn package manager
 - Expo CLI
+- Replicate API token (for model access)
+- Vercel account (for deployment)
+
+### Environment Setup
+1. Create a `.env` file in `apps/web`:
+```
+BLOB_READ_WRITE_TOKEN=
+KV_REST_API_TOKEN=
+KV_REST_API_URL=
+REPLICATE_API_TOKEN=
+```
+
+2. Update the file in `apps/expo/api/constants.ts`:
+```
+export const BASE_URL = "https://your-app-name.vercel.app"; // or localhost if you are running locally
+```
+
+3. Deploy [COG version](https://github.com/fofr/cog-expression-editor) of [LivePortrait](https://liveportrait.github.io/) model on Replicate.
+
+4. Update the model identifier in `apps/web/pages/api/replicate.ts`:
+```
+const MODEL_IDENTIFIER = "YOUR-REPLICATE-MODEL-IDENTIFIER";
+```
 
 ### Installation
 
@@ -110,12 +162,30 @@ yarn dev
 
 - React Native
 - Expo
+- React Native Reanimated
+- React Native Gesture Handler
+- React Native Skia (for custom drawing)
+- Expo Router (for navigation)
 - Next.js
 - Turborepo
 - TypeScript
-- React Native Reanimated
-- React Native Gesture Handler
 - Axios
 - COG (Custom Operator Graph) version of LivePortrait model hosted on Replicate[^1]
+- Vercel KV (Redis) 
+- Vercel Blob Storage
+- Replicate API
 
 [^1]: [fofr/cog-expression-editor on GitHub](https://github.com/fofr/cog-expression-editor)
+
+## Contributing
+
+Fork the repository
+Create your feature branch (git checkout -b feature/amazing-feature)
+Commit your changes (git commit -m 'Add some amazing feature')
+Push to the branch (git push origin feature/amazing-feature)
+Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License.
+
