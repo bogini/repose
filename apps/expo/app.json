@@ -33,12 +33,6 @@
           "enableCoreMLDelegate": true
         }
       ]
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "a2a3d13e-0f76-4f54-a194-1846c436c622"
-      }
-    },
-    "owner": "chaotic-goods"
+    ]
   }
 }
