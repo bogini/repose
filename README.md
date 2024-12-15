@@ -16,7 +16,7 @@ This project represents both a technical and design exploration. It serves as a 
 
 2. **Reducing capture anxiety**: The project explores how expression editing can reduce the pressure of capturing the perfect moment. Traditional photography often creates anxiety around timing - the need to catch the exact right smile or expression. By enabling natural, gesture-based manipulation of facial expressions after capture, this project aims to shift focus from technical perfection to being present in the moment. Users can simply take the photo and adjust expressions later through intuitive direct interaction, making the entire picture taking experience more relaxed and meaningful.
 
-![Reducing Capture Anxiety](https://github.com/user-attachments/assets/2fb1ae43-0fd7-4182-b6f6-79bbcbe4be11)
+![Reducing Capture Anxiety](https://github.com/user-attachments/assets/2d5550ab-5811-4d58-9a18-161dfedfbb97)
 
 3. **Extending iOS design language**: The app serves as a case study in extending and applying the iOS 18 design language to new interaction patterns. It carefully adopts familiar UI components and animations from the Photos app while thoughtfully expanding them to support novel features:
   - Maintains consistency with system gestures and transitions
