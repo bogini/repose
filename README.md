@@ -1,8 +1,12 @@
 # Repose
 
-Repose is a React Native app that reimagines photo editing by allowing users to change the expression of a photo after capture. Built to seamlessly integrate with iOS 18's design language, it combines on-device and cloud image models to enable natural manipulation of facial features. The app is powered by the [LivePortrait](https://liveportrait.github.io/) model (via [Replicate](https://replicate.com/)), while maintaining the familiar Photos app experience through thoughtful UI and haptic feedback. Custom Skia shaders provide smooth loading animations that enhance the user experience during model inference. I built this app to explore how my own photo-taking behavior would change in a world where expressions could be adjusted after the fact.
+Repose is a React Native app that lets you adjust facial expressions in photos after they're taken - all from a single image. No need for video or multiple shots - just capture the moment and naturally manipulate expressions later. Built to seamlessly integrate with iOS 18's design language, it combines on-device and cloud image models to enable intuitive manipulation of facial features through simple gestures or precise slider controls.
 
-<video src="https://github.com/user-attachments/assets/4f258f99-3fa5-4506-a563-b2ebd1a554bb"></video>
+The app is powered by the [LivePortrait](https://liveportrait.github.io/) model (served via [Replicate](https://replicate.com/)), while maintaining the familiar Photos app experience through thoughtful UI and haptic feedback. Custom shaders provide smooth loading animations that enhance the user experience during model inference, applying effects only to the subject by using on-device selfie segmentation models. I built this app to explore how we might reduce "capture anxiety" - shifting focus from getting the perfect shot to being present in the moment, knowing expressions can be naturally adjusted later.
+
+|   |   |
+|---|---|
+| <video src="https://github.com/user-attachments/assets/9516a6d4-66c7-4873-befb-9ed2b3d89f94"></video>  | <video src="https://github.com/user-attachments/assets/b8961adc-ef08-43b8-bfa1-cea5a64be234"></video>  |
 
 ## Motivation
 
@@ -12,7 +16,7 @@ This project represents both a technical and design exploration. It serves as a 
 
 2. **Reducing capture anxiety**: The project explores how expression editing can reduce the pressure of capturing the perfect moment. Traditional photography often creates anxiety around timing - the need to catch the exact right smile or expression. By enabling natural, gesture-based manipulation of facial expressions after capture, this project aims to shift focus from technical perfection to being present in the moment. Users can simply take the photo and adjust expressions later through intuitive direct interaction, making the entire picture taking experience more relaxed and meaningful.
 
-![Reducing Capture Anxiety](https://github.com/user-attachments/assets/2fb1ae43-0fd7-4182-b6f6-79bbcbe4be11)
+![Reducing Capture Anxiety](https://github.com/user-attachments/assets/2d5550ab-5811-4d58-9a18-161dfedfbb97)
 
 3. **Extending iOS design language**: The app serves as a case study in extending and applying the iOS 18 design language to new interaction patterns. It carefully adopts familiar UI components and animations from the Photos app while thoughtfully expanding them to support novel features:
   - Maintains consistency with system gestures and transitions
