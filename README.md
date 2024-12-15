@@ -1,10 +1,12 @@
 # Repose
 
-Repose is a React Native app that reimagines photo editing by allowing users to change the expression of a photo after capture. Built to seamlessly integrate with iOS 18's design language, it combines on-device and cloud image models to enable natural manipulation of facial features. The app is powered by the [LivePortrait](https://liveportrait.github.io/) model (via [Replicate](https://replicate.com/)), while maintaining the familiar Photos app experience through thoughtful UI and haptic feedback. Custom Skia shaders provide smooth loading animations that enhance the user experience during model inference. I built this app to explore how my own photo-taking behavior would change in a world where expressions could be adjusted after the fact.
+Repose is a React Native app that lets you adjust facial expressions in photos after they're taken - all from a single image. No need for video or multiple shots - just capture the moment and naturally manipulate expressions later. Built to seamlessly integrate with iOS 18's design language, it combines on-device and cloud image models to enable intuitive manipulation of facial features through simple gestures or precise slider controls.
+
+The app is powered by the [LivePortrait](https://liveportrait.github.io/) model (served via [Replicate](https://replicate.com/)), while maintaining the familiar Photos app experience through thoughtful UI and haptic feedback. Custom shaders provide smooth loading animations that enhance the user experience during model inference, applying effects only to the subject by using on-device selfie segmentation models. I built this app to explore how we might reduce "capture anxiety" - shifting focus from getting the perfect shot to being present in the moment, knowing expressions can be naturally adjusted later.
 
 |   |   |
 |---|---|
-| <video src="https://github.com/user-attachments/assets/4f258f99-3fa5-4506-a563-b2ebd1a554bb"></video>  | <video src="https://github.com/user-attachments/assets/b8961adc-ef08-43b8-bfa1-cea5a64be234"></video>  |
+| <video src="https://github.com/user-attachments/assets/9516a6d4-66c7-4873-befb-9ed2b3d89f94"></video>  | <video src="https://github.com/user-attachments/assets/b8961adc-ef08-43b8-bfa1-cea5a64be234"></video>  |
 
 ## Motivation
 
