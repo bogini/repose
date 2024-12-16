@@ -67,7 +67,23 @@ While the app preemptively generates and caches common facial expressions for im
 
 3. **Animation**: The shaders are animated using [React Native Reanimated](https://docs.swmansion.com/react-native-reanimated/), which allows for smooth and performant animations without blocking the UI thread. The animation parameters, such as time and position, are dynamically updated to create a looping effect.
 
-### Multi-level Caching Strategy
+### Rubber band margin effect
+
+The app implements a subtle but important UX detail to help users intuitively feel the boundaries of possible expressions. When using drag gestures to adjust facial features, users manipulate a focal point represented by an animated ball. As this point approaches the edge of possible expressions, a rubber band margin effect kicks in:
+
+- Within a certain margin of the edge, the focal point begins to resist movement
+- If released within this margin, it smoothly animates back to the nearest valid position
+- The effect is similar to stretching your neck to its limit and feeling it naturally pull back
+- This creates an embodied interaction that clearly communicates boundaries without breaking flow
+- Particularly satisfying with eyebrow controls, where you can feel the natural limits of a frown
+
+This approach feels natural and intuitive when using drag gestures because it maps to our physical understanding of how objects behave at their limits. Rather than using hard stops or visual indicators, it leverages our innate sense of elasticity and resistance. The smooth animation and gradual increase in resistance provides tactile feedback about expression limits while maintaining a playful, natural feel to the interactions.
+
+| Focal point debug | Face margins | Eyebrow margins |
+|--------------|--------------|--------------|
+| <video src="https://github.com/user-attachments/assets/f29a44f0-c391-4230-b1d1-df6e3c4f49c4"></video> | <video src="https://github.com/user-attachments/assets/9d1028f7-164d-44e7-90ed-b101d7b2f196"></video> | <video src="https://github.com/user-attachments/assets/07d812a9-0f17-40c6-98c4-75adb8beacca"></video> |
+
+### Multi-level caching strategy
 
 The app uses a sophisticated multi-level caching strategy combined with proactive processing to provide a low-latency responsive experience. When a user uploads a new photo, the app immediately begins processing a predefined set of common expression variations in the background. Rather than allowing infinite combinations of parameters, the app quantizes input values (e.g. rotation angles are limited to 15° increments) to maximize cache hits while still allowing enough flexibility to generate a wide range of expressions. This means that most user interactions will hit a pre-warmed cache:
 
